@@ -16,7 +16,7 @@ for information on how to comply with the license.
 
 These lecture materials are licensed under
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en)
-([license deed][]).
+([license deed](https://creativecommons.org/licenses/by-sa/4.0/deed.en)).
 
 ![CC BY-SA badge](by-sa.svg)
 
