@@ -23,11 +23,10 @@ These lecture materials are licensed under
 Everything in this repository, including all slide decks and practice problems,
 are licensed under CC BY-SA 4.0 unless otherwise noted.
 
-Please see CONTRIBUTING.md for information on how to contribute and what license
-will be applied to contributions.
-
 ## Using these materials in your own classes
-These materials are licensed under [CC BY-SA 4.0][license deed],
+These materials are licensed under These lecture materials are licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en)
+([license deed](https://creativecommons.org/licenses/by-sa/4.0/deed.en)).,
 which means that if you
 adapt the material: meaning that you remix, transform, or build upon it,
 you must mark your adaptations and share the adapted version under the
@@ -55,3 +54,4 @@ and the license CC BY-SA 4.0, with a link to the license deed or text.
 
 
 ## Contributing
+If you wish to contribute, feel free to submit a pull request. The slides are created in Typst. It will be assumed that your submission is licensed un CC BY-SA 4.0 or a compatible license. Let me know how you want to be credited in your pull request.
