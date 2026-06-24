@@ -2,6 +2,13 @@
 
 #import "@preview/touying:0.7.4": *
 #import themes.simple: *
+#import "@preview/shadowed:0.3.0": shadow
+
+#shadow(blur: 8pt, fill: rgb(89, 85, 101, 25%), radius: 4pt)[
+  #block(fill: white, radius: 4pt, inset: 12pt)[
+    #lorem(50)
+  ]
+]
 
 #show link: set text(blue)
 
@@ -54,15 +61,14 @@ Almost every modern computer (including phones) contains a powerful *co-processo
     ),
   
 )[
-  #place(top, dx: -2%, dy: -5%,  box(width: 40%,
-  [#text(size: 24pt, fill: white, weight: "semibold")[The GPU is incredibly powerful, often an order of magnitude more powerful than the CPU.
-  
-  ]]))
-
-  #place(horizon + right, dx: 5%, dy: 35%, box(width: 30%, [#text(fill: white)[It can produce beautiful 3D scenes like this one dozens or hundreds of times per second]]
-  ))
-
   #place(top + right, dx: 5%, dy: -5%, text(size: 14pt, fill: white, "Clair Obscure: Expedition 33"))
+  
+  #place(top, dx: -2%, dy: -5%,  shadow(blur: 8pt, fill: white, radius: 8pt, dx: 0pt, dy: 0pt, box(inset: 12pt, width: 18%,
+  [#text(size: 24pt, weight: "semibold")[GPUs are incredibly powerful.
+  ]])))
+
+  #place(horizon + right, dx: 5%, dy: 35%, shadow(fill: white, blur: 8pt, radius: 8pt, box(inset: 12pt, width: 35%, [They can produce beautiful 3D scenes like this one dozens or hundreds of times per second]
+  )))
 ]
 
 #focus-slide[Questions?]
