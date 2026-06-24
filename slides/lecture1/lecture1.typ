@@ -3,25 +3,13 @@
 #import "@preview/touying:0.7.4": *
 #import themes.simple: *
 #import "@preview/shadowed:0.3.0": shadow
-
-#shadow(blur: 8pt, fill: rgb(89, 85, 101, 25%), radius: 4pt)[
-  #block(fill: white, radius: 4pt, inset: 12pt)[
-    #lorem(50)
-  ]
-]
+#import "../util.typ": *
 
 #show link: set text(blue)
 
+#show: slide-theme
 
-#show: simple-theme.with(
-  aspect-ratio: "16-9",
-  title: [Computer Graphics: Lecture 1],
-  subtitle: [Welcome to Realtime 3D!],
-  header: none,
-  config-common(new-section-slide-fn: none, new-subsection-slide-fn: none),
-)
-
-#show strong: it => text(fill: rgb("000000"), it)
+// #show strong: it => text(fill: rgb("000000"), it)
 
 #title-slide[
   = Computer Graphics: Lecture 1
@@ -54,21 +42,28 @@ Almost every modern computer (including phones) contains a powerful *co-processo
 
 == #hide[GPUs are powerful] 
 
-#slide(
-  config:
-    config-page(
-      background: image("screens/clair_obscur.jpg", alt: "a screenshot of Clair Obscur: Expedition 33")
-    ),
-  
-)[
+#background-slide(background: image("screens/clair_obscur.jpg", alt: "a screenshot of Clair Obscur: Expedition 33"))[
   #place(top + right, dx: 5%, dy: -5%, text(size: 14pt, fill: white, "Clair Obscure: Expedition 33"))
   
-  #place(top, dx: -2%, dy: -5%,  shadow(blur: 8pt, fill: white, radius: 8pt, dx: 0pt, dy: 0pt, box(inset: 12pt, width: 18%,
-  [#text(size: 24pt, weight: "semibold")[GPUs are incredibly powerful.
-  ]])))
+  #place(top, dx: -2%, dy: -5%, shadowed-box()[GPUs are incredibly powerful.
+  ])
 
-  #place(horizon + right, dx: 5%, dy: 35%, shadow(fill: white, blur: 8pt, radius: 8pt, box(inset: 12pt, width: 35%, [They can produce beautiful 3D scenes like this one dozens or hundreds of times per second]
-  )))
+  #place(horizon + right, dx: 5%, dy: 35%, shadowed-box(width: 40%)[They can produce beautiful 3D scenes like this one dozens or hundreds of times per second]
+  )
 ]
+
+== They can do more
+
+Many of you are interested in making video games. That's okay, that was/is my motivation for learning computer science.
+
+But many of you aren't. Guess what: *this class is still for you.*
+
+== And guess what?...
+
+...You _aren't even using it_.
+
+All of that power is just sitting there.
+
+You have to explicitly write code for the GPU in order to use it.
 
 #focus-slide[Questions?]
