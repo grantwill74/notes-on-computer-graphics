@@ -12,7 +12,8 @@
     new-section-slide-fn: none,
     new-subsection-slide-fn: none,
     show-strong-with-alert: false,
-    breakable: false
+    breakable: false,
+    detect-overflow: false,
   ),
 )
 
@@ -37,6 +38,15 @@
   text-color: white,
 ) = {
   text(fill: text-color, size: text-size, body)
+}
+
+#let split-slide(
+  left-body,
+  right-body,
+  split-amnt: 50%,
+) = {
+  place(horizon+left, box(width: split-amnt, left-body))
+  // place(horizon+right, box(width: 1.0 - split-amnt, right-body))
 }
 
 #let shadowed-box(
