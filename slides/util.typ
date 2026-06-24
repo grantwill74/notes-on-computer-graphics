@@ -11,7 +11,8 @@
   config-common(
     new-section-slide-fn: none,
     new-subsection-slide-fn: none,
-    show-strong-with-alert: false
+    show-strong-with-alert: false,
+    breakable: false
   ),
 )
 
@@ -30,6 +31,13 @@
   )
 }
 
+#let game-name(
+  body,
+  text-size: 12pt,
+  text-color: white,
+) = {
+  text(fill: text-color, size: text-size, body)
+}
 
 #let shadowed-box(
   body,
