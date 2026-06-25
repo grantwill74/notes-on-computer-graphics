@@ -43,7 +43,7 @@ Almost every modern computer (including phones) contains a powerful *co-processo
 == #hide[GPUs are powerful] 
 
 #background-slide(background: image("screens/clair_obscur.jpg", alt: "a screenshot of Clair Obscur: Expedition 33"))[
-  #place(top + right, dx: 5%, dy: -5%, text(size: 14pt, fill: white, "Clair Obscure: Expedition 33"))
+  #place(top + right, dx: 5%, dy: -5%, text(size: 14pt, fill: white, "Clair Obscur: Expedition 33"))
   
   #place(top, dx: -2%, dy: -5%, shadowed-box()[GPUs are incredibly powerful.
   ])
