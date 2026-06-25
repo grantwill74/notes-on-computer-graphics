@@ -171,7 +171,7 @@ The net, ground, and paddles were just a "dot" that was swept over a line. The "
   + Raster displays: the electron gun followed a fixed path.
   + Vector displays: the electron gun could be repositioned between draws. 
 ][
-  #figure(numbering: none, caption: text(size: 18pt)[An animation showing how a single frame was generated on a raster CRT. By #link("https://commons.wikimedia.org/wiki/User:Laserlicht", "Laserlicht"), #link("https://creativecommons.org/licenses/by-sa/4.0/deed.en", "CC-BY-SA 4.0") ], image("screens/CRT_image_creation_animation.gif", height: 90%))
+  #figure(numbering: none, caption: text(size: 18pt)[An animation showing how a single frame was generated on a raster CRT. By #link("https://commons.wikimedia.org/wiki/User:Laserlicht", "Laserlicht"), #link("https://creativecommons.org/licenses/by-sa/4.0/deed.en", "CC-BY-SA 4.0") ], image("screens/CRT_image_creation_animation.gif", alt: "an animation of a CRT drawing lines of colored dots, row by row.", height: 90%))
 ]
 
 == Vector Displays
