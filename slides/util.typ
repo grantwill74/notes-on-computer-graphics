@@ -75,3 +75,22 @@
     ),
   )
 }
+
+#let left-right(
+  left-body,
+  right-body,
+  left-dx: 0%,
+  left-dy: 5%,
+  right-dx: 2%,
+  right-dy: 5%,
+  right-first: false
+) = {
+  let l = place(horizon + left, dx: left-dx, dy: left-dy, box(width: 50%, left-body))
+  let r = place(horizon + right, dx: right-dx, dy: right-dy, box(width: 50%, right-body))
+
+  if right-first [
+    #r #l
+   ] else [
+    #l #r
+   ]
+}

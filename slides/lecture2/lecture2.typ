@@ -125,7 +125,7 @@ So now, let's talk history. How have these techniques and hardware capabilities 
 
 #focus-slide("Questions?")
 
-== In the beginning
+== In the beginning (1958)
 
 #place(horizon+left, dy: 8%, box(width: 50%)[ 
 (Probably) the first video game was a game called Tennis for Two
@@ -150,4 +150,28 @@ Therefore, an oscilloscope that could draw a little dot based on an input voltag
 
 The net, ground, and paddles were just a "dot" that was swept over a line. The "ghosting" made a solid-ish line.
 
-== Then, a split
+== Cathode Ray Tubes
+
+#left-right(right-dy: -1%, left-dy: 8%)[
+  The most common screen technology then was the Cathode Ray Tube.
+  
+  An "electron gun" would shoot electrons in a beam onto a phosphor-coated screen.
+
+  The specific voltage and frequency would generate color which would continue to be visible for some milliseconds.
+][
+  #figure(numbering: none, caption: text(size: 18pt)[A partially disassembled CRT (Credit: #link("https://www.wikidata.org/wiki/Q108103612", "Raymond Spekking"), #link("https://creativecommons.org/licenses/by-sa/4.0/deed",[CC-BY-SA 4.0]))])[
+    #image("screens/crt.jpg", alt: "photo of a partially disassembled CRT")
+  ]
+]
+
+== The electron gun
+
+#left-right(right-dy: -1%)[
+  There were basically two kinds of CRT:
+  + Raster displays: the electron gun followed a fixed path.
+  + Vector displays: the electron gun could be repositioned between draws. 
+][
+  #figure(numbering: none, caption: text(size: 18pt)[An animation showing how a single frame was generated on a raster CRT. By #link("https://commons.wikimedia.org/wiki/User:Laserlicht", "Laserlicht"), #link("https://creativecommons.org/licenses/by-sa/4.0/deed.en", "CC-BY-SA 4.0") ], image("screens/CRT_image_creation_animation.gif", height: 90%))
+]
+
+== Vector Displays
