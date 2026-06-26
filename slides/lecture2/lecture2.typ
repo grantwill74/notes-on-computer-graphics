@@ -571,3 +571,4 @@ Don't worry, it's just a stepping-stone to greatness!
 - What were the main developments in 3D graphics that we discussed?
 - Why is realtime 3D so special and difficult?
 - What is special about the GPU?
+- It's possible to do software rendering (meaning, rendering on the CPU) by manually filling the polygons. This was common in the days before most people had graphics cards, but now is hardly ever done. Why do you think that is?
