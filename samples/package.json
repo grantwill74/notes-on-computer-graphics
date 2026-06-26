@@ -1,0 +1,27 @@
+{
+  "name": "samples",
+  "version": "0.1",
+  "description": "samples for the notes-on-computer-graphics repo",
+  "keywords": [
+    "WebGPU"
+  ],
+  "homepage": "https://github.com/grantwill74/notes-on-computer-graphics#readme",
+  "bugs": {
+    "url": "https://github.com/grantwill74/notes-on-computer-graphics/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grantwill74/notes-on-computer-graphics.git"
+  },
+  "license": "MIT",
+  "author": "Grant Williams",
+  "type": "module",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@webgpu/types": "^0.1.71",
+    "typescript": "^6.0.3"
+  }
+}
