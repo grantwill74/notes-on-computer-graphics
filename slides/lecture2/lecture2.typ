@@ -4,6 +4,7 @@
 #import themes.simple: *
 #import "@preview/shadowed:0.3.0": shadow
 #import "../util.typ": *
+#import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
 
 #show link: set text(blue)
 #show: slide-theme
@@ -175,3 +176,398 @@ The net, ground, and paddles were just a "dot" that was swept over a line. The "
 ]
 
 == Vector Displays
+
+#left-right(left-dy: 8%)[
+  #figure(numbering: none, caption: text(size: 18pt)[A Vectrex game console showing a 3D game. (#link("https://vectrex.com/the-vectrex-mini-at-prge-2025/", [PRGE 2025]))], image("screens/vectrex.jfif", alt: "a photograph of a Vectrex console", height: 80%))
+][
+Vector displays were cool. They were used to make immersive 3D way back in the 80s.
+
+The lines could be drawn to outline 3D shapes.
+
+There were even vector display game consoles, like this Vectrex.
+]
+
+== Vector Displays (2)
+
+Vector displays could draw smooth lines anywhere on screen.
+
+Unfortunately, they had serious drawbacks.
+
+The biggest was that they couldn't "fill in" the polygons they drew.
+
+As a result, while Vector displays were a neat technology, the needs of realism ended up favoring raster displays instead.
+
+The idea: if you're going to fill in the image, the extra complexity and expense of being able to draw a line anywhere is not worth it.
+
+But what are we filling in?
+
+== Pixels
+
+On a raster display, a single frame is broken up into tiny (usually rectangular, but not always) regions of solid color, called "pixels".
+
+Pixel is an abbreviated portmanteau that stands for "picture element".
+
+We generate images by setting the colors of millions of tiny pixels.
+
+#figure(numbering: none, caption: text(size: 18pt, "If you zoom in, you can see each pixel as a little square."))[#image("screens/Pixel-example.png", alt: "a drawing of a computer and keyboard, with a portion zoomed-in so much that individual pixels can be seen.", height: 40%)]
+
+== Raster developments
+
+#left-right(left-dy: 10%)[
+
+  So instead of more powerful vector displays, we saw the development of special hardware needed to fill in shapes: *the blitter*.
+
+  This is the first game to use only filled 3D polygons, "I, Robot" (Atari)
+
+  Filling in those polygon regions with the proper color would have been impossible without a special co-processor.
+][
+  #image("screens/i_robot.png", alt: "a game screenshot", height: 90%)
+  #place(top + right, dx: -2%, dy: 3%, game-name("I, robot (Atari Aracde Game)"))
+]
+
+
+== The blitter
+
+If you want to build a computer that draws "realistic" images in milliseconds, you absolutely must have a blitter.
+
+*Blit* is a phonetic rendering of *BLT*, which stands for "#strong("B")it b#strong("l")ock #strong("t")ransfer. Transferring a block of bits from one place to another.
+
+It used to be a technical term that referred to compositing images out of smaller images or overlays, but now it seems to be a just a fancy `memcpy`.
+
+Computer graphics algorithms need to set thousands or millions of these pixel colors quickly. This requires specialized hardware. An CPU (without vector support) cannot transfer enough data.
+
+== The co-processor
+
+That Atari Arcade game reveals the special fact about realtime computer graphics: it nearly always uses special hardware.
+
+This co-processor originally would fill in shapes with a solid color, but they gradually got more advanced.
+
+You can probably see how this idea is going to result in our modern GPU...
+
+#focus-slide("Questions?")
+
+== Filling in Polygons
+
+This was true in 1984, and it is still true now. Most of 3D graphics is about filling in Polygons.
+
+But what kind of polygon?
+- Triangles?
+- Quadrilaterals?
+- ...pentagons?
+
+What do you think?
+
+== Triangles 
+
+Most of us are aware through popular osmosis that realtime 3D graphics is based on triangles.
+
+But why? It's not actually obvious why a triangle would be more optimal than a quadrilateral.
+
+And early computer graphics engineers often _wanted_ to use quads, because they could work with existing sprite-drawing hardware #footnote("a sprite is a fancy term for a 2D image that is blitted to the screen that can be moved around between frames").
+
+The 5th generation of video game consoles is when we saw wide support for consumer 3D graphics. And they did *not* agree...
+
+== Triangles vs. Quads
+
+=== Quad-using 5th-gen consoles:
+
+#box(width: 20%, figure(numbering: none, caption: text(size: 18pt, [Atari Jaguar]), image("screens/atari_jaguar.png", alt: "game console photograph")))
+#box(width: 20%, figure(numbering: none, caption: text(size: 17pt, [3DO Company 3DO ]), image("screens/3do.png", alt: "game console photograph")))
+#box(width: 20%, figure(numbering: none, caption: text(size: 18pt, [Sega Saturn ]), image("screens/sega_saturn.png", alt: "game console photograph")))
+
+=== Triangle-using 5th-gen consoles:
+
+#box(width: 20%, figure(numbering: none, caption: text(size: 18pt, [Nintendo 64]), image("screens/nintendo_64.jpg", alt: "game conosle photograph")))
+#box(width: 20%, figure(numbering: none, caption: text(size: 18pt, [Sony Playstation]), image("screens/sony_playstation.png", alt: "game conosle photograph")))
+
+#text(size: 14pt, [All game console images taken by #link("https://commons.wikimedia.org/wiki/User:Evan-Amos", "Evan Amos")])
+
+== Game history trivia?
+
+Can anyone who knows their video game history tell me what the triangle-using consoles had in common compared to the quad-using consoles? (besides their choice of 3D topology).
+
+== Game history trivia answer
+
+That's right, the triangle-users were successful in the market place!
+
+I don't mean to suggest that it's _only_ because they used triangles, or even that triangles were the main reason, but by the mid 90s, the computer industry had largely standardized around triangles.
+
+Why? Because we weren't just filling in shapes with solid colors anymore. We wanted to _texture_ them, _shade_ them, and sometimes make them _transparent_. And these were much easier to do with triangles efficiently.
+
+Wait, what do I mean by _texture_?
+
+== Textures
+
+#left-right()[
+  The next major innovation was texturing.
+
+  If we apply a raster image to a triangle, instead of drawing it with a flat color, we can give it _texture_. It will look much more realistic.
+
+  The first game to have full texture mapping was #link("https://en.wikipedia.org/wiki/Ultima_Underworld:_The_Stygian_Abyss", "Ultima Underworld"). 
+][
+  #image("screens/ultima_underworld.jpg", height: 60%, alt: "Screenshot of Ultima Underworld")
+]
+
+== Textures and Triangles
+
+Early textured games like Ultima Underworld and Doom would perform texturing by drawing what is basically a warped image. This is called _forward texture mapping_.
+
+Unfortunately, this method requires iterating over every pixel of the image, so it is only really efficient for things that take up a big chunk of the screen, like walls.
+
+For fully 3D games, we like to store which part of the texture each vertex comes from. Then we interpolate between the vertices of a triangle to fill in a chunk of texture. This is called _inverse mapping_. This is much easier to do with triangles than with quads.
+
+#focus-slide("Questions?")
+
+== The next innovation: depth buffers
+
+#left-right()[
+Okay, we've agreed to use triangles because they interpolate better.
+
+Is that it? We just draw a bunch of triangles over and over?
+
+Well...we also need to draw them in the right order.
+
+Notice that character being drawn over the wall, even though he should be obscured by it...
+][
+#image("screens/deathtrap_dungeon.jpg", width: 100%, alt: "a game screenshot")
+#place(right + top, dy: 2%, dx:-1%, game-name("Deathtrap Dungeon"))
+]
+
+== Ordering Triangles
+
+#left-right()[
+In order to do this properly, we'd like to know, when drawing a triangle, the depth (i.e., distance into the screen) of each pixel.
+
+If we want to avoid drawing a pixel if it's behind a pixel already drawn, we have to a have a giant 2D array of depths.
+
+This array is called a depth buffer.
+][
+  #figure(
+    numbering: none,
+    caption: text(size: 20pt)[Quake, an early depth-buffered game],
+    image("screens/quake1.jpg", alt: "a game screenshot")
+  )
+]
+
+== Ordering Triangles (2)
+
+Not every game supported depth buffering.
+
+Some games, like Deathtrap dungeon, just sorted objects by their distance to the camera and drew them either back to front (simple, flexible) or front to back (faster because it avoided re-drawing a pixel but less flexible).
+
+But this resulted in graphical errors when one object overlapped or intersected another one. The depth buffer was the only true solution.
+
+So technology marched on...
+
+== Lighting
+
+You may have noticed that the Quake screenshot had some realistic lighting. 
+
+Most of this lighting was static, meaning, it was part of the textures. Shadows would be pre-computed to draw over the walls when the level was built.
+
+Dynamic lighting was the next major innovation. We started seeing it in the mid 90s, around the same time that depth buffering became common.
+
+== Dynamic Lighting
+
+Dynamic lighting is when the vertices or pixels of each triangle are colored differently depending on how close they are and how they face relative to a light.
+
+#figure(numbering:none, caption: text(size: 20pt, "Notice how the right half of Conker's face is darker than the left."))[#image("screens/conker.jfif", height: 50%, alt: "A screenshot of Conker's Bad Fur day, in which Conker (a red squirrel character) is sitting on a throne, glaring at the camera.")]
+
+== Dynamic Lighting
+
+Just like the other image quality improvements, dynamic lighting benefitted from special hardware.
+
+Specifically, there was a math formula that used to be widely used for lighting called the Phong Illumination Model. We will be learning this model. Applying it to each vertex was called _Gouraud Shading_ (pronounced kind of like "goo roh"). 
+
+GPUs started to have special hardware that could do Gouraud shading. This made it practical. 
+
+== Fixed functions
+
+Notice: there was a particular formula for computing light, and it was so influential that graphics cards literally built special circuits for it.
+
+This was called a _fixed function_. When you bought a video card, you bought one that supported the functions that your favorite games wanted to use.
+
+Things like lighting, texturing, fog, and vertex transformation used built in formulas. But what if you wanted to use a different formula?
+
+That is, what if you wanted the ability to arbitrarily modify the data of each vertex or pixel? Then you need a shader.
+
+== Early shaders
+
+A shader is a program that runs on the GPU instead of the CPU, to modify or compute thousands of things in parallel.
+
+They are usually used to modify each vertex or pixel of a bunch of triangles. For example, computing lighting, transparency, textures, or doing other specialized things.
+
+The first widely available consumer system that supported (very limited) shaders was the Nintendo 64. It didn't even use the term "shader", it called them "microcode".
+
+Most developers didn't even know how to make them. Only a couple, such as Rare or Factor 5, ever did (and their games looked amazing).
+
+== Shaders
+
+But this was the key technology that separated the old _fixed-function pipeline_ GPUs from more modern architectures. 
+
+There are different kinds of shaders. In this class, we will primarily use Vertex shaders and Fragment shaders.
+
+*Vertex shaders* run for every single vertex of an object that you draw. They can transform the vertices according to the camera (because if you move the camera, every single vertex in the scene will be in a different place), they can also compute vertex-specific data.
+
+*Fragment shaders* run on each filled pixel of a triangle. There may be multiple fragments per pixel that overlap each other.
+
+== Future Developments?
+
+#left-right(text(size: 20pt)[
+  The main development in GPU tech is now real-time raytracing.
+
+  Raytracing is an old technique. It's when you shoot out a *ray* (an inverse photon) for each pixel of the screen.
+
+  When it colides with an object, you cast out more rays at the collision point to see what lights or other illuminative surfaces 
+
+  _Real-time_ raytracing is not old. It requires very fast video cards to perform all these ray intersection tests, but it enables photorealism.
+])[
+  #image("screens/cyberpunk2077.jpg", height: 95%, alt: "a game screenshot demonstrating realtime raytracing")
+  #place(bottom + right, dy: -2%, dx: -2%, game-name("Cyberpunk 2077"))
+
+]
+
+== Future developments? (2)
+
+Does this mean we're wasting our time learning to rasterize triangles when the future is about ray tracing?
+
+No. You still have to load triangles and run shaders. It's different, but not so different that your knowledge becomes unhelpful.
+
+Computer graphics has continued to build on simple techniques. It's the pipeline-based architecture that you're going to learn that really separates it from conventional application development. 
+
+
+== A sketch so far
+
+So let's recap what we know about drawing realtime 3D graphics.
+
+First, we need to build a 3D scene out of triangles.
+
+The triangles can have images, called textures, applied them.
+
+And then, it's important that, when drawing them, we keep track of the depth of each pixel. This is Z-Buffering (or depth-buffering)
+
+Then, we want the ability to compute custom data for each vertex or pixel. This is why we use shaders. Shaders replaced the fixed-functionality of early GPUs by enabling customizable programs to run for every vertex and pixel in a scene.
+
+#focus-slide("Questions?")
+== The 3D graphics pipeline
+
+What we really want to do is apply a simple set of transformations, in small steps, thousands or millions of time per frame.
+
+We basically want a little factory that builds a complex 3D image out of a bunch of triangles and simple transformations.
+
+This sequence of transformations is called the *3D Graphics Pipeline*.
+
+You will be configuring these pipelines and using them to draw 3D models in whatever scenes you want.
+
+== The Factory Metaphor
+
+Think of it like this: if all you want is to build a single car, you could hire some Rolls Royce engineers to build you one from scratch.
+
+But if you want to build 1 million cars, you had better use a factory.
+
+The factory takes longer to set up, but once it gets going, it breaks the complex task of building a car down into thousands of much simpler stages.
+
+As a result, it has much more *throughput*. That is, it produces more cars per unit time than any number of skilled craftspeople can building individual cars.
+
+== The stages of the pipeline
+
+So what does that mean for us? Here are the stages of our "factory":
+
+#let programmable = rgb("#dbeafe") 
+#let fixed = rgb("#ffedd5")        
+#let storage = rgb("#f3e8ff")      
+
+
+#place(bottom, dy: 20%,
+  figure(scale(75%,
+  diagram(
+    spacing: (1.3cm, 1.1cm),
+    node-stroke: 0.5pt + black,
+    node-inset: 10pt,
+    node-corner-radius: 4pt,
+
+    // --- Pipeline stages ---
+    node((0, 0), fill: storage)[
+      *Mesh Data*\
+      Loaded on the GPU (r)
+    ],
+
+    node((0, 1), fill: programmable)[
+      *Vertex Shader*\
+      Modify each vertex (P)
+    ],
+
+    node((0, 2), fill: fixed)[
+      *Clipping + Primitive Assembly*\
+      Assemble triangles to draw (F)
+    ],
+
+    node((1, 0), fill: fixed)[
+      *Rasterization*\
+      Compute which pixels to draw (F)
+    ],
+
+    node((1, 1), fill: programmable)[
+      *Fragment Shader*\
+      Compute color of each pixel (P)
+    ],
+
+    node((1, 2), fill: fixed)[
+      *Output Merging*\
+      Z-buffering, blending/transparency (F)
+    ],
+
+    node((1, 3), fill: storage)[
+      *Render Target*\
+      This is the image (r)
+    ],
+
+    // --- Flow arrows ---
+    edge((0, 0), (0, 1), "->"),
+    edge((0, 1), (0, 2), "->"),
+    edge((0, 2), (0.47, 2), (0.47, 0), (1, 0), "->"),
+    edge((1, 0), (1, 1), "->"),
+    edge((1, 1), (1, 2), "->"),
+    edge((1, 2), (1, 3), "->"),
+    
+    // --- Legend ---
+    node((2.2, 0.5), inset: 15pt, shape: rect)[
+      #figure(numbering: none, caption: "Legend")[
+        #diagram(
+          node((0, 0.4), fill: programmable, inset: 6pt)[(P)rogrammable],
+          node((0, 0.8), fill: fixed, inset: 6pt)[(F)ixed-function],
+          node((0, 0), fill: storage, inset: 6pt)[GPU (r)esource],
+        )
+      ]
+    ]
+  ))
+))
+
+== How we'll use it
+
+Basically, we're going to build an object called a Pipeline. It will have settings for those various stages.
+
+We will write programs to use as the vertex shader and fragment shader.
+
+We will load our 3D object, either from a file or from an array we generate in code.
+
+Finally, we'll build something called a command buffer, which contains special commands to the GPU. We will tell it "hey, use this pipeline and this mesh data, now go draw the triangles!"
+
+The result will be a shiny 3D image. We will do this 60 times per sec.
+
+#focus-slide("Questions?")
+
+== Before Next time 
+
+Be sure you've installed Node and NPM, we're going to need it next time!
+
+We're going to build a simple 3D app that draws a blank screen.
+
+Don't worry, it's just a stepping-stone to greatness!
+
+== Test your recall
+
+- Can you recall the stages of the pipeline? It will help if you can, since you're going to be building a lot of pipelines.
+- What were the main developments in 3D graphics that we discussed?
+- Why is realtime 3D so special and difficult?
+- What is special about the GPU?
