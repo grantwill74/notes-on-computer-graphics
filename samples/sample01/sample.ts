@@ -5,7 +5,7 @@ export function alertFail(err: Error): never {
 
 
 export async function initWebGpu():
-    Promise<[GPUDevice, GPUCanvasContext, HTMLCanvasElement]> 
+    Promise<[GPUDevice, GPUCanvasContext,]> 
 {
     const gpu = navigator.gpu;
     if (!gpu) {
@@ -53,13 +53,12 @@ export async function initWebGpu():
         alphaMode: "opaque",
     });
 
-    return [device, context, canvas];
+    return [device, context,];
 }
 
 export function renderSample01(
     device: GPUDevice,
     context: GPUCanvasContext,
-    canvas: HTMLCanvasElement,
 ): void
 {
     const encoder = device.createCommandEncoder();
@@ -73,7 +72,7 @@ export function renderSample01(
             }
         ]
     });
-    pass.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
+    pass.setViewport(0, 0, context.canvas.width, context.canvas.height, 0, 1);
     pass.end();
 
     const commands = encoder.finish();

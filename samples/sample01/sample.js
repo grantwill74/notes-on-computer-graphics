@@ -38,9 +38,9 @@ export async function initWebGpu() {
         colorSpace: "srgb",
         alphaMode: "opaque",
     });
-    return [device, context, canvas];
+    return [device, context,];
 }
-export function renderSample01(device, context, canvas) {
+export function renderSample01(device, context) {
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
         colorAttachments: [
@@ -52,7 +52,7 @@ export function renderSample01(device, context, canvas) {
             }
         ]
     });
-    pass.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
+    pass.setViewport(0, 0, context.canvas.width, context.canvas.height, 0, 1);
     pass.end();
     const commands = encoder.finish();
     device.queue.submit([commands]);
