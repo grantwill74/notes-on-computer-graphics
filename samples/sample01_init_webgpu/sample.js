@@ -14,7 +14,7 @@ export async function initWebGpu() {
     // The adapter represents an actual GPU (physical or virtual).
     // We don't have to provide a power preference, but I'm not going to 
     // need a lot of power, so let's save the energy:
-    const adapter = await navigator.gpu.requestAdapter({ powerPreference: "low-power" });
+    const adapter = await navigator.gpu.requestAdapter({ /*powerPreference: "low-power"*/});
     if (!adapter) {
         alertFail(new Error("No WebGPU compatible GPU device available."));
     }
