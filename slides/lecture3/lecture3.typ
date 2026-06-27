@@ -897,3 +897,4 @@ I hope you're stoked. I am!
 - Change the color from light blue to a lime green to see if you can figure it out.
 - Store the color in an object, and set its `r`, `g`, `b`, and `a` fields using the dot notation you're familiar with from other languages. You can write `const color = {}` to create a new empty object.
 - Notice how we often write `alertFail(new Error("..."))`. Write a function called `alertStr` which takes a string, constructs the `Error`, and which calls `alertFail` with that error.
+- Read #link("https://shi-yan.github.io/webgpuunleashed/Basics/creating_an_empty_canvas.html", "this chapter from the book.") Can you build the sample from scratch? The key is the device queue, the encoder, and the render pass. You can work backwards from there.
