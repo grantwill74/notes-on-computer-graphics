@@ -14,17 +14,16 @@ for information on how to comply with the license.
 ## License 
 © Grant Williams, 2026
 
-These lecture materials are licensed under
+The slides are licensed under
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en)
 ([license deed](https://creativecommons.org/licenses/by-sa/4.0/deed.en)).
 
 ![CC BY-SA badge](by-sa.svg)
 
-Everything in this repository, including all slide decks and practice problems,
-are licensed under CC BY-SA 4.0 unless otherwise noted.
+The code samples are licensed under the [MIT License](samples/LICENSE.md)
 
 ## Using these materials in your own classes
-These materials are licensed under These lecture materials are licensed under
+The slides are licensed under These lecture materials are licensed under
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en)
 ([license deed](https://creativecommons.org/licenses/by-sa/4.0/deed.en)).,
 which means that if you
@@ -45,8 +44,10 @@ incorporate error fixes, better explanations, and better diagrams in these
 materials, without violating a more restrictive copyright imposed by the
 adapter.
 
+The code samples are MIT license, and therefore do not require share-alike.
+
 ## How to cite this work
-When citing, please mention the specific file you got the slide or assignment
+When citing a slide, please mention the specific file you got the slide or assignment
 from, with a link to that file, along with my name:
 [Grant Williams](https://github.com/grantwill74/)
 (or other copyright holder if the slide is marked with a distinct copyright),
@@ -54,4 +55,6 @@ and the license CC BY-SA 4.0, with a link to the license deed or text.
 
 
 ## Contributing
-If you wish to contribute, feel free to submit a pull request. The slides are created in Typst. It will be assumed that your submission is licensed un CC BY-SA 4.0 or a compatible license. Let me know how you want to be credited in your pull request.
+If you wish to contribute, feel free to submit a pull request. The slides are created in Typst. It will be assumed that your submission for slides is licensed un CC BY-SA 4.0 or a compatible license. For sample submissions it will be assumed that your submission is licensed under MIT, or a compatible license.
+
+Let me know how you want to be credited in your pull request.
