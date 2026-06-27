@@ -111,6 +111,14 @@ This might seem strange: why bother? There are some interesting reasons...
 - These basics are the same regardless of engine: Matrices, Shaders, Meshes, these are always things you have to understand to get the most of your 3D engine. We will gain this engine-independent knowledge.
 - You can do a lot more with GPUs than 3D graphics. It turns out learning to write programs for them unlocks tons of technologies (including AI).
 
+== Expectation management
+
+Of course, I need to manage your expectations...
+
+// TODO
+
+[This big limiting factor for the left screenshot is artistic skill and time]
+
 == I hope you will get a lot out of this class
 
 In this class, you will develop a simple realtime 3D graphics engine. In doing so, you will hopefully learn/gain a lot:
