@@ -83,10 +83,12 @@
   left-dy: 5%,
   right-dx: 2%,
   right-dy: 5%,
+  left-width: 50%,
+  right-width: 50%,
   right-first: false
 ) = {
-  let l = place(horizon + left, dx: left-dx, dy: left-dy, box(width: 50%, left-body))
-  let r = place(horizon + right, dx: right-dx, dy: right-dy, box(width: 50%, right-body))
+  let l = place(horizon + left, dx: left-dx, dy: left-dy, box(width: left-width, left-body))
+  let r = place(horizon + right, dx: right-dx, dy: right-dy, box(width: right-width, right-body))
 
   if right-first [
     #r #l

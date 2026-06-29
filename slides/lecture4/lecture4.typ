@@ -678,13 +678,25 @@ Now we scale by the width. If our viewport is 200 pixels wide, 25% is 50 pixels 
 
 What about y? It's similar, but we compute its distance from the top. (see if you can match the computation of y in the illustration slide)
 
-== Fragment Shaders
+== Rasterization
 
-#let fig = figure(
+So we transformed all our triangles to now use screen coordinates.
+
+Why? Because now we're going to figure out which pixels are covered by each triangle.
+
+This stage in the pipeline is called *rasterization*.
+
+For each pixel in the screen, check its viewport coordinates.
+If those coordinates are inside the triangle, run the fragment shader on it. #footnote[I'm oversimplifying a little. In reality, fragment shaders are normally grouped into 2x2 blocks for reasons to do with texture filtering.]
+
+== Rasterization Illustration
+
+#left-right()[
+  #let fig = figure(
   numbering: none,
   alt: "A diagram that shows which pixels the fragment shader runs on.",
  canvas(length:10cm,{
-  import draw: *
+  import draw: *;
 
   let rows = 10
   let cols = 10
@@ -736,7 +748,100 @@ What about y? It's similar, but we compute its distance from the top. (see if yo
   }
   })
 )
+#fig
+][
+  For each pixel, if the center of it is inside or touching the edge of the triangle, we run the fragment shader on it.
 
-#left-right(fig)[
-  todo: Explanation
+  If the pixel center is outside the triangle, we don't draw it.  
+
+  #text(size: 20pt, [(This diagram is dynamic. Check the source code of this presentation to move the triangle around)])
 ]
+
+== Barycentric coordinates
+
+How do we know if a pixel is inside or outside a triangle?
+
+Instead of cartesian coordinates, we can use *barycentric coordinates*.
+
+The basic idea: take all the points on the surface of a triangle, and imaging that each one splits the original triangle into 3 sub-triangles.
+
+Use the percentage of total area of each of the 3 sub triangles as the "point" instead of x,y.
+
+So a point right in the middle of the triangle will always have barycentric coordinates of #math.equation(alt: "one third, one third, one third", $(1/3, 1/3, 1/3)$), regardless of how big the triangle is.
+
+== Barycentric coordinates illustration
+
+#left-right(left-width: 40%, right-width: 60%)[
+  #image("screens/barycentric.png", height: 90%, alt: "Image illustrating Barycentric coordinates for points on a triangle.")
+][
+  #set text(size: 21pt)
+  Each point's coordinates always add up to 100%.
+
+  That's because the sub-triangles are split such that they cover the entire area of the whole triangle.
+
+  Therefore, if that is _not_ the case, the point must not be on the triangle.
+  
+  See the source code in the illustration slide if you're curious about calculating them.
+
+  #link("https://commons.wikimedia.org/w/index.php?curid=4842309", "Image by Rubybrian - Own work, CC BY-SA 3.0")
+]
+
+== Fragment Shaders
+
+Once we know which pixels are visible and where they are on the screen, we finally invoke the fragment shader on each of them.#footnote[Another simplification. In realtiy, it's possible to do something called "multisampling", in which we run the fragment shader on sub-pixels.]
+
+This means that typically the fragment shader gets run many more times than the vertex shader. 3 vertices can cover the entire screen.
+
+The goal of the fragment shader? For each fragment, output its color.
+
+Technically, it's possible for there to be multiple _attachments_. The fragment shader can write to any of them. Typically though, it returns a color.
+
+== Output merging
+
+Finally, those colors are written or merged into the canvas.
+
+At the simplest, this is a giant blit: copy the pixel colors over.
+
+In more complex cases, we might have to blend colors (e.g., in transparent rendering).
+
+== Summary
+
+So in summary, this is what we did:
+- Issued a draw call
+- The pipeline ran the vertex shader 3 times
+- In the shader, we used the vertex id to look up and return a position
+- A triangle was assembled from the 3 vertices.
+- The triangle was clipped (which didn't do anything: it was all visible)
+- The w-divide (which didn't do anything: w = 1 for our points)
+- The viewport transformation was performed
+- The triangle was rasterized: we learned which pixels were inside.
+- The fragment shader executed on each pixel to get its color
+- The pixel colors were copied to the canvas.
+
+#focus-slide("Questions?")
+
+== Next time
+
+
+We stored our triangle coordinates inside the shader.
+
+That's not good: it won't scale at all.
+
+Don't worry: next time we'll learn how to store that information in a buffer inside the GPU.
+
+This will be useful when we start loading meshes from files and drawing them into our 3D scene, or when we want to generate the mesh in code.
+
+We don't want to have to have a custom shader every time we want a new mesh!
+
+== The project
+
+But first, let's take a look at the first project.
+
+It's a simple one, designed to make sure you understood everything.
+
+Instead of drawing a triangle: draw a quad. Specifically a rectangle.
+
+And make sure you understand how to change its color.
+
+(Let's take a look)
+
