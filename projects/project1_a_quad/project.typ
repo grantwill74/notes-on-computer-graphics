@@ -45,7 +45,7 @@ Ensure that the HTML file you want to be graded is named `index.html`.
 
 Ensure that the archive contains the same `package.json` and `tsconfig.json` that you used.
 
-Copy and paste all the code you wrote (the HTML file and any TS files needed for this project) into the submission window. This is required for archival purposes. The code you submit this way must match the code in the archive exactly (although sometimes Canvas messes up the spacing, which is okay).
+Copy and paste all the code you wrote (the HTML file and any TS files needed for this project) into the submission window. This is required for archival purposes. The code you submit this way must match the code in the archive exactly (although sometimes Canvas messes up the spacing, which is okay). Don't include library code or code written by me, just the code that you are providing for the project.
 
 After submitting by copying the code into the text window, navigate back to your submission on Canvas. Create a new comment, and attach the `.zip` archive.
 
