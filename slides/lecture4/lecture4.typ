@@ -424,6 +424,8 @@ Why? Because the raw vertices usually came out of a 3D modelling program. They a
 
 == The pipeline: vertex shader output
 
+#[
+  #set text(23pt)
 So the vertex shader runs and applies all those transformations.
 
 It then returns a vertex that is in *clip coordinates*.
@@ -431,6 +433,9 @@ It then returns a vertex that is in *clip coordinates*.
 The 3D system will draw any vertex that is inside the clipping volume, where x and y are both in the inclusive range [-w, w], and z is in the inclusive range [0, w].
 
 We will explain w later, but for now, w will be 1, so this volume is usually [-1, 1] by [-1, 1] by [0, 1].
+
+The axes are similar to what you learned in math: positive x goes right, positive y goes up. Z is a little different: by default positive z goes _into_ the screen. We'll be changing that later.
+]
 
 == Primitive assembly
 
@@ -554,7 +559,7 @@ For now, think of "w" as being a "distance ratio". If w = 4 for a point, it mean
 
 Try experimenting with different w values for your triangle. If you set one vertex to have a w of 2, it will "push it back".
 
-To achieve this effect, the GPU _divides_ x, y, and z by w. 
+To achieve this effect, the GPU _divides_ x, y, and z by w. These new coordinates are called #strong[NDC]s (normalized device coorinates). 
 
 == The w-divide (2)
 
@@ -566,6 +571,112 @@ z also gets shrunk, but you won't see the result on screen. You may have noticed
 
 == The viewport transformation
 
+The next step is to convert from NDCs to coordinates that are based on pixel locations.
+
+So if a point is in the center of an 800 by 600 pixel screen, we'd like the point's coordinates to be (400, 300) instead of (0, 0).
+
+To do this, we use a viewport, which is a volume that has whatever dimensions we set. Typically we set it to the resolution of our canvas.
+
+To define a viewport, you give it the top left coordinates (usually 0, 0, but they don't have to be), the width and height, and the near and far values (which are almost always 0 and 1 unless you have niche needs).
+
+== Viewport illustration 
+
+#[
+  #set text(size: 20pt)
+#place(horizon + left, dx: 5%, dy: -2%,
+box(width: 40%,
+figure(
+  numbering: none,
+  alt: "a square representing the screen, with a point in the lower left corner",
+  caption: "A point in NDC coordinates"
+)[
+  #canvas(length: 4cm,{
+    import draw: *
+
+    let tl = (-1,  1)
+    let tr = ( 1,  1)
+    let br = ( 1, -1)
+    let bl = (-1, -1)
+
+    set-viewport(bl, tr, bounds:(2, 2))
+
+    line(tl, tr, br, bl, close: true)
+    circle((-.5, -.5), radius: (0.02, 0.02))
+
+    content((-1.3, 1), [(-1, 1)])
+    content((1.3, -1), [(1, -1)])
+    content((0,-.5), [(-0.5, -0.5)])
+
+  })
+]
+))
+
+#place(horizon + center,
+box(width: 20%,
+canvas(length: 1cm, {
+  import draw: *
+  
+  let verts = (
+    (0.5, 1),
+    (1, 1),
+    (1, 1.5),
+    (1.5, .5),
+    (1, -.5),
+    (1, 0),
+    (0.5, 0),
+  )
+
+  line(..verts, close: true)
+})))
+
+#place(horizon + right, dx:-5%, dy:5%,
+box(width: 40%,
+figure(
+  numbering: none,
+  alt: "a square representing the screen, with a point in the lower left corner",
+  caption: [#set text(size: 18pt); The same point in viewpoint coordinates, in a viewpoint with a top-left of (100, 100) and dimensions of (200, 200)]
+)[
+  #canvas(length: 4cm,{
+    import draw: *
+
+    let tl = (-1,  1)
+    let tr = ( 1,  1)
+    let br = ( 1, -1)
+    let bl = (-1, -1)
+
+    set-viewport(bl, tr, bounds:(2, 2))
+
+    line(tl, tr, br, bl, close: true)
+    circle((-.5, -.5), radius: (0.02, 0.02))
+
+
+    content((-1.3, 1), [(100,\ 100)])
+    content((1.3, -1), [(300, \ 300)])
+    content((0,-.5), [(150, 250)])
+  })
+]
+))
+]
+
+== Viewport transformation
+
+The viewport transformation can also be used to draw in multiple "sub windows" within your canvas.
+
+For example, if you have an 800 by 600 canvas, you can 4 viewports which are 400 by 300. The top left would be at (0, 0). The top right would be at (400, 0). The bottom left would be at (0, 300). The bottom right would be at (400, 300).
+
+Notice one thing in particular: the y axis goes in the opposite direction. Instead of y going up, it now goes down.
+
+The reason for this is that old screens used to trace the pixels from top to bottom, right to left. It has become customary to use that order.
+
+== Viewport transformation math
+
+To perform the viewport transformation, you essentially convert a point into a percentage of width and height, scale by the width, and then add the top left coord.
+
+That is, consider an x coordinate of -0.5 in NDC coords. That is _25%_ of the way between -1 and 1 (#math.equation(alt: "the numerator is negative zero point five minus negative 1, the denominator is one minus negative one. This simplifies to zero point five over two, which is 25 percent.", $(-0.5 - (-1)) / (1 - (-1)) = 0.5/2 = 25%$))
+
+Now we scale by the width. If our viewport is 200 pixels wide, 25% is 50 pixels from the left of the viewport. Finally, we add the top left x value, which is 100, to get the final x coord, which is 150.
+
+What about y? It's similar, but we compute its distance from the top. (see if you can match the computation of y in the illustration slide)
 
 == Fragment Shaders
 
