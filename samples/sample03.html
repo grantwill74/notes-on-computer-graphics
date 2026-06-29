@@ -4,16 +4,16 @@
         <title>My WebGPU sample</title>
         <script type="module">
             import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
-            import {  renderSample02_vertsInShader } from
-                "./sample02_simple_triangle/sample.js"
+            import {  renderSample03_vertsInBuffer } from
+                "./sample03_buffers/sample.js"
 
-            console.log("hello, world");
             const [device, context,] = await initWebGpu();
 
-            renderSample02_vertsInShader(device, context);
+            renderSample03_vertsInBuffer(device, context);
         </script>
     </head>
     <body>
         <canvas width="800" height="600"></canvas>
     </body>
 </html>
+
