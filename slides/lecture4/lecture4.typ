@@ -396,11 +396,176 @@ Try your best to remember the steps. Quiz yourself and see if you can do it from
 
 #focus-slide("Questions?")
 
-== Let's learn the pipeline now
+== Let's learn the pipeline properly now
 
 There are two things that are missing from our understanding so far:
 + The pipeline has a lot of implicit stages. How are those coordinates interpreted? How does the system know how to fill in the triangle?
 + We do not want to hardcode the coordinates of the triangle in the shader. One shader is often useful for many objects. The memory available inside the shader is quite limited. We want to store the triangle in a buffer instead.
+
+Let's start by better understanding the pipeline
+
+== Understanding the sequence of operations
+
+We submitted a command buffer to the GPU. One command was `draw`.
+
+The GPU will invoke the vertex shader once for every drawn vertex. Our command was `draw(3)`, so the vertex shader will be called 3 times. 
+
+Each of these calls is totally independent, so the GPU is free to run each one on its own thread. 
+
+Most GPUs have hundreds or even thousands of independent computation units (e.g., CUDA cores or stream processors), so even if we draw 50 vertices there's a decent chance their vertex shaders would all run at the same time.
+
+== The pipeline: vertex shader input
+
+Each vertex has a unique number, and that number is passed to its shader as an argument. We could have set up our pipeline to pass more data besides that number (and we will do so momentarilly).
+
+The vertex shader has one purpose: to return a _new_ vertex.
+
+Why? Because the raw vertices usually came out of a 3D modelling program. They aren't facing the right way with respect to the camera. They aren't at the correct position in the world. They might be #link("https://en.wikipedia.org/wiki/T-pose", "T-posed") instead of animated.
+
+== The pipeline: vertex shader output
+
+So the vertex shader runs and applies all those transformations.
+
+It then returns a vertex that is in *clip coordinates*.
+
+The 3D system will draw any vertex that is inside the clipping volume, where x and y are both in the inclusive range [-w, w], and z is in the inclusive range [0, w].
+
+We will explain w later, but for now, w will be 1, so this volume is usually [-1, 1] by [-1, 1] by [0, 1].
+
+== Primitive assembly
+
+After running the vertex shader independently on each vertex, the next stage in the pipeline is *primitive assembly*
+
+This means that 3 vertices are linked together into triangles.
+
+This happens based on the order of vertices. By default, every group of three vertices is linked into one triangle. (there are other topologies)
+
+We drew 3 vertices, so we produced one triangle. If we had drawn 6, we would have produced 2.
+
+You can't have part of a triangle, so if we had drawn 2, nothing would be shown, and drawing 5 would result in 3.
+
+== Clipping 
+
+The next stage is clipping, which means ensuring that every visible triangle is entirely in view. The purpose of this is to make it so that we don't have to worry about pixels going off screen (and having to check every single pixel would be slow).
+- If an the triangle is entirely out of view, it is removed from further processing. This can dramatically speed things up.
+- If the entire triangle is in view, it is not clipped at all.
+- If the triangle is partially out of view, it is modified or broken up into multiple in-view triangles.
+
+But what is _in view_? Answer: whatever is in the clipping volume.
+
+== The clipping volume
+
+#let fig = figure(
+  alt: "A simple rendering of the clipping volume.",
+  canvas(length: 8cm, {
+  import draw: *
+
+  let nbl = (-1, -1, 0)
+  let ntl = (-1,  1, 0)
+  let ntr = ( 1,  1, 0)
+  let nbr = ( 1, -1, 0)
+  let fbl = (-1, -1, 1)
+  let ftl = (-1,  1, 1)
+  let ftr = ( 1,  1, 1)
+  let fbr = ( 1, -1, 1)
+
+  let t1 = (-.6, .3, 0.5)
+  let t2 = (.5, -.45, 0.5)
+  let t3 = (.9, .45, 0.5)
+  
+  perspective({
+    set-viewport((-1, -1, 0), (1, 1, 1), bounds: (4, 4, -2))
+    line(nbl, ntl, ntr, nbr, close: true)
+    line(fbl, ftl, ftr, fbr, close: true, fill: rgb(70%, 80%, 90%, 25%))
+    line(nbl, fbl)
+    line(ntl, ftl)
+    line(ntr, ftr)
+    line(nbr, fbr)
+    line(t1, t2, t3, close: true, fill: green)
+    content((0, -1.2, 0), [x])
+    content((-1.2, 0, 0), [y])
+    content((-1.6, 0.65, 1), [z])
+  })
+  })
+)
+
+#left-right(fig, [
+  #set align(left)
+  This is what the clipping volume looks like.
+
+  The GPU only draws whatever is inside here.
+
+  The vertices inside the volume are _after_ running the vertex shader on the input. The vertex shader is supposed to produce vertices relative to this volume.
+])
+
+== The pipeline: Clipping
+
+#let fig = figure(
+  alt: "A triangle has two vertices outside of the clipping volume, so it is shrunk until the external portion is no longer present, and the whole triangle is in-bounds.",
+  canvas(length: 7cm, {
+  import draw: *
+
+  let nbl = (-1, -1, 0)
+  let ntl = (-1,  1, 0)
+  let ntr = ( 1,  1, 0)
+  let nbr = ( 1, -1, 0)
+  let fbl = (-1, -1, 1)
+  let ftl = (-1,  1, 1)
+  let ftr = ( 1,  1, 1)
+  let fbr = ( 1, -1, 1)
+
+  let t1 = (-.6, .3, 0.5)
+  let t2 = (2.2, -.45, 0.5)
+  let t2c = (1.0, -.14, 0.5)
+  let t3 = (2.2, .45, 0.5)
+  let t3c = (1.0, .39, 0.5)
+
+  perspective({
+    set-viewport((-1, -1, 0), (1, 1, 1), bounds: (4, 4, -2))
+    line(nbl, ntl, ntr, nbr, close: true)
+    line(fbl, ftl, ftr, fbr, close: true, fill: rgb(70%, 80%, 90%, 25%))
+    line(nbl, fbl)
+    line(ntl, ftl)
+    line(ntr, ftr)
+    line(nbr, fbr)
+    line(t1, t2c, t3c, close: true, fill: green)
+    line(t2c, t3c, t3, t2, close: true, fill: rgb(25%, 25%, 25%, 25%))
+
+    content((0, -1.2, 0), [x])
+    content((-1.2, 0, 0), [y])
+    content((-1.6, 0.65, 1), [z])
+  })
+  })
+)
+
+#left-right(fig, )[
+  If the vertex shader returns a triangle with 1 or more points outside, those points get clipped (shown with 2 points outside).
+
+  In some cases, more triangles need to be created. The actual algorithm is up to the vendor.#footnote[I won't go into detail how this happens because the GPU does it entirely for us and nearly transparently. Basically, it's finding the edges that intersect the 6 planes of the clipping volume, cutting them to fit, and making new sets of triangles out of the new vertices.]
+]
+
+== The w-divide (aka "perspective divide")
+
+What's the deal with that w-coordinate? 
+
+In 3D graphics, we use a 4D coordinate system called homogenous coordinates. The reasons for this will be learned later in the course.
+
+For now, think of "w" as being a "distance ratio". If w = 4 for a point, it means that it is "four times as far away" as for a point with w = 1.
+
+Try experimenting with different w values for your triangle. If you set one vertex to have a w of 2, it will "push it back".
+
+To achieve this effect, the GPU _divides_ x, y, and z by w. 
+
+== The w-divide (2)
+
+The result of the w divide is that for all visible points, x and y will be in the range [-1, 1], z will be in the range [0, 1], and w won't be needed anymore.
+
+This means, if you set w to 2 for all the points of a triangle, the result will be half the x and y, which will have the effect of making it twice as small.
+
+z also gets shrunk, but you won't see the result on screen. You may have noticed that as long as z is in the range [0, w], it seems to have no effect on the triangle. The actual "perspective effect" does not happen automatically.
+
+== The viewport transformation
+
 
 == Fragment Shaders
 
