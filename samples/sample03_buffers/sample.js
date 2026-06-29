@@ -1,6 +1,6 @@
 const vertsInBufferCode = /*wgsl*/ `
-    @vertex fn vs(@location(0) vertPos: vec4f) -> @builtin(position) vec4f {
-        return vertPos;
+    @vertex fn vs(@location(0) vertPos: vec3f) -> @builtin(position) vec4f {
+        return vec4f(vertPos, 1.0); // expand the 3D coord to 4D
     }
 
     @fragment fn fs() -> @location(0) vec4f {
