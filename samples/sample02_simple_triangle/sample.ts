@@ -32,11 +32,8 @@ export function renderSample02_vertsInShader(
         fragment: {
             module: shaderMod,
             targets: [
-                {
-                    format: context.getCurrentTexture().format,
-                }
+                {format: context.getCurrentTexture().format,}
             ],
-
         },
     });
 
@@ -70,6 +67,25 @@ const vertsInBufferCode = /*wgsl*/`
         return vec4f(0.4, 0.8, 0.3, 1.0);
     }
 `;
+
+export function createFloat32Buffer(
+    device: GPUDevice,
+    data: Float32Array,
+    usage: number,
+    label: string|undefined = undefined
+): GPUBuffer {
+    const buf = device.createBuffer({
+        size: data.byteLength,
+        usage,
+        mappedAtCreation: true,
+    });
+    if (label) buf.label = label;
+
+    (new Float32Array(buf.getMappedRange())).set(data);
+    buf.unmap();
+
+    return buf;
+}
 
 export function renderSample02_vertsInBuffer(
     device: GPUDevice,
