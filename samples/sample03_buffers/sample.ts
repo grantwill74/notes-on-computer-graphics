@@ -57,18 +57,14 @@ export function renderSample03_vertsInBuffer(
         layout: 'auto',
         vertex: {
             module: shaderMod,
-            buffers: [
-                {
-                    arrayStride: stride,
-                    attributes: [
-                        {
-                            format: "float32x3",
-                            offset: 0,
-                            shaderLocation: 0,
-                        }
-                    ]
-                }
-            ]
+            buffers: [{
+                arrayStride: stride,
+                attributes: [{
+                        format: "float32x3",
+                        offset: 0,
+                        shaderLocation: 0,
+                }]
+            }]
         },
         fragment: {
             module: shaderMod,
