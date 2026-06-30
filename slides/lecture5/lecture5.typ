@@ -162,4 +162,182 @@ We create a `Float32Array` that points into that range, and then copy the floats
 
 == Using the mapped buffer example
 
+```ts
+// this guy is now pointing at some memory that will 
+// be copied into the GPU and overwrite the buffer.
+const mapped = new Float32Array(vertBuf.getMappedRange());
+mapped.set(vertData); // .set(...) performs this copy
+```
+
+Since we're only using the second `Float32Array` once to copy some data over, we can combine creating it and setting its data like this:
+
+```ts
+(new Float32Array(vertBuf.getMappedRange())).set(vertData);
+```
+
+When done, it's very important to unmap it:
+```ts
+vertBuf.unmap();
+```
+
+#focus-slide("Questions?")
+
+Now we have a buffer, but our pipeline needs to know that a buffer will exist when we draw next time. The changed part is the `vertex` field:
+
+#[
+  #set text(20pt)
+```ts
+vertex: {
+  module: shaderMod,
+  buffers: [{
+      attributes: [{
+          format: "float32x3",
+          offset: 0,
+          shaderLocation: 0,
+      }],
+      arrayStride: 3 * 4,
+  }]
+},
+```
+]
+
+== Explaining the fields
+
+Every piece of information we associate with a vertex in the vertex data is called a *vertex attribute*.
+
+Right now we have 1 attribute: position.
+
+Soon we will have a 2nd one: color
+
+Each attribute has a location. We coded our shader to assume that `@location(0)` was the vertex's position, so we use `shaderLocation: 0`
+
+The format is the datatype. Here, `float32x3` means a vector of 3 floats.
+
+Offset is the number of bytes into the buffer of the first vector of that attribute. Ours has no data before it, so use `0`.
+
+== What is "stride"?
+
+Stride is a bit confusing.
+
+It's the number of bytes _between_ two instances of the same attribute.
+
+So its the number of bytes between each `position`.
+
+Since each position is 3 floats, and each float is 4 bytes, there are 12 bytes between each position.
+
+The GPU will use the offset to find the attribute of the first vertex, then multiply the stride by the vertex index. This regular storage layout allows the GPU to process vertex it needs at any time in constant time without having to search through a linked list or something.
+
+== Using the buffer?
+
+So, we made a buffer and loaded it with data. Our pipeline is expecting there to be a buffer. How do we actually use it?
+
+We have to *bind* the buffer. Meaning, we tell WebGPU that there is a buffer at buffer location `0`. 
+
+Why zero? Because in our pipeline description, we only have one buffer, and it's the zeroth element in our array. We could have many buffers, one for each attribute, and we would then need to bind them all.
+
+#[
+  #set text(size: 16pt)
+```ts
+  // from the pipeline description
+  buffers: [{ // <- notice that `buffers` is an array of objects.
+    // ... there could have been more than one buffer.
+  }]
+```
+]
+
+== Using the buffer (2)
+
+But for us, we told our pipeline to expect 1 buffer with the 1 attribute:
+```ts
+pass.setVertexBuffer(0, vertBuf);
+```
+
+We're saying: "set the zeroth buffer to use `vertBuf`"
+
+Note, we use the buffer on the GPU that we created with `device.createBuffer(...)`. We don't use a `Float32Array`.
+
+The buffer object is basically a pointer or handle to some GPU memory.
+
+Then we draw like normal:
+```ts
+pass.draw(3); // everything else is the same
+```
+
+== What do you see?
+
+#image("screens/triangle.png", alt: "a screenshot of a green triangle.", height: 60%)
+
+Hopefully the same thing. If not, let's debug!
+
+#focus-slide("Questions?")
+
+== Adding colors 
+
+Now it's time to understand colors better.
+
+What is there to understand? Quite a lot actually.
+
+Did you know that most people can see a lot more colors than your screen can show?
+
+Or that some screens actually have wider ranges of colors they can display, and that you can actually choose which color profile you use when creating your canvas context?
+
+Read on!
+
+== Why do we use RGB?
+
+We've been using RGB (red/green/blue) to describe colors.
+
+Why don't we use some other colors as our basis, like "gray, periwinkle, burnt-umber" or something?
+
+[What's so special about RGB?]
+
+
+== Light
+
+It has to do with how our eye responds to light.
+
+What even is light?
+
+It's electromagnetic radiation in a particular range of wavelengths that a typical eye can respond to.
+
+The kind of light we're interested in in this course is the kind most humans perceive. 
+
+== How eyes typically respond to light
+
+#place(bottom + center,
+figure(
+  numbering: none,
+  caption: text(size: 16pt, [#link("https://en.wikipedia.org/wiki/File:Cone-fundamentals-with-srgb-spectrum.svg", [Image source]), generated from cone sensitivity data from #link("http://cvrl.ucl.ac.uk/cones.htm", "here").]),
+image("screens/cone_response.png", height: 75%)
+)
+)
+
+== How eyes typically respond to light (2)
+
+A typical human eye has many instances of three types of color cones spread throughout the surface of the retina. 
+
+The three types of cones are named after the wavelength of light they react most strongly to. *S* cones react to short wavelengths (blues and purples), *M* cones react mainly to green, and *L* cones mainly to yellow.
+
+It's fuzzy though. You might have thought that one kind of cone _only_ reacted to red, and another _only_ to green. They bleed into each other, and not everyone's eyes react the same.
+
+== How eyes typically respond to light (3)
+
+Some sighted people do not experience as much response from one or more of the kinds of cones.
+
+These condition is called _colorblindness_. When making graphical software, be aware that some people experience colors differently. #footnote[I've tried to ensure this course and the assignments are colorblind accessible. If you have colorblindness and believe it will hinder you from completing an assignment, please let me and the access center know so that we can modify the course.]
+
+Rarely, some people may possess 4 cones. They are called #link("https://en.wikipedia.org/wiki/Tetrachromacy", "Tetrachromats"), althought this seems to have only been demonstrated once under scientific conditions. The fourth cone's response function was between the M and L cones.
+
+== This raises a question
+
+Here's the first question that might pop up after looking at that graph:
+
+"Why isn't color a one-dimensional value"?
+
+After all, if the color is one dimensional, and our cones react to different wavelengths, why not just store the color itself? Why store how much each wavelength is present?
+
+#image("screens/spectrum.webp", alt: "the color spectrum")
+
+== Because lights can be added together
+
 
