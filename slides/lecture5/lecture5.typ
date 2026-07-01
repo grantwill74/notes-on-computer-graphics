@@ -587,7 +587,7 @@ Yellow is a strange choice though, isn't it? It barely moves the gamut, but at g
 
 Also, movies would have to be encoded with yellow pixel data, and none were. So what was it doing?
 
-According to #link("https://web.archive.org/web/20231030141247/http://mmv.eecs.qmul.ac.uk/Users/tb300/pub/Appendix_Quattron.pdf", "this analysis") from Queen Mary University of London, there is a yellow sub-pixel, but it just lets in amount of red and green light that could have been compensated for by making the red and green subpixels bigger. There isn't a separate monochrome yellow backlight. 
+According to #link("https://web.archive.org/web/20231030141247/http://mmv.eecs.qmul.ac.uk/Users/tb300/pub/Appendix_Quattron.pdf", "this analysis") from Queen Mary University of London, there is a yellow sub-pixel, but it just lets in an amount of red and green light that could have been compensated for by making the red and green subpixels bigger. There isn't a separate monochrome yellow backlight. 
 
 So it seems like a waste of money...
 
