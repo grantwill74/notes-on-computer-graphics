@@ -729,4 +729,8 @@ We're going to actually use what we've learned to blend some colors. And do it i
 
 We're going to add colors to our buffers.
 
+We're going to make a multi-colored triangle with smooth blending.
+
 We're going to learn about interpolation and "stride".
+
+#focus-slide("Questions?")
