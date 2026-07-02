@@ -74,4 +74,93 @@ Then we need to create a new *attribute* that will store color.
 
 Attributes are pieces of information we want to associate with every vertex in a single draw call (typically one model).
 
-Previously our only attribute was `position`, and it was at `@location(0)`.
+Previously our only attribute was `position`, and it was at `@location(0)`
+```wgsl
+@vertex fn vs(@location(0) position: vec3f) 
+  -> @builtin(position) vec4f { ... }
+```
+
+The vertex shader is required to return a 4 element vector at `@builtin(position)`, so we just copied the input position over.
+
+== Attributes (2)
+
+So, if that's how we pull the position attribute, how do we add color?
+
+Answer: add another parameter:
+```wgsl
+@vertex fn vs(
+  @location(0) position: vec3f, 
+  @location(1) color: vec3f    
+) -> @builtin(position) vec4f { ... }
+```
+
+Now, our shader is expecting two piece of information (two "attributes") for every vertex: a position and a color. In this case, both are `vec3f`s, but that isn't required.
+
+But something's missing. What should the vertex shader do with it?
+
+== Interstage variables
+
+Variables with `@location` or `@builtin` tags are called *interstage variables*.
+
+They are called that because they contain information that gets passed between stages of the pipeline.
+
+If the vertex shader does not return a variable, then the fragment shader will not be able to read it. 
+
+Therefore, the vertex shader needs to return both the position and the color. Then the fragment shader can use the color to compute the color of the pixel.
+
+== Structs in WGSL
+
+WGSL doesn't support multiple return values. Instead, we use a `struct`.
+
+#[
+#set text(size: 20pt)
+```wgsl
+struct VertexOutput {
+  @builtin(position) pos: vec4f;
+  @location(0) color: vec3f;
+}; // semicolon optional. Most sources I've seen include it.
+```
+]
+
+Now we can pass the position and color through the vertex shader:
+#[
+  #set text(size: 20pt)
+```wgsl
+@vertex fn vs(@location(0) pos: vec3f, @location(1) color: vec3f) 
+-> VertexOutput {
+    var vo: VertexOutput;
+    vo.pos = vec4f(pos, 1);
+    vo.color = color
+    return vo;
+}
+```
+]
+
+== `var` in WGSL
+
+This is the first time we've seen `var` in WGSL
+
+WGSL uses `const` for compile-time constants, `let` for readonly variables, and `var` for fully-mutable variables. 
+
+In this case, we want to write into our vertex output before returning it, so we need to use `var`.
+
+This is a common pattern in WGSL vertex shaders: instantiate a `var` for an output struct, and then return it.
+
+== The fragment shader
+
+The fragment shader takes the struct now:
+
+```wgsl
+@fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
+    return vec4f(vo.color, 1.0); // convert vec3 to vec4
+}
+```
+
+Note: `@location`s and `@builtin`s can be attached to struct fields. These are both examples of *io-attributes*. These attributes are only meaningful if the struct is an argument or return value of a shader.
+
+If it isn't, the locations are ignored. 
+
+By the way: this fragment shader has a bug. We'll see why soon.
+
+#focus-slide("Questions?")
+
