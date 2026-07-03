@@ -344,7 +344,7 @@ The next slide is what you should see if you've been following along...
 #figure(
   numbering: none,
   caption: "This is the triangle you should see if you followed the slides, but something is wrong with it...",
-  image("screens/wrong_triangle.png", height: 70%)
+  image("screens/wrong_triangle.png", height: 70%, alt: "screenshot of the generated triangle")
   )
 
 == Two questions 
@@ -389,6 +389,7 @@ Barycentric coordinates are a way to refer to a point on a triangle in terms of 
 #figure(
   numbering: none,
   caption: "The barycentric coordinates of some points on a triangle.",
+  alt: "a diagram showing the barycentric coordinates of 4 points. Two of the points are at vertices, and they have coordinates of (1, 0, 0) and (0, 1, 0). A point between the two has coordinates (0.5, 0.5, 0). The point in the center of the triangle has point (0.33, 0.33, 0.33)",
   canvas(length: 5cm, {
     import draw: *;
 
@@ -442,6 +443,8 @@ For the point halfway between the first two vertices, there is a 0.5 in the rela
 The point in the center of the triangle has one-third for all three coordinates.
 
 If one of the coordinates is 0, you know the point has to be on an edge (because it's as far as possible from at least one of the points)
+
+If the point is on the triangle, they will sum to 1 (ignoring rounding error).
 ]
 
 == Calculating barycentric coordinates
@@ -558,3 +561,175 @@ These coordinates are essentially multiplied by the attributes _returned_ by the
     )
   ]
 )
+
+== What's going on?
+
+Time to solve the mystery: the problem is that our fragment shader is not gamma-correct.
+
+The canvas context in WebGPU does not do extra gamma correction for you. It assumes that you will output gamma corrected pixel colors.
+
+One reason for this: almost all images are stored in gamma-encoded values. #footnote[the reason for this is that to store the raw linear light values would waste lots of bits on small differences in brightness, but use very few bits in the extreme ramp from 0 to 20% brightness. Remember that we perceive a small increase in linear brightness as a large increase in perceived brightness. So it makes sense to break that range down into smaller regions of color.] So if you want to just draw an image or show a movie, you do not want it to do gamma correction again and make it too dark.
+
+== What's going on?
+
+However, the pixel values have not gone through any kind of gamma correction filter. 
+
+If we want to see every color as it appears on the gamut, the raw, linear light values need to be interpolated evenly.
+
+That is happening: the interpolation in the graphics pipeline is interpolating the brightnesses as if they were linear brightnesses, but we're never applying the gamma encoding to the results.
+
+Therefore, it looks too dark. The system is assuming its drawing gamma corrected perceived color, but it's drawing linear color instead. Linear color has smaller values. (e.g., 50% perceived = 20% linear)
+
+== How do we fix it?
+
+#[
+  #set text(23pt)
+We have to add gamma correction in our fragment shader output.
+
+Recall that the simple gamma equation is:\
+#math.equation($"Brightness"_"in" = ("Brightness"_"out")^gamma$, alt:"input brightness equals output brightness to the power of gamma")
+
+We know what the input brightness is. We need to solve for output:\
+#math.equation($("Brightness"_"in")^(gamma ^-1) = "Brightness"_"out"$, alt: "input brightness to the power of quantity gamma to the negative one equals output brightness")
+
+And we typically choose 2.2 for gamma. So, inverse gamma is  about 0.45.
+
+So we need to raise our color to that power to adjust it. This will do nothing to maximum bright or dark colors, but mid range values will be larger.
+]
+
+#focus-slide("Questions?")
+
+== A fixed fragment shader
+
+#[
+#set text(23pt)
+```wgsl
+const gamma: f32 = 2.2;
+const inv_gamma: f32 = 1.0 / gamma;
+
+@fragment fn fs(vo: VertexOutput)
+-> @location(0) vec4f
+{
+    let perceptual_color = 
+      pow(vo.linear_color, vec3f(inv_gamma));
+    return vec4f(perceptual_color, 1.0);
+} // I renamed `color` in the struct to `linear_color`
+```
+
+Notice that the `pow` function takes vectors, too. We turn `inv_gamma` into a vector, which just repeats it: `<0.45, 0.45, 0.45>`. The result is each channel being raised to that power.
+]
+
+== The correct triangle
+
+#figure(
+  image("screens/right_triangle.png", height: 80%, alt: "screenshot of the gamma-corrected triangle."),
+  numbering: none,
+  caption: [Now we're seeing all the colors. Even cyan!]
+)
+
+== One last adjustment 
+
+In our vertex buffer, we're using pure red, pure green, and pure blue, so there is no difference between perceived brightness and linear brightness. 100% to any power is 100%.
+
+However, if this is a value a human will adjust, we probably want it to be in perceived brightness rather than linear brightness.
+
+This is optional, but it's much easier for humans to intuit perceived color.
+
+Right now, if we make our vertices 50% red, 50% green, and 50% blue, they will be too bright: they won't be half black, they will be more like 80% bright.
+
+== Triangle with linear inputs
+
+I set the brightness to 50%. It doesn't look like it. Looks like 75%...
+
+#stack(
+  dir: ltr,
+  spacing: 5%,
+  figure(
+    numbering: none,
+    caption: "Fullbright triangle",
+    image("screens/right_triangle.png", width: 45%, alt: "triangle screenshot")
+  ),
+  figure(
+    numbering: none,
+    caption: "50% linear brightness",
+    image("screens/linear50_triangle.png", width: 45%, alt: "dimmer triangle screenshot")
+  ),
+)
+
+== Gamma-corrected inputs 
+
+Color is additive in linear space. If we know that one light has brightness X and the other has brightness Y, if we shine them together the combined brightness is X + Y.
+
+Color is *not* additive in gamma space. _Perceptual_ brightness is not additive, and we should not linearly interpolate over it.
+
+The automatic interpolation in the pipeline doesn't know anything about gamma correction, it's just interpolating raw vectors based on barycentric coordinates.
+
+== Gamma-corrected inputs 
+
+If we want to interpret our triangle vertices as perceptual brightnesses, we need to first transform them to linear brightness in the vertex shader.
+
+Then, the barycentric interpolation will be correct.
+
+Then, the fragment shader will gamma-encode the linear brightnesses correcly.
+
+== A correct vertex shader
+
+```wgsl
+@vertex fn vs(
+    @location(0) pos: vec2f,
+    @location(1) color: vec3f,
+) -> VertexOutput 
+{
+    var vo: VertexOutput;
+    vo.pos = vec4f(pos, 0, 1);
+    vo.linear_color = pow(color, vec3f(gamma)); 
+    return vo;
+}
+```
+
+== The final result
+
+#stack(
+  dir: ltr,
+  spacing: 5%,
+  figure(
+    numbering: none,
+    caption: "Fullbright triangle",
+    image("screens/right_triangle.png", width: 45%, alt: "triangle screenshot")
+  ),
+  figure(
+    numbering: none,
+    caption: "50% perceptual brightness",
+    image("screens/perceptual50_triangle.png", width: 45%, alt: "dimmer triangle screenshot (dimmer than before we were encoding the input as perceived brightness)")
+  ),
+)
+
+#focus-slide("Questions?")
+
+== Summary 
+
+Today, we learned a lot:
+- How to add multiple attributes
+- How to interleave them
+- How attributes are interpolated between shader stages
+- How barycentric coordinates work
+- Some more WGSL (the `pow` function, and how it can work piecewise on vectors)
+- How gamma correction applies to color blending
+
+== Comprehension checks
+
+- Can you guess how to use 2 buffers instead of one? One buffer would have position and one would have colors. If it's not clear, I recommend trying it out. Notice that the "buffers" field of the pipeline description object takes an array.
+- What do you think would happen if you used a smaller gamma value, like 1.5? What about a bigger one, like 3? Come up with a hypothesis before testing it!
+- Can you modify the vertex buffer so that it stores 4 elements for the position and 4 for the color? How would you change the buffer data and the format?
+
+== Recommended reading 
+
+If you're still struggling to understand gamma correction, make sure to read these recommended sources: 
+- #link("https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/#a-short-quiz", [What every coder should know about gamma]) (and take the quiz)
+- #link("https://www.ericbrasseur.org/gamma.html?i=1", [Gamma Error in Picture Scaling]) this one shows how common the mistakes are.
+
+The book covers today's lesson in chapters #link("https://shi-yan.github.io/webgpuunleashed/Basics/using_different_vertex_colors.html", "1.04") and #link("https://shi-yan.github.io/webgpuunleashed/Basics/drawing_a_colored_triangle_with_a_single_buffer.html", "1.05"). It does not include gamma correction, which may be an oversight, so I #link("https://github.com/shi-yan/webgpuunleashed/discussions/13", "opened an issue").
+
+Next time we'll talk about textures, so I recommend reading up to that point in the book. Textures are usually already gamma corrected.
+
+#focus-slide("Questions?")
