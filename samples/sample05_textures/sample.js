@@ -1,7 +1,4 @@
 const shaderCode = /*wgsl*/ `
-    const gamma: f32 = 2.2;
-    const inv_gamma: f32 = 1.0 / gamma;
-
     @group(0) @binding(0)
     var tex: texture_2d<f32>;
 
@@ -27,8 +24,7 @@ const shaderCode = /*wgsl*/ `
     }
 
     @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
-        let linear_tex_sample = textureSample(tex, samp, vo.uvs);
-        return pow(linear_tex_sample, vec4f(inv_gamma));
+        return textureSample(tex, samp, vo.uvs);   
     }
 `;
 export function genXorTexture(device, width = 256, height = 256) {
@@ -112,7 +108,8 @@ export function initSample05Pipeline(device, context) {
         fragment: {
             module: shaderMod,
             targets: [
-                { format: context.getCurrentTexture().format }
+                { format: (context.getCurrentTexture().format + '-srgb')
+                }
             ]
         }
     });
@@ -185,7 +182,9 @@ export function renderSample05(device, context, pipeline, vertBuf, texBg, offset
         colorAttachments: [{
                 loadOp: 'clear',
                 storeOp: 'store',
-                view: context.getCurrentTexture(),
+                view: context.getCurrentTexture().createView({
+                    format: (context.getCurrentTexture().format + '-srgb')
+                }),
                 clearValue: { r: 0.7, g: 0.8, b: 0.9, a: 1 },
             }]
     });
@@ -204,7 +203,7 @@ export async function loadTexture(device, url) {
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
     const tex = device.createTexture({
-        format: "rgba8unorm",
+        format: "rgba8unorm-srgb",
         size: { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 },
         usage: GPUTextureUsage.RENDER_ATTACHMENT |
             GPUTextureUsage.COPY_DST |

@@ -49,6 +49,9 @@ export async function initWebGpu():
     context.configure({
         device: device,
         format: gpu.getPreferredCanvasFormat(),
+        viewFormats: [
+            (gpu.getPreferredCanvasFormat() as string + '-srgb') as GPUTextureFormat
+        ],
         colorSpace: "srgb",
         alphaMode: "opaque",
     });

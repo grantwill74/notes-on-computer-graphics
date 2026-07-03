@@ -19,8 +19,8 @@ const shaderCode = /*wgsl*/ `
     }
 
     @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
-        let perceptual_color = pow(vo.linear_color, vec3f(inv_gamma));
-        return vec4f(perceptual_color, 1.0);
+        // let perceptual_color = pow(vo.linear_color, vec3f(inv_gamma));
+        return vec4f(vo.linear_color, 1.0);
     }
 `;
 const stride = 2 * 4 + 3 * 4;
@@ -65,7 +65,7 @@ export function initSample04Pipeline(device, context) {
         fragment: {
             module: shaderMod,
             targets: [{
-                    format: context.getCurrentTexture().format,
+                    format: (context.getCurrentTexture().format + '-srgb'),
                 }]
         },
     });
@@ -77,7 +77,8 @@ export function renderSample04(device, context, pipeline, vertBuf) {
         colorAttachments: [{
                 loadOp: 'clear',
                 storeOp: 'store',
-                view: context.getCurrentTexture(),
+                view: context.getCurrentTexture().createView({ format: (context.getCurrentTexture().format + '-srgb')
+                }),
                 clearValue: { r: .7, g: .8, b: .9, a: 1 },
             }]
     });
