@@ -26,9 +26,9 @@ const shaderCode = /*wgsl*/ `
 const stride = 2 * 4 + 3 * 4;
 export function initSample04Vertices(device) {
     const vertData = new Float32Array([
-        -.75, -.75, 0.5, 0, 0,
-        .75, -.75, 0, 0.5, 0,
-        0, .75, 0, 0, 0.5,
+        -.75, -.75, 1, 0, 0,
+        .75, -.75, 0, 1, 0,
+        0, .75, 0, 0, 1,
     ]);
     const buf = device.createBuffer({
         size: vertData.byteLength,
