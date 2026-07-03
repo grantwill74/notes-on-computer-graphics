@@ -8,6 +8,9 @@ const shaderCode = /*wgsl*/`
     @group(0) @binding(1)
     var samp: sampler;
 
+    @group(1) @binding(0)
+    var<uniform> offset: vec2f;
+
     struct VertexOutput {
         @builtin(position) pos: vec4f,
         @location(0) uvs: vec2f,
@@ -18,7 +21,7 @@ const shaderCode = /*wgsl*/`
         @location(1) uvs: vec2f,
     ) -> VertexOutput {
         var vo: VertexOutput;
-        vo.pos = vec4f(position, 0, 1);
+        vo.pos = vec4f(position + offset, 0, 1);
         vo.uvs = uvs;
         return vo;
     }
@@ -84,8 +87,38 @@ export function initSample05Pipeline(
 {
     const shaderMod = device.createShaderModule({code: shaderCode});
 
+    const bindGroup0layout = device.createBindGroupLayout({
+        entries: [
+            { // tex
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {}
+            },
+            { // samp
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: {}
+            }
+        ]
+    });
+
+    const bindGroup1layout = device.createBindGroupLayout({
+        entries: [
+            { // offset
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX,
+                buffer: {}
+            }
+        ]
+    });
+
     const pipeline = device.createRenderPipeline({
-        layout: 'auto',
+        layout: device.createPipelineLayout({
+            bindGroupLayouts: [
+                bindGroup0layout,
+                bindGroup1layout,
+            ]
+        }),
         vertex: {
             module: shaderMod,
             buffers: [{
@@ -147,29 +180,13 @@ export function createTextureAndSamplerBindGroup(
 ): GPUBindGroup
 {
     const bgLayout = pipeline.getBindGroupLayout(0);
-    /*
-    const bgLayout = device.createBindGroupLayout({
-        entries: [
-            { // texture
-                binding: 0,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {}
-            },
-            { // sampler
-                binding: 1,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {}
-            },
-        ]
-    });
-    */
-
+    
     const bg = device.createBindGroup({
         layout: bgLayout,
         entries: [
             { // texture 
                 binding: 0,
-                resource: tex,
+                resource: tex.createView(),
             },
             { // sampler
                 binding: 1,
@@ -181,15 +198,47 @@ export function createTextureAndSamplerBindGroup(
     return bg;
 }
 
+export function initSample05OffsetBg(
+    device: GPUDevice,
+    pipeline: GPURenderPipeline,
+    offset: [number, number],
+): GPUBindGroup
+{
+    // note, we could also take in the buffer as a parameter.
+    // this would allow us to overwrite the data in the buffer without making
+    // a new bind group. this is a good idea if it's expected to change every
+    // frame.
+    const [offx, offy] = offset;
+    const bufData = new Float32Array([offx, offy]);
+    const buf = device.createBuffer({
+        size: bufData.byteLength,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+        label: "uniform offset buffer",
+        mappedAtCreation: true
+    });
+    (new Float32Array(buf.getMappedRange())).set(bufData);
+    buf.unmap();
+
+    const bg = device.createBindGroup({
+        layout: pipeline.getBindGroupLayout(1),
+        entries: [{
+            binding: 0,
+            resource: buf,
+        }]
+    });
+
+    return bg;
+}
+
 export function renderSample05(
     device: GPUDevice,
     context: GPUCanvasContext,
     pipeline: GPURenderPipeline,
     vertBuf: GPUBuffer,
-    bg: GPUBindGroup,
+    texBg: GPUBindGroup,
+    offsetBg: GPUBindGroup,
 ): void
 {
-    
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
         colorAttachments: [{
@@ -202,7 +251,8 @@ export function renderSample05(
     pass.setViewport(0, 0, context.canvas.width, context.canvas.height, 0, 1);
     pass.setPipeline(pipeline);
     pass.setVertexBuffer(0, vertBuf);
-    pass.setBindGroup(0, bg);
+    pass.setBindGroup(0, texBg);
+    pass.setBindGroup(1, offsetBg);
     pass.draw(6);
     pass.end();
 
@@ -210,16 +260,34 @@ export function renderSample05(
     device.queue.submit([commands]);
 }
 
-/*
+
 export async function loadTexture(
     device: GPUDevice,
     url: URL,
 ): Promise<GPUTexture>
 {
-
+    const response = await fetch(url);    
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    
     const tex = device.createTexture({
-
+        format: "rgba8unorm",
+        size: {width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1},
+        usage: 
+            GPUTextureUsage.RENDER_ATTACHMENT |
+            GPUTextureUsage.COPY_DST |
+            GPUTextureUsage.TEXTURE_BINDING,
+        dimension: '2d',
+        label: url.toString()
     });
+
+    device.queue.copyExternalImageToTexture(
+        {source: bitmap},
+        {texture: tex, colorSpace: 'srgb'},
+        {width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1}
+    );
+
+    return tex
 }
-*/
+
 

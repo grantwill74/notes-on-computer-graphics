@@ -10,6 +10,8 @@
                 initSample05Verts,
                 initSample05Pipeline, 
                 renderSample05,
+                loadTexture,
+                initSample05OffsetBg,
             } from
                 "./sample05_textures/sample.js"
 
@@ -17,15 +19,20 @@
 
             const buf = initSample05Verts(device);
             const pipeline = initSample05Pipeline(device, context);
-            const tex = genXorTexture(device, 256, 256);
+            //const tex = genXorTexture(device, 256, 256);
+            
+            const tex = await loadTexture(
+                device, new URL("y2k_texture_pack_x30/128/y2k_stone.png", import.meta.url));
+            
             const samp = device.createSampler({
                 addressModeU: "repeat",
                 addressModeV: "repeat",
-                magFilter: "nearest",
-                minFilter: "nearest",
+                magFilter: "linear",
+                minFilter: "linear",
             });
-            const bg = createTextureAndSamplerBindGroup(device, pipeline, tex, samp);
-            renderSample05(device, context, pipeline, buf, bg);
+            const texBg = createTextureAndSamplerBindGroup(device, pipeline, tex, samp);
+            const offBg = initSample05OffsetBg(device, pipeline, [0.2, -0.2]);
+            renderSample05(device, context, pipeline, buf, texBg, offBg);
         </script>
     </head>
     <body>
