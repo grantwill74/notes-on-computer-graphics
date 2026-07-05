@@ -193,7 +193,7 @@ export function renderSample05(device, context, pipeline, vertBuf, texBg, offset
     pass.setVertexBuffer(0, vertBuf);
     pass.setBindGroup(0, texBg);
     pass.setBindGroup(1, offsetBg);
-    pass.draw(6);
+    pass.draw(3);
     pass.end();
     const commands = encoder.finish();
     device.queue.submit([commands]);
@@ -209,9 +209,9 @@ export async function loadTexture(device, url) {
             GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING,
         dimension: '2d',
-        label: url.toString()
+        label: url.toString(),
     });
-    device.queue.copyExternalImageToTexture({ source: bitmap }, { texture: tex, colorSpace: 'srgb' }, { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 });
+    device.queue.copyExternalImageToTexture({ source: bitmap }, { texture: tex, colorSpace: "srgb" }, { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 });
     return tex;
 }
 //# sourceMappingURL=sample.js.map

@@ -14,7 +14,7 @@ const shaderCode = /*wgsl*/ `
     {
         var vo: VertexOutput;
         vo.pos = vec4f(pos, 0, 1);
-        vo.linear_color = pow(color, vec3f(gamma)); 
+        vo.linear_color = color; 
         return vo;
     }
 

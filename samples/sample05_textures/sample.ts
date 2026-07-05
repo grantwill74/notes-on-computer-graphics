@@ -255,7 +255,7 @@ export function renderSample05(
     pass.setVertexBuffer(0, vertBuf);
     pass.setBindGroup(0, texBg);
     pass.setBindGroup(1, offsetBg);
-    pass.draw(6);
+    pass.draw(3);
     pass.end();
 
     const commands = encoder.finish();

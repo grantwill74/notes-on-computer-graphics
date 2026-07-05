@@ -666,7 +666,9 @@ The automatic interpolation in the pipeline doesn't know anything about gamma co
 
 == Gamma-corrected inputs 
 
-If we want to interpret our triangle vertices as perceptual brightnesses, we need to first transform them to linear brightness in the vertex shader.
+In general, we assume that light values are in linear light. We don't use perceptual brightness to define a light.
+
+But color could go either way. If we assume that color refers to perceptual brightness, we need to convert it (by raising it to the power of gamma) first. Then it will be linear. 
 
 Then, the barycentric interpolation will be correct.
 
@@ -703,6 +705,99 @@ Then, the fragment shader will gamma-encode the linear brightnesses correcly.
     image("screens/perceptual50_triangle.png", width: 45%, alt: "dimmer triangle screenshot (dimmer than before we were encoding the input as perceived brightness)")
   ),
 )
+
+== One more thing still
+
+Still, it's weird to hardcode gamma like that.
+
+What if the user uses a color profile with a different gamma?
+
+And the #link("https://en.wikipedia.org/wiki/SRGB#/media/File:SRGB_gamma.svg", "actual sRGB gamma function") is piecewise, so our simple exponent is not exactly right (it's close, but for very dim values it will not match exactly what the profile specifies).
+
+It turns out, the output of the fragment shader can be converted from linear to gamma corrected automatically.
+
+== Automatic gamma adjustment
+
+There are 3 things we need to do:
++ Make our canvas format support srgb
++ Make our pipeline render to an srgb format
++ Make our render attachment render to an srgb view.
+
+If we do all three of these, the output of our fragment shader will be assumed to be linear, and the device will convert it to gamma correct automatically and correctly.
+
+== Changing the canvas format
+
+We need to update our `initWebGpu` function:
+
+#[
+  #set text(18pt)
+```ts
+context.configure({
+device: device,
+format: gpu.getPreferredCanvasFormat(),
+viewFormats: [
+    (gpu.getPreferredCanvasFormat() as string + '-srgb') as GPUTextureFormat
+],
+colorSpace: "srgb",
+alphaMode: "opaque",
+});
+```
+]
+
+We're taking the existing format and adding `-srgb`. This will give us 2 formats that we can use: one linear and one srgb.
+
+`as` is the keyword for raw casting in Typescript.
+
+== Changing the pipeline
+
+We add this same format to our fragment shader target in the pipeline description:
+
+```ts
+targets: [{ format: 
+  (context.getCurrentTexture().format as string +'-srgb') as
+      GPUTextureFormat,
+}]
+```
+
+Same as before. We're saying "take whatever format the context is using, but add -srgb to the end of it".
+
+== Changing the attachment
+
+Finally, we create a texture view when rendering. A texture view is basically a little adapter that lets you pretend a texture has a different format. The device will notice that the view wants to be sRGB and convert the results:
+#[
+  #set text(20pt)
+```ts
+colorAttachments: [{
+    loadOp: 'clear',
+    storeOp: 'store',
+    view: context.getCurrentTexture().createView(
+        {format:
+            (context.getCurrentTexture().format as string + '-srgb') as
+                GPUTextureFormat
+        }),
+    clearValue: {r: .7, g: .8, b: .9, a: 1},
+}]
+```
+]
+
+== Manual vs auto gamma comparison
+
+#stack(
+  dir: ltr,
+  spacing: 5%,
+  figure(
+    numbering: none,
+    caption: "Manual gamma triangle",
+    image("screens/right_triangle.png", width: 45%, alt: "triangle screenshot")
+  ),
+  figure(
+    numbering: none,
+    caption: "Auto gamma triangle",
+    image("screens/auto_triangle.png", width: 45%, alt: "triangle screenshot")
+  ),
+)
+
+I think the auto one looks slightly more saturated and better. YMMV.
 
 #focus-slide("Questions?")
 

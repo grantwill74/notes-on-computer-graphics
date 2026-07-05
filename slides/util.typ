@@ -9,8 +9,8 @@
   subtitle: [Welcome to Realtime 3D!],
   header: none,
   config-common(
-    new-section-slide-fn: none,
-    new-subsection-slide-fn: none,
+    //new-section-slide-fn: none,
+    //new-subsection-slide-fn: none,
     show-strong-with-alert: false,
     breakable: false,
     detect-overflow: false,
