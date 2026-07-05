@@ -267,7 +267,7 @@ Inside the fragment shader, when the fragment samples the texture, it will pull 
         let ut = calc.round(u, digits: 2);
         let vt = calc.round(v, digits: 2);
         circle((u, v), radius: 0.02, fill: yellow)
-        content((u, v - text_eps), anchor: "south", text(14pt)[#ut, #vt])
+        content((u, v - text_eps), anchor: "south", text(12pt)[(#ut, #vt)])
       }
     }
 
@@ -297,8 +297,36 @@ Inside the fragment shader, when the fragment samples the texture, it will pull 
 == Texture mapping example (3)
 
 #figure(
+  numbering: none,
   alt: "The right triangle superimposed on the texture, showing which points on the triangle come from which points on the texture.",
+  caption: "Each fragment gets a uv coordinate that is somewhere between the uv coordinates of the corners. This uv coordinate is used to look up the closest texel color. So we end up with a triangle cut-out of the texture. (There is one unique point for each pixel, I'm not showing all of them)",
   canvas(length: 8cm, {
+    import draw: *;
+
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+
     
+
+    rect((0, 0), (1, 1))
+    content((0, 0), (1, 1), auto-scale: true, image("screens/halftex_triangle.png", fit: "stretch", width: 100%, height: 100%))
+
+    let rows = 5;
+    let cols = 5;
+    let grid_w = 1 / rows;
+    let grid_h = 1 / cols;
+    let off_u = grid_w / 2;
+    let off_v = grid_h / 2;
+    let text_eps = 0.02;
+
+    for row in range(rows) {
+      for col in range(cols - row, cols) {
+        let u = grid_w * col + off_u;
+        let v = grid_h * row + off_v;
+        let ut = calc.round(u, digits: 2);
+        let vt = calc.round(v, digits: 2);
+        circle((u, v), radius: 0.02, fill: yellow)
+        content((u, v - text_eps), anchor: "south", text(12pt, white)[(#ut, #vt)])
+      }
+    }
   })
 )
