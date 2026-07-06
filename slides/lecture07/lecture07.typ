@@ -299,7 +299,7 @@ Inside the fragment shader, when the fragment samples the texture, it will pull 
 #figure(
   numbering: none,
   alt: "The right triangle superimposed on the texture, showing which points on the triangle come from which points on the texture.",
-  caption: "Each fragment gets a uv coordinate that is somewhere between the uv coordinates of the corners. This uv coordinate is used to look up the closest texel color. So we end up with a triangle cut-out of the texture. (There is one unique point for each pixel, I'm not showing all of them)",
+  caption: [Each fragment gets a uv coordinate that is interpolated between the uv coordinates of the corners. This happens for _every fragment_, but I'm only showing a few. (Imagine that there is a dot for every pixel on the screen)],
   canvas(length: 8cm, {
     import draw: *;
 
@@ -330,3 +330,331 @@ Inside the fragment shader, when the fragment samples the texture, it will pull 
     }
   })
 )
+
+== Comprehension check
+
+What would happen visually if we continued to sample (1, 1) for the bottom left point, but we sampled (1, .75) for the top right point, and (.75, 1) for the bottom left point, but the triangle is the same size.
+
+What would it look like?
+
+[Take a second and think about it]...
+
+== It would zoom in on the corner
+
+#stack(dir: ltr, spacing: 5%,
+box(width: 50%)[
+  #set text(20pt)
+We sample a smaller portion of the texture (the lower right sixteenth of it), but we are blowing it up over the same size of rectangle.
+
+The number of pixels we're drawing stays the same, but the number of _texels_ we're sampling is 1/16th as many.
+
+Therefore, the texture is zoomed in, and looks grainy. #footnote[this is why games from the 5th generation of game consoles (i.e., the PS1, N64 generation) look so grainy/blurry. The textures had to be small due to hardware limitations.]
+],[
+  #image("screens/grainy_triangle.png", height: 85%, alt: "a screenshot of a grainy-looking triangle. A small number of texels has been expanded into a large triangle.")
+]
+)
+
+#focus-slide("Questions?")
+
+== Let's get artistic
+
+#stack(dir: ltr,
+box(width: 50%)[
+Now that we understand a bit more about UV coordinates, let's try to think artistically about them.
+
+That is, instead of imaging _what_ it will look like, let's trying imagining how to achieve an effect that we want. This is a question we will often find ourselves asking.
+
+Suppose we have a texture that looks like an up arrow.
+],
+box(width: 50%)[
+#figure(
+  image("screens/up_arrow.png", width: 75%, scaling: "pixelated", alt: "an image of an arrow pointing up"),
+  numbering: none,
+  caption: "This is a 64 by 64 texture, so we can see the texels."
+)
+])
+
+== Our first goal
+
+Let's just draw the arrow, but instead of a triangle, let's draw it to a quad, instead.
+
+That means we will need to specify 6 vertices #footnote[There's a way to specify a quad with 4 verts using a different topology, but we haven't covered those yet.], two triangles.
+
+== What are the U/V coordinates for each vertex?
+
+#let left = figure(
+  numbering: none,
+  caption: text(20pt)[The texture, with the corner UV coordinates labelled. These are always the same for every texture.],
+  alt: "top left is (0, 0), top right is (1, 0), bottom left is (0, 1), bottom right is (1, 1)",
+  canvas(length: 8cm, {
+    import draw: *;
+    
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+
+    rect((0, 0), (1, 1))
+    content((0, 0), (1, 1), auto-scale: true, image("screens/up_arrow.png", fit: "stretch", width: 100%, height: 100%))
+
+    content((-.15, 0), [(0, 0)])
+    content((1.15, 0), [(1, 0)])
+    content((-.15, 1), [(0, 1)])
+    content((1.15, 1), [(1, 1)])
+  })
+)
+
+#let right = figure(
+  numbering: none,
+  alt: "A rectangle composed of two triangles, with the diagonal of both going from the bottom left to the top right. Each vertex is labeled with question marks to indicate that we want to determine the 'u' 'v' coordinates.",
+  canvas(length: 8cm, {
+    import draw: *;
+
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+    rect((0, 0), (1, 1))
+    circle((0, 0), radius: 0.03, fill: yellow);
+    circle((1, 0), radius: 0.03, fill: red);
+    circle((0, 1), radius: 0.03, fill: red);
+    circle((1, 1), radius: 0.03, fill: yellow);
+  
+    line((0, 1), (1, 0))
+
+    content((-.15, 0), [(?, ?)])
+    content((1.15, 0), [(?, ?)])
+    content((-.15, 1), [(?, ?)])
+    content((1.15, 1), [(?, ?)])
+  }),
+
+  caption: text(20pt)[The top right and bottom left points are duplicated between both triangles, but we want them to have the same U/V coordinates (otherwise there'd be a seam)],
+)
+
+#stack(dir: ltr, spacing: 4%,
+  box(width: 48%, left),
+  box(width: 48%, right)
+)
+
+
+== U/V coordinate answer
+
+#figure(
+numbering: none,
+alt: "A rectangle composed of two triangles, with the diagonal of both going from the bottom left to the top right. Each vertex is labeled with question marks to indicate that we want to determine the 'u' 'v' coordinates.",
+canvas(length: 8cm, {
+  import draw: *;
+
+  set-viewport((0, 0), (1, 1), bounds: (1, -1))
+  rect((0, 0), (1, 1))
+  circle((0, 0), radius: 0.03, fill: yellow);
+  circle((1, 0), radius: 0.03, fill: red);
+  circle((0, 1), radius: 0.03, fill: red);
+  circle((1, 1), radius: 0.03, fill: yellow);
+
+  line((0, 1), (1, 0))
+
+  content((-.15, 0), [(0, 0)])
+  content((1.3, 0), [(1, 0); (1, 0)])
+  content((-.3, 1), [(0, 1); (0, 1)])
+  content((1.15, 1), [(1, 1)])
+}),
+caption: "It's the same. We map the top left of the texture to the top left of the quad. We map the top right of the texture to both vertices in the top right. Ditto for bottom left. We map bottom-right to bottom-right."
+)
+
+== The principle
+
+The basic idea when answering this question is: "what part of the texture do I want to be at this point on the triangle."
+
+So let's make it a bit harder. How do we map the triangle _sideways_?
+
+Specifically, we want the arrow to be pointing to the right. This means we need a new batch of U/V coordinates. Which ones?
+
+== Right arrow mapping question?
+
+#let left = figure(
+  numbering: none,
+  caption: text(20pt)[The texture, with the corner UV coordinates labelled. These are always the same for every texture.],
+  alt: "top left is (0, 0), top right is (1, 0), bottom left is (0, 1), bottom right is (1, 1)",
+  canvas(length: 8cm, {
+    import draw: *;
+    
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+
+    rect((0, 0), (1, 1))
+    content((0, 0), (1, 1), auto-scale: true, image("screens/up_arrow.png", fit: "stretch", width: 100%, height: 100%))
+
+    content((-.15, 0), [(0, 0)])
+    content((1.15, 0), [(1, 0)])
+    content((-.15, 1), [(0, 1)])
+    content((1.15, 1), [(1, 1)])
+  })
+)
+
+#let right = figure(
+  numbering: none,
+  alt: "A rectangle composed of two triangles, with a right arrow superimposed.",
+  canvas(length: 8cm, {
+    import draw: *;
+
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+
+    content((0, 0), (1, 1), angle: -90deg,
+      image("screens/up_arrow.png", width: 100%))
+  
+    rect((0, 0), (1, 1))
+    circle((0, 0), radius: 0.03, fill: yellow);
+    circle((1, 0), radius: 0.03, fill: red);
+    circle((0, 1), radius: 0.03, fill: red);
+    circle((1, 1), radius: 0.03, fill: yellow);
+    
+    line((0, 1), (1, 0))
+
+    content((-.15, 0), [(?, ?)])
+    content((1.15, 0), [(?, ?)])
+    content((-.15, 1), [(?, ?)])
+    content((1.15, 1), [(?, ?)])
+  }),
+
+  caption: text(20pt)[Now we want the arrow to be pointing right.],
+)
+
+#stack(dir: ltr, spacing: 4%,
+  box(width: 48%, left),
+  box(width: 48%, right)
+)
+
+== Right arrow mapping answer
+
+#let left = figure(
+  numbering: none,
+  caption: text(20pt)[Texture U/V coordinates are always the same. What changes is the U/V coordinates we use in the model, which can rotate, shift, or otherwise warp the texture.],
+  alt: "top left is (0, 0), top right is (1, 0), bottom left is (0, 1), bottom right is (1, 1)",
+  canvas(length: 8cm, {
+    import draw: *;
+    
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+
+    rect((0, 0), (1, 1))
+    content((0, 0), (1, 1), auto-scale: true, image("screens/up_arrow.png", fit: "stretch", width: 100%, height: 100%))
+
+    content((-.15, 0), [(0, 0)])
+    content((1.15, 0), [(1, 0)])
+    content((-.15, 1), [(0, 1)])
+    content((1.15, 1), [(1, 1)])
+  })
+)
+
+#let right = figure(
+  numbering: none,
+  alt: "A rectangle composed of two triangles, with a right arrow superimposed.",
+  canvas(length: 8cm, {
+    import draw: *;
+
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+
+    content((0, 0), (1, 1), angle: -90deg,
+      image("screens/up_arrow.png", width: 100%))
+  
+    rect((0, 0), (1, 1))
+    circle((0, 0), radius: 0.03, fill: yellow);
+    circle((1, 0), radius: 0.03, fill: red);
+    circle((0, 1), radius: 0.03, fill: red);
+    circle((1, 1), radius: 0.03, fill: yellow);
+    
+    // line((0, 1), (1, 0))
+
+    content((-.15, 0), [(0, 1)])
+    content((1.15, 0), [(0, 0)])
+    content((-.15, 1), [(1, 1)])
+    content((1.15, 1), [(1, 0)])
+  }),
+
+  caption: text(20pt)[We make the top right U/V coordinate (0, 0) so that it pulls from the top left of the texture. We make the bottom right (1, 0), and so on for the other two..],
+)
+
+#stack(dir: ltr, spacing: 4%,
+  box(width: 48%, left),
+  box(width: 48%, right)
+)
+
+
+#place(top, curve(
+  stroke: black,
+  fill: none,
+  curve.move((65pt, 68pt)),
+  curve.cubic((100pt, 30pt), (500pt, 30pt), (680pt, 68pt)),
+  curve.line((660pt, 52pt)),
+  curve.move((680pt, 68pt)),
+  curve.line((660pt, 78pt))
+))
+
+#place(top, curve(
+  curve.move((292pt, 67pt)),
+  curve.cubic((350pt, 50pt), (1000pt, -200pt), (680pt, 295pt)),
+  curve.line((675pt, 280pt)),
+  curve.move((680pt, 295pt)),
+  curve.line((695pt, 290pt))
+))
+
+== How are we doing?
+
+Can we see how this system allows us the flexibility to map the texture however we want?
+
+The idea is that at each vertex, we're choosing what part of the texture we're pulling from.
+
+The GPU will interpolate between the U/V coordinates of the vertices.
+
+Think of the triangle as a cookie-cutter that can be stretched, moved, rotated, or sheared however you want. Think of the texture as the cookie dough. 
+
+Feel free to ask questions. Then, let's do one more...
+
+== Last UV mapping question
+
+Now let's suppose we want to map this arrow so that it is facing right, and centered within our right triangle. We can add vertices if we want.
+
+#let right_arrow_in_triangle = canvas(length: 8cm, {
+  import draw: *;
+
+  set-viewport((0, 0), (1, 1), bounds: (1, -1))
+  
+  content((0.5, 0.5), (1, 1), auto-scale: true, image("screens/up_arrow.png", width: 100%), angle: -90deg)
+
+  let points = (
+    (0, 1),
+    (1, 0),
+    (1, 1),
+    (.5, .5),
+    (.5, 1),
+    (1, .5),
+  );
+
+  line(..points.slice(0, 3), close: true)
+  
+  for point in points {
+    circle(point, radius: 0.02, fill: yellow)
+  }
+})
+
+#stack(dir: ltr,
+box(width: 50%)[
+  #figure(
+    caption: [What we have],
+    numbering: none,
+    image("screens/up_arrow.png", height: 60%, scaling: "pixelated", alt: "the up-arrow texture")
+  )
+],
+box(width: 50%)[
+  #figure(
+    caption: [What we want],
+    numbering: none,
+    alt: "a diagram of a right triangle with the texture rotated right and placed within it",
+    right_arrow_in_triangle
+  )
+]
+)
+
+== Any ideas?
+
+Some additional things to keep in mind:
+- Not every point has to sample the texture. We can use special U/V coordinates that says "just make this vertex blank"
+- However, in our case, most of our texture is blank, so a U/V of (0, 0) would end up not drawing anything by itself (if it interpolates to another nearby U/V there would be only white pixels in between)
+- Two vertices can be in the same location but have different U/V coordinates. Each vertex gets to have its own attribute values.
+
+== One solution 
+
+One way to do this is to keep the original triangle, but add more vertices
