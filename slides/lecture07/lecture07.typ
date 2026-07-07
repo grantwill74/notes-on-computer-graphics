@@ -1021,7 +1021,8 @@ device.queue.copyExternalImageToTexture(
       height: bitmap.height,
       depthOrArrayLayers: 1 }
 );
-
+// this function is why we needed RENDER_ATTACHMENT
+// as a texture usage BTW. 
 
 ```
 
@@ -1231,9 +1232,18 @@ Just so you're aware: _I'm_ aware that this is a lot. This is a lot to take in.
 
 Our next project is just going to reinforce these same concepts. You'll be loading a texture and drawing some shapes.
 
-The best way to make sure you understand:
+Some tips:
 - Make sure you can compile and run the sample (`sample05_textures`)
 - Try to start from scratch. When you get stuck, refer to the sample. Then try again. The more you do this, the more the terminology will become concrete (e.g., bind groups, pipelines, layouts, etc.).
 - Try loading the arrow texture and make it face different ways. This will help with the project...
+
+== Lastly: here is the reading
+
+Make sure you can follow the reading.
+
+They also cover how to put a vector in the bind group (to draw the quad with an offset). This will be very useful later.
+
+- #link("https://shi-yan.github.io/webgpuunleashed/Basics/understanding_uniforms.html", "1.6: Understanding Uniforms")
+- #link("https://shi-yan.github.io/webgpuunleashed/Basics/working_with_textures.html", "1.7: Working with Textures")
 
 #focus-slide("Questions?")
