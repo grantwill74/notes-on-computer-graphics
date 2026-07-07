@@ -40,6 +40,8 @@ This is an important topic. Textures are the cornerstone of 3D graphics. Not onl
 
 Furthermore, when we render a frame, we're actually drawing into a texture (which is why I've been handwaving `context.getCurrentTexture()`).
 
+Textures are a little tough, so this lecture may take *two* class periods.
+
 == What is a texture?
 
 #stack(
@@ -652,9 +654,574 @@ box(width: 50%)[
 
 Some additional things to keep in mind:
 - Not every point has to sample the texture. We can use special U/V coordinates that says "just make this vertex blank"
-- However, in our case, most of our texture is blank, so a U/V of (0, 0) would end up not drawing anything by itself (if it interpolates to another nearby U/V there would be only white pixels in between)
+- If there is a triangle with all the same U/V coordinates, it will have a uniform color. We can make sure that color will be white.
 - Two vertices can be in the same location but have different U/V coordinates. Each vertex gets to have its own attribute values.
 
 == One solution 
 
-One way to do this is to keep the original triangle, but add more vertices
+One way to do this is to break up (tesselate) our triangle:
+
+#figure(
+  numbering: none,
+  alt: "The triangle was broken into a top right triangle, a center square, and a left right triangle. The square is formed out of the bottom right corner, and the midpoints of the hypotenuse and legs. It has duplicate U/V coordinates for the midpoints. Counter-clockwise from the top left: (0,1), (0, 0), (1, 1), (1, 0). The duplicates and other vertices are all mapped to (0, 0)",
+  canvas(length: 6cm, {
+    import draw: *;
+
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+    
+    content((0.5, 0.5), (1, 1), auto-scale: true, image("screens/up_arrow.png", width: 100%), angle: -90deg)
+
+    let points = (
+      (0, 1),
+      (1, 0),
+      (1, 1),
+      (.5, .5),
+      (.5, 1),
+      (1, .5),
+    );
+
+    let tri1 = (
+      (1, 0),
+      (0.5, 0.45),
+      (1, 0.45)
+    )
+    line(..tri1, close: true)
+    for point in tri1 {
+      circle(point, radius: 0.02, fill: red)
+    }
+    content((1.15, 0), text(16pt)[(0, 0)])
+    content((1.15, .4), text(16pt)[(0, 0)])
+    content((.4, .4), text(16pt)[(0, 0)])
+    
+    let quad = (
+      (0.5, 0.5),
+      (1, 0.5),
+      (1, 1),
+      (0.5, 1),
+    )
+    line(..quad, close: true)
+    line(quad.at(3), quad.at(1))
+    for point in quad {
+      circle(point, radius: 0.02, fill: yellow)
+    }
+    content((.6, .56), text(16pt)[(0, 1)])
+    content((1.15, .55), text(16pt)[(0, 0)])
+    content((1.15, .95), text(16pt)[(1, 0)])
+    content((.6, .95), text(16pt)[(1, 1)])
+
+    let tri2 = (
+      (0, 1),
+      (.45, 1),
+      (.45, .55),
+    )
+
+    line(..tri2, close: true)
+    for point in tri2 {
+      circle(point, radius: 0.02, fill: red)
+    }
+
+    content((.32, .55), text(16pt)[(0, 0])
+    content((.32, .95), text(16pt)[(0, 0)])
+    content((-.10, .95), text(16pt)[(0, 0)])
+  }),
+  caption: "Some points are duplicates. I drew the triangle broken, but imagine that the points of the square in the middle share the same position as the north and west triangles' edges. The hypotenuse midpoint position is repeated 3 times, but for the inner square it has (0, 1) U/V coordinates."
+)
+
+#focus-slide("Questions?")
+
+== Let's code it up
+
+So how do we actually code a texture-mapped quad?
+
+Let's start with the new shaders. 
+
+The vertex shader is similar, only now it takes a `uv` coordinate vector instead of a color.
+
+The fragment shader is where it gets different...
+
+Let's start with the more familiar part, then show the part where we add textures.
+
+== The vertex part
+
+The vertex shader is similar to what we had before, only now instead of a 3-vector color, we take a 2-vector of u/v coordinates:
+
+#[
+  #set text(20pt)
+```wgsl
+struct VertexOutput {
+    @builtin(position) pos: vec4f,
+    @location(0) uvs: vec2f,
+};
+@vertex fn vs(
+    @location(0) position: vec2f, 
+    @location(1) uvs: vec2f,
+) -> VertexOutput {
+    var vo: VertexOutput;
+    vo.pos = vec4f(position, 0, 1);
+    vo.uvs = uvs;
+    return vo;
+}
+```
+]
+
+== The bind groups and fragment shader 
+
+#[
+
+```wgsl
+@group(0) @binding(0) var tex: texture_2d<f32>;
+@group(0) @binding(1) var samp: sampler;
+@fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
+    return textureSample(tex, samp, vo.uvs);   
+}
+```
+]
+This is the new part. 
+
+We store a texture and a sampler, using this new `@group(...) @binding(...)` notation. I haven't even mentioned samplers yet, don't worry!
+
+Then, for the color, we return the color we `textureSample`.
+
+== Three new things
+
+So there are three new things to cover:
+- There's a texture type. `texture_2d<f32>`. `<f32>` means that the texels will be sampled as floats, which is almost always what we want.
+- `@group` refers to something called a bind group. We need to cover that.
+- Samplers are important, too. 
+
+Bind groups are important for more than just textures: they show up whenever there is data that is needed for drawing an entire 3D model.
+
+They are like vertex buffers, but instead of their data being different for each vertex, it's the same for the entire draw call. This is useful for all kinds of things...
+
+== Bind groups utility
+
+For example, let's say we're drawing a tree in a game or sim.
+
+We want to give each tree its own texture to make them look unique, but maybe they have the same 3D mesh (triangle data).
+
+Each time we draw the truee, we switch to the new texture first.
+
+Textures (and samplers) are stored in something called a *bind group*.
+
+We create a *bind group*, at least one for each object (but often several), and load the per-object data into it. 
+
+In the shader, we declare variables that come from the bind group.
+
+== Bind groups utility (2)
+
+The main purpose of bind groups is to only allow us to change the things that we need to, and leave everything else alone.
+
+For example, if lots of objects have different positions but the same texture, we can put those pieces of data in different bind groups, and only swap out the ones we want.
+
+Typically, an object will have at least one bind group for that object (its position, texture, things like that), one bind group for the entire pass (shadow maps, some shared textures), and one bind group for the entire draw (global information like time). 
+
+== Bind group layout
+
+To create a bind group, we need a *bind group layout*. This describes what kinds of variables are stored in the bind group and what their binding numbers are.
+
+Defining a layout is very similar to defining attributes.
+
+Once we define a layout, we can use it to create bind groups and load them with the data we want the object to have when we're drawing it.
+
+Then, we call `pass.setBindGroup(number, bindgroup)` to actually have this data get sent to our shader.
+
+== Samplers
+
+There is one more thing we need to cover before we continue: sampling.
+
+We never use a texture by itself. We always pair them with another object called a *sampler*.
+
+A sampler stores information about _how_ a texture is sampled. It answers several questions, such as:
+- What happens if you sample a point that isn't exactly in the center of a texel. How should we compute the color?
+- What happens if you sample a point _outside_ the texture? Believe it or not, this can be very useful.
+- What happens if the texture is really small? (surpisingly important)
+
+== Samplers (2)
+
+It will be easier to understand samplers if we see them in action.
+
+Therefore, let's finish the code for the texture sample first, so we can start to experiment.
+
+First, let's create a texture.
+
+Then, let's create a sampler.
+
+Finally, let's create bind groups and load them with the texture and sampler that we want for our quad.
+
+== Creating a texture
+
+There are basically two ways to create a texture:
++ Loading an image from a file
++ Creating one procedurally
+
+We will cover both. 
+
+Procedural generation means generating something with a procedure. The term is often associated with random generation, but the thing you make doesn't have to be random (and won't be for us)
+
+We are going to procedurally generate #link("https://lodev.org/cgtutor/xortexture.html", [*the XOR texture*]).
+
+== Texture storage
+
+Textures can be stored in many different formats.
+
+The most common are `rgba8unorm` and `rgba8unorm-srgb`.
+
+The way this format works is that each pixel is 32 bits: 8 bits for red, 8 bits for green, 8 bits for blue, and 8 bits for _alpha_.
+
+The `u` means unsigned, and the `norm` means normalized to [0, 1].
+
+The numbers are unsigned integers, and are interpreted as being in the range [0, 1], where 0 is 0, and 1 is 255.
+
+We'll talk about _alpha_ later. It basically represents the _amount_ of color. For now it will be 100%.
+
+== The XOR texture
+
+#stack(dir: ltr, spacing: 4%,
+box(width: 48%)[
+  #image(
+    "screens/xortexture.gif",
+    alt: "the xor texture as an image. It looks like a fractal where it is broken into 4 quadrants: one pair is dim and one pair is bright, all 4 are each broken into 4 sub-quadrants: one pair dim and one bright, and so on."
+  )
+],
+box(width: 48%)[
+  The XOR texture is created by making the brightness of each texel just be the XOR between the row and column number of that texel.
+
+  So the texel at position 67, 100 has brightness 67 #sym.xor 100 = 39.
+
+  We set this value to the value of R, G, and B. A is set to 255. So (39, 39, 39, 255) is the color.
+]
+)
+
+== Creating textures
+
+In our sample, you can see how I define the xor texture texels, but we also need to allocate space for the texture on the GPU:
+
+#[
+  #set text(24pt)
+```ts
+const tex = device.createTexture({
+    format: "rgba8unorm-srgb",
+    size: {width, height, depthOrArrayLayers: 1},
+    usage: 
+        GPUTextureUsage.TEXTURE_BINDING | 
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.COPY_DST,
+    dimension: '2d',
+    label: "xor texture"
+});
+```
+]
+
+== Creating textures (2)
+
+The format is as I said before: we use `rgba8unorm`. We add the `-srgb` to inform the GPU that we intend the color values in the texture to be _perceived brightness_ (e.g., gamma correct).
+
+When we sample the texture, the GPU will convert these values to _linear brightness_ by raising them to the correct power.
+
+After format, we specify `size`. It has `width` and `height` fields in pixels, but also the number of images. 2D texture data can be stored in texture arrays, which is what `depthOrArrayLayers` is for (along with 3D texes).
+
+We're working with `2d` textures, so we specify the dimension
+
+== Creating textures (3)
+
+The `usage` field needs some explanation. There are 3 bitflags that we `or` together in order to define how we will use the texture.
+
+This is what the specific values mean:
+- `TEXTURE_BINDING` means that it will be bound as a texture. Obviously we want that one.
+- `COPY_DST` means that we can copy data into it. We need this flag because we are about to do that (this is how the data gets loaded into the texture).
+- `RENDER_ATTACHMENT` means "it will be written to in a render pass". This happens when we load the texture (soon).
+
+== Loading textures
+
+What we just did was basically allocate the texture. Now let's load it up.
+
+First, we define an `ImageData` object, which stores the pixels from our XOR texture (see the sample for how we generated it):
+
+```ts
+const texData = new ImageData(
+    buf, width, height,
+    {colorSpace: "srgb", pixelFormat: "rgba-unorm8"}
+);
+```
+
+We have to make sure to tell it that the pixels are already perceived brightness (srgb), otherwise, it would convert it when loading the texture (because we said the texture was expected to be srgb).
+
+== Loading textures (2)
+
+Now, we actually copy the bits over. This is done using the queue:
+
+```ts
+device.queue.copyExternalImageToTexture(
+    {source: texData},
+    {texture: tex, colorSpace: "srgb"},
+    {width, height, depthOrArrayLayers: 1}
+);
+```
+
+Here we say "this is the texture data I want to copy, here is the destination texture and I expect it to be srgb, and finally, here's how _much_ to copy".
+
+== What about from a file?
+
+To load a texture from a file, we need _asynchronous_ code.
+
+The reason is that loading files takes a long time, so it's better if we do it in parallel. We can start loading a texture, then when we need it later, check if it's done.
+
+Here's how we define an `async` function. It's like a normal function except it returns a `Promise<...>`, which is a value that represents something that will be available in the future:
+
+#[
+  #set text(20pt)
+```ts
+export async function loadTexture(
+    device: GPUDevice,
+    url: URL,
+): Promise<GPUTexture> { ... }
+```
+]
+
+== Loading a texture from a file
+
+The next lines of the function:
+```ts
+const response = await fetch(url);    
+const blob = await response.blob();
+const bitmap = await createImageBitmap(blob);
+```
+
+`await` means "I want to pause until the promise is finished"
+
+`fetch` returns a promise of a `response`, which is an HTTP response. It stores a status code and a progress state (i.e., how much is loaded).
+
+We await the `blob`, which is the raw data in the packet.
+
+Then, we use that data to create a bitmap
+
+== Loading a texture from a file (2)
+
+Once we have the bitmap, we load it the same way we did before:
+
+```ts
+const tex = device.createTexture(...);
+
+device.queue.copyExternalImageToTexture(
+    {source: bitmap},
+    {texture: tex, colorSpace: "srgb"},
+    { width: bitmap.width,
+      height: bitmap.height,
+      depthOrArrayLayers: 1 }
+);
+
+
+```
+
+
+== Creating the sampler
+
+Now that we have a texture, we need to define a sampler.
+
+A sampler tells the GPU _how_ we want to sample the texture.
+
+Let's create one, and I'll explain the options:
+
+```ts
+const samp = device.createSampler({
+    addressModeU: "repeat",
+    addressModeV: "repeat",
+    magFilter: "nearest",
+    minFilter: "nearest",
+});
+```
+
+== Sampler fields
+
+The address mode fields describe what should happen if we access a U or V coordinate that is out of bounds (outside the range [0, 1]).
+
+"repeat" means that the texture just repeats. So U = 1.5 is the same as U = 0.5, which is the same as U = -0.5, or U = 1200.5.
+
+This is very useful. It lets us repeat a texture. Here's one where instead of 1, we used 4 as the maximum value for U and V with repeat:
+
+#image("screens/up_arrow_4x4.png", width: 20%, alt: "a quad textured with the up arrow texture, except there is a 4-by-4 grid of up arrows because we used repeat for the address mode and replaced the 1s with 4s in the U/V coordinates.")
+
+== Sampler fields (2)
+
+There are two other options for the address mode.
+
+"clamp-to-edge" means that the last texel color on the border gets repeated. Here's what happens if we make `u` coordinates clamp, but let `v` coordinates repeat:
+#image("screens/up_arrow_4x1.png", width: 20%, alt: "One column of 4 repeated up arrow textures, but they are confined to the left. The rest of the texture is blank.")
+
+Because we're clamping the U coordinate, the last column of texels ends up being the color for every U value > 1.
+
+== Sampler fields (3)
+
+Lastly, `mirror-repeat` means that it will alternate between mirroring and repeating. 
+
+I set it to repeat in the U coordinate, but mirror-repeat in the V coord:
+
+#image("screens/up_arrow_mirror_repeat.png", width: 40%, alt: "The texture with a grid of arrows again. The first row is pointing up. The second row is pointing down (mirrored). The third row is pointing up (repeat). The fourth is pointing down (mirrored).")
+
+== Sampler fields (4)
+
+The other fields make a big difference in image quality:
+
+- mag-filter: can be "nearest" or "linear". This determines what to do when the texture is magnified (i.e., it is spread out over more pixels than there are texels)
+- min-filter: can also be "nearest" or "linear". This determines what to do when the texture is minified (i.e., it is mapped to fewer pixels than there are texels)
+
+We'll talk more about these in the advanced texturing lecture, but for now, "linear" basically means "smooth", and "nearest" basically means "grainy."
+
+== Linear vs Nearest comparison
+
+#stack(dir: ltr, spacing: 4%,
+box(width: 48%)[
+  #figure(
+    numbering: none,
+    image("screens/y2k_stone_nearest.png", width: 100%, alt: "A grainy stone texture"),
+    caption: "'nearest' filtering"
+  )
+],
+box(width: 48%)[
+  #figure(
+    numbering: none,
+    image("screens/y2k_stone_linear.png", width: 100%, alt: "A smooth stone texture"),
+    caption: "'linear' filtering"
+  )
+]
+)
+
+#focus-slide("Questions?")
+
+== Next steps
+
+Now that we have a texture and a sampler, we need to load them into a bind group.
+
+Recall that bind groups have layouts which describe the numbers and kinds of data that will be in the bind group.
+
+In our case, that will be a texture at binding 0 and a sampler at binding 1.
+
+== Creating bind groups: the layout
+
+Here is the bind group layout for the bind group that will store our texture and sampler:
+
+#text(20pt)[
+```ts
+const bindGroup0layout = device.createBindGroupLayout({
+  entries: [
+      { // tex
+          binding: 0, // corresponds to @binding(0)
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: {} // empty object assigned to `texture` just means 
+      },              // "this is going to be a texture"
+      { // samp
+          binding: 1, // corresponds to @binding(1)
+          visibility: GPUShaderStage.FRAGMENT,
+          sampler: {} // same for samplers
+      }
+  ]
+});
+```
+]
+
+== Bind group visibility
+
+The `visibility` field determines which shader the variable will be visible to. 
+
+It can be `GPUShaderStage.VERTEX`, `GPUShaderStage.FRAGMENT`, or `GPUShaderStage.COMPUTE`, or a bitwise or of any combination of those.
+
+Notice that we aren't loading the texture and sampler here. We're just assigning an empty object to the `texture` or `sampler` field, which tells the GPU that there _will_ be a texture or sampler there later.
+
+== Creating bind groups: the pipeline
+
+Inside our pipeline, we tell it which bind-group layouts we want.
+
+Previously we used `layout: 'auto'`. This is a very limited feature. It will not work correctly if the bind groups are optimized out, and it has other limitations. It's better to define them manually:
+
+```ts
+layout: device.createPipelineLayout({
+    bindGroupLayouts: [
+        bindGroup0layout,
+    ]
+}),
+```
+
+== Creating bind groups
+
+Now we want to create the bind groups themselves.
+#[
+  #set text(18pt)
+```ts
+const bgLayout = pipeline.getBindGroupLayout(0);
+const bg = device.createBindGroup({
+    layout: bgLayout,
+    entries: [
+        { // texture 
+            binding: 0,
+            resource: tex.createView(),},
+        { // sampler
+            binding: 1,
+            resource: samp}]});
+```
+
+We can look-up the bind group layout from the pipeline. This is just a convenience.
+
+We can't pass the texture itself: we pass a view. A view is like a region of a texture with colorspace info. `.createView()` just creates a "region" that refers to the whole thing.
+]
+
+== Drawing the pass 
+
+Finally, we need to draw.
+
+Just like before, we create a command encoder, and we define our render pass, including the pipeline, vertex buffer, and viewport.
+
+But this time, we also set the bind group.
+
+When we `draw`, the bind group variables in the shader will refer to the values we put inside the bindgroup
+
+== Drawing the pass (2)
+
+Assume we called `encoder.beginRenderPass(...)` like before:
+```ts
+pass.setViewport(0, 0,
+  context.canvas.width, context.canvas.height, 0, 1);
+pass.setPipeline(pipeline);
+pass.setVertexBuffer(0, vertBuf);
+pass.setBindGroup(0, texBg);
+pass.draw(6);
+pass.end();
+```
+
+The only change is setting the bind group before we draw.
+
+#focus-slide("Questions?")
+
+== Giant summary
+
+- Start with a basic quad from a vertex buffer like we had before.
+- Add a `uv` attribute to your vertex data for the texture coordinates.
+- Add this attribute to the vertex part of the pipeline.
+- Define a bind group layout in your pipeline. It needs a slot for the texture and a slot for the sampler.
+- Create a new texture with `device.createTexture(...)`
+- Load the texture from a file with `fetch`, `.blob()` and `createImageBitmap()`, or create your own `Uint8ClampedArray` with the RGBA data.
+- Use `copyExternalImageDataToTexture` to copy the data from the bitmap or array into the texture memory.
+
+== Giant summary (2)
+
+- Create a sampler
+- Create the bind group, and load it with the texture and sampler.
+- Modify your shader to refer to the texture and sampler.
+- Before calling `.draw`, call `.setBindGroup(0, bg)` in your pass.
+- Finish the pass and the encoder, and submit to the queue.
+
+Phew. That should draw a texture on screen.
+
+(note, in the sample I'm actually using two bind groups. One for the texture and sampler, and one for a vector that stores the offset. This can help you see another example of a bind group)
+
+== This is a lot
+
+Just so you're aware: _I'm_ aware that this is a lot. This is a lot to take in.
+
+Our next project is just going to reinforce these same concepts. You'll be loading a texture and drawing some shapes.
+
+The best way to make sure you understand:
+- Make sure you can compile and run the sample (`sample05_textures`)
+- Try to start from scratch. When you get stuck, refer to the sample. Then try again. The more you do this, the more the terminology will become concrete (e.g., bind groups, pipelines, layouts, etc.).
+- Try loading the arrow texture and make it face different ways. This will help with the project...
+
+#focus-slide("Questions?")
