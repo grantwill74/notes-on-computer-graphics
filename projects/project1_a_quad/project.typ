@@ -86,8 +86,6 @@ Thank you for following this complex submission process. It is required to ensur
   - [ ] I deleted the `node_modules` directory from my submission directory
   - [ ] I copied all the code in my HTML file and any non-library code it depends on into the submission textbox on canvas, and I submitted.
   - [ ] I navigated back to the submission and attached my `.zip` archive to a comment.
-
-  
 ]
 
 == Alignments
