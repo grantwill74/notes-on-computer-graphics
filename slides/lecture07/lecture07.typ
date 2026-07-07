@@ -782,6 +782,18 @@ We store a texture and a sampler, using this new `@group(...) @binding(...)` not
 
 Then, for the color, we return the color we `textureSample`.
 
+== `textureSample`
+
+The whole point of textures is this function.
+
+It takes a texture, a sampler (which contains the settings of how to sample), and a pair of U/V coordinates.
+
+It returns the color of those U/V coordinates.
+
+That's it! This function has some complicated rules, but they won't be relevant until the advanced texturing lecture.
+
+
+
 == Three new things
 
 So there are three new things to cover:
