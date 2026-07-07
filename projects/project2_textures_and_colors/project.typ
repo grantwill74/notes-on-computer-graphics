@@ -26,11 +26,13 @@ You can draw the symbols with any amount of spacing between them, but they must 
 
 == Grading
 - exactly 10 quads are visible (+ 1 triangle if bonus objective was attempted): 25%
-- all the quads are shaded green: 25%
-- 
+- all the quads are shaded 50/50 with green: 25%
+- quads are in the correct order: 25% (all or nothing)
+- B and A are included specifically and in the right order: 25%
 
 === Penalties
 - Must be gamma correct (-25% if not)
+- None of the quads may be off-center (-20% each)
 
 == Bonus objective
 
@@ -48,8 +50,9 @@ If you accomplish this objective, the grader will replace your score for project
 == Hints
 
 - If you are struggling with mapping the U/V or X/Y coordinates, I recommend using paper, and labelling the vertices manually. 
-- It's often easier to solve for all the Xs, then all the Ys, then all the Us, then all the Vs, and then interleave them later.
+- It's often easier to solve for all the Xs, then all the Ys, then all the Us, then all the Vs, and then interleave them later. That is, the patterns will be more obvious when you do all of the same coordinate.
 - I really recommend writing a function that will generate the vertices of a quad, given a top-left x/y position, an initial u/v, and which rotation you want.
+- Remember that a quad is 2 triangles. I recommend tesselating your quads the same way. You can also write a function to tesselate for you given the 4 points of the quad.
 - How do you shade things? Try averaging the color sampled from the texture with pure green. You can add vectors and even divide them by a scalar.
 - Remember to make the texture, pipeline target, and attachment 'srgb'. You'll also need to initialize the canvas context with an 'srgb' view. That last one is done in sample01, and sample04 shows how to set up a gamma correct pipeline. If you don't do a gamma correct pipeline, your green shading will be too dark.
 
