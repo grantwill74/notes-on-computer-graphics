@@ -20,14 +20,15 @@
             const buf = initSample05Verts(device);
             const pipeline = initSample05Pipeline(device, context);
             //const tex = genXorTexture(device, 256, 256);
-            
-            const tex = await loadTexture(
-                device, new URL("y2k_texture_pack_x30/128/y2k_stone.png", import.meta.url));
+
+            const stone_tex_url = new URL("y2k_texture_pack_x30/128/y2k_stone.png", import.meta.url);
+            const up_arrow_tex_url = new URL("special_textures/up_arrow.png", import.meta.url);
+            const tex = await loadTexture(device, stone_tex_url);
             
             const samp = device.createSampler({
                 addressModeU: "repeat",
                 addressModeV: "repeat",
-                magFilter: "linear",
+                magFilter: "nearest",
                 minFilter: "linear",
             });
             const texBg = createTextureAndSamplerBindGroup(device, pipeline, tex, samp);

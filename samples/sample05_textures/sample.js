@@ -116,6 +116,33 @@ export function initSample05Pipeline(device, context) {
     return pipeline;
 }
 export function initSample05Verts(device) {
+    /*
+        // one triangle is grainy version
+        const verts = new Float32Array([
+        //     x     y      u   v
+            -.75, -.75,     .75,  1,  // bottom left
+             .75, -.75,     1,  1,  // bottom right
+             .75,  .75,     1,  .75,  // top right
+    
+             .75,  .75,     1,  0,  // top right
+            -.75,  .75,     0,  0,  // top left
+            -.75, -.75,     0,  1,  // bottom left
+        ]);
+    */
+    /*
+        // repeating version
+        const verts = new Float32Array([
+            -.75, -.75,     0,  4,  // bottom left
+             .75, -.75,     4,  4,  // bottom right
+             .75,  .75,     4,  0,  // top right
+    
+             .75,  .75,     4,  0,  // top right
+            -.75,  .75,     0,  0,  // top left
+            -.75, -.75,     0,  4,  // bottom left
+        ])
+    */
+    ///*
+    // normal version
     const verts = new Float32Array([
         //     x     y      u   v
         -.75, -.75, 0, 1, // bottom left
@@ -125,6 +152,20 @@ export function initSample05Verts(device) {
         -.75, .75, 0, 0, // top left
         -.75, -.75, 0, 1, // bottom left
     ]);
+    //*/
+    /*
+        // full screen version
+        const verts = new Float32Array([
+            -1, -1, 0, 1,
+             1, -1, 1, 1,
+             1,  1, 1, 0,
+             1,  1, 1, 0,
+            -1,  1, 0, 0,
+            -1, -1, 0, 1,
+        ]);
+    
+    
+    */
     const buf = device.createBuffer({
         size: verts.byteLength,
         usage: GPUBufferUsage.VERTEX,
@@ -193,7 +234,7 @@ export function renderSample05(device, context, pipeline, vertBuf, texBg, offset
     pass.setVertexBuffer(0, vertBuf);
     pass.setBindGroup(0, texBg);
     pass.setBindGroup(1, offsetBg);
-    pass.draw(3);
+    pass.draw(6);
     pass.end();
     const commands = encoder.finish();
     device.queue.submit([commands]);

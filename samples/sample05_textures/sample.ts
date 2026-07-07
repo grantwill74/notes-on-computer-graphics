@@ -55,7 +55,7 @@ export function genXorTexture(
         format: "rgba8unorm-srgb",
         size: {width, height, depthOrArrayLayers: 1},
         usage: 
-            GPUTextureUsage.TEXTURE_BINDING | 
+            GPUTextureUsage.TEXTURE_BINDING |
             GPUTextureUsage.RENDER_ATTACHMENT |
             GPUTextureUsage.COPY_DST,
         dimension: '2d',
@@ -147,6 +147,33 @@ export function initSample05Pipeline(
 }
 
 export function initSample05Verts(device: GPUDevice): GPUBuffer {
+/*
+    // one triangle is grainy version
+    const verts = new Float32Array([
+    //     x     y      u   v
+        -.75, -.75,     .75,  1,  // bottom left
+         .75, -.75,     1,  1,  // bottom right
+         .75,  .75,     1,  .75,  // top right
+
+         .75,  .75,     1,  0,  // top right
+        -.75,  .75,     0,  0,  // top left
+        -.75, -.75,     0,  1,  // bottom left
+    ]);
+*/
+/*
+    // repeating version
+    const verts = new Float32Array([
+        -.75, -.75,     0,  4,  // bottom left
+         .75, -.75,     4,  4,  // bottom right
+         .75,  .75,     4,  0,  // top right
+
+         .75,  .75,     4,  0,  // top right
+        -.75,  .75,     0,  0,  // top left
+        -.75, -.75,     0,  4,  // bottom left
+    ])
+*/
+///*
+    // normal version
     const verts = new Float32Array([
     //     x     y      u   v
         -.75, -.75,     0,  1,  // bottom left
@@ -157,7 +184,20 @@ export function initSample05Verts(device: GPUDevice): GPUBuffer {
         -.75,  .75,     0,  0,  // top left
         -.75, -.75,     0,  1,  // bottom left
     ]);
+//*/
+/*
+    // full screen version
+    const verts = new Float32Array([
+        -1, -1, 0, 1,
+         1, -1, 1, 1,
+         1,  1, 1, 0,
+         1,  1, 1, 0,
+        -1,  1, 0, 0,
+        -1, -1, 0, 1,
+    ]);
 
+
+*/
     const buf = device.createBuffer({
         size: verts.byteLength,
         usage: GPUBufferUsage.VERTEX,
@@ -178,7 +218,6 @@ export function createTextureAndSamplerBindGroup(
 ): GPUBindGroup
 {
     const bgLayout = pipeline.getBindGroupLayout(0);
-    
     const bg = device.createBindGroup({
         layout: bgLayout,
         entries: [
@@ -255,7 +294,7 @@ export function renderSample05(
     pass.setVertexBuffer(0, vertBuf);
     pass.setBindGroup(0, texBg);
     pass.setBindGroup(1, offsetBg);
-    pass.draw(3);
+    pass.draw(6);
     pass.end();
 
     const commands = encoder.finish();
