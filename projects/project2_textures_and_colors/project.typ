@@ -33,6 +33,7 @@ You can draw the symbols with any amount of spacing between them, but they must 
 === Penalties
 - Must be gamma correct (-25% if not)
 - None of the quads may be off-center (-20% each)
+- Must use a vertex buffer (which stores at least X/Y and U/V coordinates) (-25% for X/Y, -25% for U/V). You are not required to store color in the vertex buffer since it's the same for the whole mesh.
 
 == Bonus objective
 
