@@ -48,6 +48,10 @@ If you accomplish this objective, the grader will replace your score for project
 
 (I recommend doing it even if you have a 100% on project 1: it's good practice, and the Konami code doesn't feel right without "Start" IMO)
 
+== Submission
+
+Please submit the same way project 1 was submitted.
+
 == Hints
 
 - If you are struggling with mapping the U/V or X/Y coordinates, I recommend using paper, and labelling the vertices manually. 
