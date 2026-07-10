@@ -76,6 +76,16 @@ However, it makes it hard for us to force ourselves to do it unless there is a c
 
 I'm hoping that the same goals that drove you to take this class will help you want to learn these topics. I will pair each math topic with something it will help you do in a game or simulation!
 
+== Dimensionality
+
+You mainly learned trig in 2 dimensions.
+
+It's kind of surprising that everything you learned pretty much works the same in 3.
+
+The pythagorean theorem works in 3-dimensions, as does the dot product.
+
+I'm going to be using 2-D exampls to keep things easy to illustrate, but just be aware: scaling up isn't a problem.
+
 == Etymology
 
 First of all, what does "trigonometry" mean. What are the Greek roots?
@@ -297,17 +307,264 @@ Why would that be interesting?
 
 == The `tan` is the slope of the triangle
 
+Remember rise over run?
+
+That's just sine over cosine.
+
+Knowing the tangent, you immediately know the slope of the triangle, which is a good way of describing the sine and cosine together
+
+
+== Going backwards 
+
+Let's say we know the rectangular position of something, but we want to know its angle and distance.
+
+Application: we want to give an objective marker to the player. So tell them which way to turn and how many distance units to travel.
+
+We know the player's position and the objectives position, and we've decided that east is in the (1, 0) direction and corresponds to an angle of 0. 
+
+== Going backwards (2)
+
+First, we can create a vector by subtracting two points. #math.equation($B - A$, alt: "B minus A") can be represented as a vector whose tail is at A and whose head touches B. That is, if added to A, the result is B.
+
+This vector in two dimensions has two coordinates, an x and a y.
+
+Those coordinates can be thought of as the legs of a triangle:
+
+#place(bottom + center,
+box(height: 25%,
+    figure(
+      alt: "A line pointing from a point labelled 'A' to a point labelled 'B', The line is named 'V'. A dotted line parallel to the x axis is labelled v-x and a perpendicular line is labelled v-y, both corresponding to the components of V.",
+      canvas(length: 4cm, {
+        import draw: *;
+
+        line((0, 0), (1.5, 1), mark: (end: (symbol: ">")))
+        line((0, 0), (1.5, 0), stroke: (dash: "dashed"))
+        line((1.5, 0), (1.5, 1), stroke: (dash: "dashed"))
+
+        content((-.1, 0), [A])
+        content((1.6, 1), [B])
+        content((.8, -0.1), [Vx])
+        content((1.65, 0.5), [Vy])
+        content((.7, .65), [V])
+      })
+    )
+  )
+)
+
+== Going backwards (3)
+
+To get the distance of a vector (the arrow that points to the destination), we use the pythagorean theorem.
+
+That is, if `Vx` and `Vy` are the legs of a right triangle, and `|V|` is the length of its hypotenuse, then #math.equation($V_x^2 + V_y^2 = |V|^2$, alt: "vee-ex squared plus vee-why squared equals magnitude vee squared"). Or, solving for `|V|`:
+
+#math.equation($|V| = sqrt(V_x^2 + V_y^2)$, alt: "c equals the square root of the quantity a-squared plus b-squared")
+
+So that's how far away the objective is.
+
+But what about its angle?
+
+== Going backwards (4)
+
 #stack(dir: ltr, spacing: 4%,
 box(width: 48%)[
-  Remember rise over run?
+We want to solve for #sym.theta
 
-  That's just sine over cosine.
+We know the following facts#footnote[These facts come from the fact that when the radius is 1, V-x is just cosine of theta. However, we have to scale by the radius. So if we want to solve for the cosine itself, we have to divide by the radius. Sine and tangent are similar.]:
+- #math.equation($cos(theta) = V_x / (|V|)$, alt: "cosine theta equals v-x over magnitude v.")
+- #math.equation($sin(theta) = V_y / (|V|)$, alt: "sine theta equals v-y over magnitude v.")
+- #math.equation($tan(theta) = V_y / V_x$, alt: "tan theta equals v-y over v-x")
 
-  Knowing the tangent, you immediately know the slope of the triangle, which is a good way of describing the sine and cosine together
+No matter what, we need to use an inverse trig function here...
 ],
-[
-  //#figure(
+box(width: 48%)[
+    #figure(
+      alt: "The same right triangle figure from before, but now the inside angle is named 'theta'.",
+      canvas(length: 4cm, {
+        import draw: *;
 
-//  )
+        line((0, 0), (1.5, 1), mark: (end: (symbol: "straight")))
+        line((0, 0), (1.5, 0), stroke: (dash: "dashed"))
+        line((1.5, 0), (1.5, 1), stroke: (dash: "dashed"))
+
+        content((-.1, 0), [A])
+        content((1.6, 1), [B])
+        content((.8, -0.1), [Vx])
+        content((1.65, 0.5), [Vy])
+        content((.7, .65), [V])
+        content((.27, .08), [#sym.theta])
+      })
+    )
 ]
 )
+
+== Inverse trig functions
+
+If we want to solve for theta, we need to know the angle that corresponds to one of the side lengths. This is the inverse of the trig functions.
+
+We have several choices:
+- #math.equation($theta = arccos(V_x / (|V|))$, alt: "theta equals the arc-cosine of v-x over magnitude V")
+- #math.equation($theta = arcsin(V_y / (|V|))$, alt: "theta equals the arc-sine of v-y over magnitude V")
+- #math.equation($theta = arctan(V_y / V_x)$, alt: "theta equals the arc-tangent of v-y over v-x")
+- #math.equation($theta = "atan2"(V_y, V_x)$, alt: "theta equals the atan2 of v-y and v-x")
+
+Which should we choose
+
+== Using `atan2`
+
+You might not have seen it before, but `atan2` is almost always best.
+
+It's a two argument tangent function. It takes the y and the x.
+
+The reason it exists is that it handles all the little edge cases:
+- What if either or both arguments are zero?
+- What if either or both arguments are infinity?
+- Most important: what if the point is outside the right semicircle
+
+Also, the arccos and arcsin are very sensitive near zero.
+
+So use `Math.atan2` in Javascript/Typescript. 
+
+== Summary so far
+
+So, if we want to use an angle and distance to generate some points (like particules that orbit a player), we use sine, cosine, and multiplication.
+
+If we want to go backwards, we use the pythagorean theorem and `atan2`.
+
+But what do we do if we want to know the angle between two arbitrary vectors? Not the angle from the x axis, but the angle between them? Stay tuned...
+
+#focus-slide("Questions?")
+
+== Arbitrary angles
+
+Let's say we're making a horror game where it's dangerous to look at enemies, or maybe just a spooky enemy that freaks out if you look at it.#footnote[I have the Amnesia games and Endermen from Minecraft in mind here, but feel free to suggest more examples]
+
+We have the position of the enemy and the position of the player like before, but that information is not enough. We also need the direction the camera is pointing.
+
+We could compute the angle between each vector and the x axis using inverse trig functions, and then subtract them.
+
+However, there's an easier way...
+
+== Arbitrary triangles
+
+#stack(dir: ltr, spacing: 4%,
+box(width: 48%)[
+Imagine the vectors form a triangle like this one.
+
+We can only use the trig functions on right triangles, and this isn't one.
+
+But, there is a useful trigonometric law we can use: *the law of cosines*
+],
+box(width: 48%)[
+#figure(
+  alt: "An arbitrary triangle, formed by making vectors A and B form two of the sides, and the third side, C, being the vector A - B. The angle, theta, is unknown.",
+  canvas(length: 8cm, {
+    import draw: *;
+    set-viewport((0, 0), (1, 1))
+    line((.1, .1), (.8, .3), mark: (end: (symbol: "straight")))
+    line((.1, .1), (1.1, -.4), mark: (end: (symbol: "straight")))
+    line((.8, .3), (1.1, -.4), stroke: (dash: "dashed"))
+    content((.35, .1), [#sym.theta = ?])
+    content((.5, .28), [A])
+    content((.6, -.24), [B])
+    content((1.0, 0), [C])
+  })
+)
+]
+)
+
+== The law of cosines
+
+The law of cosines is useful to solve for the angle of an arbitrary (not-necessarily right) triangle. It states:
+
+#math.equation($|C|^2 = |A|^2 + |B|^2 - 2|A||B| cos(theta)$, alt: "magnitude of c-squared equals magnitude of a-squared plus magnitude of b-squared minus two times magnitude a times magitude b cos theta")
+
+It's a more general case than the pythagorean theorem: the third side length depends on how wide the angle is.  Let's see why this is useful:
+
+#math.equation($|A - B|^2 = |A|^2 + |B|^2 - 2|A||B| cos(theta)$, alt:"magnitude 'a' minus 'b' squared equals magnitude-a squared plus magnitude-b squared minus two times magnitude-a times magnitude-b times cos theta.")
+
+#math.equation($|A - B|^2 = (A_x - B_x)^2 + (A_y - B_y)^2$, alt: "magnitude of quantity A minus B equals the difference in A and B's x components squared, plus the difference in A and B's y components squared.")
+
+#math.equation($ = A_x^2 - 2A_x B_x + B_x^2 + A_y^2 - 2A_y B_y + B_y^2$, alt: "which equals a-x squared minus two times a-x b-x plus b-x squared plus a-y squared minus two times a-y b-y plus b-y squared") 
+
+== The law of cosines (2)
+
+Now let's expand the magnitudes of A and B alone:
+
+#math.equation($|A|^2 = (A_x^2 + A_y^2)$, alt: "Magnitude of A squared equals the sum of a-x squared and a-y squared"), #math.equation($|B|^2 = (B_x^2 + B_y^2)$, alt: "magnitude of B squared equals the sum of b-x squared and b-y squared")
+
+Putting it back together:
+
+#math.equation($A_x^2 - 2A_x B_x + B_x^2 + A_y^2 - 2A_y B_y + B_y^2 = \ A_x^2 + A_y^2 + B_x^2 + B_y^2 - 2|A||B| cos (theta)$, alt: "a-x squared minus two a-x b-x plus b-x squared plus a-y squared minus two a-y b-y plus b-y squared equals a-x squared plus a-y squared plus b-x squared plus b-y squared minus two times the magnitude of a times the magnitude of b times cos theta")
+
+All of the squared magnitudes and the -2 factors cancel. We're left with:
+
+#math.equation($A_x B_x + A_y B_y = |A||B| cos(theta)$, alt: "a-x times b-x plus a-y times b-y equals magnitude a times magnitude b times cos theta.")
+
+== The dot product
+
+If A and B are unit vectors (meaning, length one), we now have a very fast way to calculate a cosine: #math.equation($A dot B = A_x B_x + A_y B_y = cos(theta)$) 
+ This calculation is called the *dot product*.
+
+
+What's so great about this? If the two vectors are the same (and unit length), their dot product will be 1. If they are perpendicular, it will be 0. If they are exactly opposed, it will be -1. 
+
+The cosine between two vectors tells us "how aligned" they are.
+
+The dot-product is therefore one of the most common and useful operations in 3D graphics.
+
+== The norm
+
+The dot-product is typically most useful when one or both vectors is unit-length.
+
+How do we make a vector unit length?
+
+Divide it by its norm, which is the magnitude of the vector. We often write the unit length version of vector #math.equation($v$, alt:"vee") as #math.equation($hat(v)$, alt: "vee hat").
+
+#math.equation($hat(v) = v / (|v|)$)
+
+Converting a vector to a unit-length vector is called *normalization*.
+
+== Solving our question from before
+
+So how do we know if we're looking at the enemy?
+
+Make a vector from our player position to the enemy #math.equation($v = E - P$, alt: "v equals E minus P").
+
+Take the dot product between the unit-length version of that vector and the point that we're looking at (we'll call it 'c', for "camera"). If that value is close enough to 1, we can jump-scare the player:
+
+#math.equation($hat(v) dot hat(c) >= "jump-scare point"$, alt: "v-hat dot c-hat is greater than or equal to 'jump-scare point'")
+
+We don't need the actual angle: the dot product is good enough. The camera vector is usually always unit length, so this is easy to do.
+
+#focus-slide("Questions?")
+
+== Projection
+
+The dot product does something else cool: it calculates the projection of one vector onto another:
+
+#figure(
+  alt: "Two vectors, one of which is unit length. There is a dashed vector showing the projection of the longer vector onto the unit length one",
+  canvas(length: 7cm, {
+    import draw: *;
+    set-viewport((0, 0), (1, 1))
+    line((0, 0), (.7, .4), mark: (end: (symbol: "straight")))
+    line((0, 0), (.4, .1), mark: (end: (symbol: "straight")))
+    line((.4, .1), (.79, .2), stroke: (dash: "dashed"), mark: (end: (symbol: "straight")))
+  })
+)
+
+That is, the longer vector dotted with the unit length vector gives the length of the whole dotted vector (including the part covered up by the unit vector): the shadow.
+
+To project onto non-unit length vectors, normalize:
+#math.equation($"proj"(a, b) = a dot b / (|b|)^2$)
+
+
+== Projection (2)
+
+Why projection?
+
+It's often useful to project a line onto a plane, for example, in an RTS game where you want to draw an arrow showing where a unit is moving.
+
+If you have a normal vector (a vector pointing out perpendicular to a surface), you can check the projection of a vector to a point to the normal vector. Its direction will tell you which side of the surface it is.
+
+Speaking of normal vectors...
