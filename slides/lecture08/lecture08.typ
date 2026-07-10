@@ -502,7 +502,7 @@ All of the squared magnitudes and the -2 factors cancel. We're left with:
 
 == The dot product
 
-If A and B are unit vectors (meaning, length one), we now have a very fast way to calculate a cosine: #math.equation($A dot B = A_x B_x + A_y B_y = cos(theta)$) 
+If A and B are unit vectors (meaning, length one), we now have a very fast way to calculate a cosine: #math.equation($A dot B = A_x B_x + A_y B_y = cos(theta)$, alt: "a-x b-x plus a-y b-y equals cos theta") 
  This calculation is called the *dot product*.
 
 
@@ -520,7 +520,7 @@ How do we make a vector unit length?
 
 Divide it by its norm, which is the magnitude of the vector. We often write the unit length version of vector #math.equation($v$, alt:"vee") as #math.equation($hat(v)$, alt: "vee hat").
 
-#math.equation($hat(v) = v / (|v|)$)
+#math.equation($hat(v) = v / (|v|)$, alt: "v-hat equals v over magnitude v")
 
 Converting a vector to a unit-length vector is called *normalization*.
 
@@ -556,7 +556,7 @@ The dot product does something else cool: it calculates the projection of one ve
 That is, the longer vector dotted with the unit length vector gives the length of the whole dotted vector (including the part covered up by the unit vector): the shadow.
 
 To project onto non-unit length vectors, normalize:
-#math.equation($"proj"(a, b) = a dot b / (|b|)^2$)
+#math.equation($"proj"(a, b) = a dot b / (|b|)^2$, alt: "scalar projection of 'a' onto b is 'a' dot b over the magnitude squared of b")
 
 
 == Projection (2)
@@ -568,3 +568,66 @@ It's often useful to project a line onto a plane, for example, in an RTS game wh
 If you have a normal vector (a vector pointing out perpendicular to a surface), you can check the projection of a vector to a point to the normal vector. Its direction will tell you which side of the surface it is.
 
 Speaking of normal vectors...
+
+== Cross products
+
+How do we get a vector that is perpendicular to two other vectors?
+
+Better question: _why_ do that at all?
+
+The main reason has to do with camera controls. Cameras are often defined by a forward vector (pointing where you're looking) and an up vector (pointing up, so you know which way the camera is rolled).
+
+The cross product is how you can compute the right vector, so you can side-step right and left.
+
+== Cross products (2)
+
+The cross product is defined like this:
+
+#math.equation($a times b = |a||b| sin(theta) n$, alt: "a cross b equals magnitude a times magnitude b times sine theta times n")
+
+Where n is a normal unit vector.
+
+Notice the similarity between this and the dot product, but also notice the difference: the dot product is a scalar (a one dimensional value), whereas this the scalar in the expression above is being multiplied by n, a vector, resulting in a vector.
+
+That's why the cross product is often called the "vector product" (as opposed to the dot product, which is known as the "scalar product").
+
+== Cross products (3)
+
+Earlier I stated that most of the concepts we learn will work in either 2 or 3 dimensions. 
+
+The cross product is an exception. It _only_ is defined in 3 dimensions#footnote[or technically 7, too].
+
+Here is its definition:
+
+#math.equation($A times B = <A_y B_z - A_z B_y, A_z B_x - A_x B_z, A_x B_y - A_y B_x>$, alt: "'a' cross 'b' has an x component of a-y b-z minus a-z b-y, a y component of a-z b-y minus a-x b-z, and a z component of a-x b-y minus a-y b-x.")
+
+You can see how it's kind of the opposite of the dot product. It's every product _except_ the pairwise ones, and we subtract instead of add.
+
+== Cross products (4)
+
+The cross product is honestly kind of janky, but it is useful.
+
+We will be using a linear algebra library to compute it for us.
+
+It helps to remember what direction the result points, though. There are two directions it _could_ point, but we will be using the right-hand rule:
+
+#figure(
+  caption: text(20pt)[#link("https://commons.wikimedia.org/wiki/File:Right_hand_rule_cross_product.svg", "Source"), Acdx, #link("http://creativecommons.org/licenses/by-sa/3.0/", "CC BY-SA 3.0"), via Wikimedia Commons],
+  image("screens/right_hand_rule.webp", height: 40%, alt: "a picture of a right hand, pointing forward and to the left with its thumb up. The index finger is labelled 'a'. The middle finger, pointing back and to the left, is labelled 'b'. The thumb, labelled a cross b, is pointing up.")
+)
+
+== Odds and ends
+
+There's a couple of odds of ends we can cover if there's time:
+- Complex numbers: what does _i_ mean? It's the number that when you multiply it it means you rotate by 90 degrees: that's why if you do it twice you go from 1 to -1. (i.e., #math.equation($i^2 = -1$, alt: "i squared equals minus 1")). But who cares?
+- quaternions: we do. Because the extension of complex numbers into 3D is called a quaternion. There are 3 imaginary dimensions and one real dimension, and they encode scaling or rotation. Interestingly, they do it much faster than matrices do, and they are therefore quite useful to us for specific purposes.
+
+== Next class
+
+Please #link("https://www.3blue1brown.com/lessons/linear-transformations/", "read this article") or watch the video linked in it: mandatory viewing.
+
+It will explain matrices in a very intuitive way. And we are going to need that for next time!
+
+You might also want to #link("https://shi-yan.github.io/webgpuunleashed/Basics/utilizing_transformation_matrices.html", "read ahead") in the book.
+
+#focus-slide("Questions?")
