@@ -736,4 +736,6 @@ Tweak the matrices to make the triangles move around.
 
 Make sure to review how bind-groups work. We need them for matrices!
 
+Work through the #link("https://shi-yan.github.io/webgpuunleashed/Basics/utilizing_transformation_matrices.html#", "book chapter").
+
 Just to make it explicit, it is imperative to review the samples. Consider it homework to always review a sample which is mentioned in a lecture. They have important details that you will need to do projects (such as needing to use `GPUBufferUsage.UNIFORM` for buffers used in uniforms).
