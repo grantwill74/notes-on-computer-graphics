@@ -1,0 +1,30 @@
+ <!DOCTYPE html>
+<html>
+    <head>
+        <title>My WebGPU sample</title>
+        <script type="importmap">
+            {
+                "imports": {
+                    "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
+                    "gl-matrix/": "./node_modules/gl-matrix/esm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
+            // import { loadTexture } from
+            //    "./sample05_textures/sample.js"
+            import { renderSample06 } from "./sample06_matrices/sample.js"
+
+            const [device, context,] = await initWebGpu();
+
+            renderSample06(device, context);
+        </script>
+    </head>
+    <body>
+        <canvas width="800" height="600"></canvas>
+    </body>
+</html>
+
+

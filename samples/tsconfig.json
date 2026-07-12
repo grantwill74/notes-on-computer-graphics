@@ -8,13 +8,18 @@
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
-    "target": "esnext",
-    "lib": ["DOM"],
+    "target": "es2025",
+    "lib": ["DOM", "ES2025"],
     "types": ["@webgpu/types"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
     // and npm install -D @types/node
+
+    "paths": {
+      "gl-matrix": ["../node_modules/gl-matrix/esm/index.js"],
+      "gl-matrix/*": ["./node_modules/gl-matrix/esm/*.js"]
+    },
 
     // Other Outputs
     "sourceMap": true,
