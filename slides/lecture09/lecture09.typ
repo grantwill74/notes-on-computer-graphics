@@ -627,6 +627,107 @@ There are 3 basic matrix types: `mat2`, `mat3` and `mat4`. We'll mainly be using
 
 To create an identity matrix, run the static method `mat4.create()`
 
+This is a *static method*. It's like a regular function inside of the `mat4` class, not a method. You don't call it on a specific matrix, you call it on the class `mat4`.
+
+Most of the matrix functions are like this.
+
+== Making a matrix (2)
+
+The gl-matrix library wants to be fast.
+
+For that reason, we usually only have to `create` a matrix once.
+
+There is a method for each affine matrix. It will take an existing matrix, apply the transformation, and _write the result into another matrix_. 
+
+This allows you to avoid unecessary allocations.#footnote[although typescript doesn't really know this, so I frequently use `mat4.create()` so that it knows the result is a matrix.]
+
+
+== Making a matrix (3)
+
+Let's make a simple matrix that will first rotate, then translate:
+#[
+  #set text(20pt)
+```ts
+const matTranslate = mat4.create();
+mat4.translate(matTranslate, matTranslate, vec3.fromValues(.4, -.4, 0))
+mat4.rotateZ(matTranslate, matTranslate, .15 * TAU)
+```
+]
+
+First, create an identity matrix. Then, left multiply a translation matrix. Finally, left multiply a rotation matrix about Z.
+
+Wait, I thought we wanted to rotate first!
+
+Yup, that's what we're doing. The result is `R*T*I`. Calling these methods results in a left-multiplication, so we go last to first. 
+
+== Using a matrix in a shader
+
+Here's an example of how a matrix gets used in a shader:
+#[
+  #set text(20pt)
+```wgsl
+@group(0) @binding(0) var<uniform> model: mat4x4<f32>;
+// the matrix is always attached to a bind group
+struct VertexOutput {
+    @builtin(position) pos: vec4f,
+    @location(0) color: vec4f,
+};
+
+@vertex fn vs(@location(0) pos: vec3f) ->  VertexOutput {
+    var vo: VertexOutput;
+    vo.pos = model * vec4(pos, 1); // multiply here
+    vo.color = vec4(1, 0, 0, 1);
+    return vo;
+}
+```
+]
+
+== Uniforms
+
+Notice that we said `var<uniform>` when declaring the matrix.
+
+A uniform is a piece of data that is read-only inside the shader, but is allowed to change between draw calls.
+
+Textures are a form of uniform data, but they live in their own address space, so we don't write `var<uniform>` for them.
+
+If you're curious, the alternative to `var<uniform>` is `var<storage>`, which is a variable that the shader is allowed to write to.
+
+We don't want to write to the matrix, we want to multiply by it, which we do. We multiply every vertex by the given "model" matrix.
+
+== Model matrix
+
+The model matrix is the first time we're seeing a matrix in the shader, but it won't be the last.
+
+The purpose of the model matrix is to transform the 3D model.
+
+It can also be called the "world" matrix, because it takes us from model coordinates (where 0 is the middle of the model) to world coordinates (where 0 is the middle of the scene).
+
+== Storing matrices
+
+The matrices in `gl-matrix` are stored as a giant tuple of 16 floats.
+
+They are in row-major order, meaning the first 4 floats is the first row of the matrix, the second 4 is the second row, etc.
+
+In order to send them to the video card, we need to create a GPU buffer, just like we've been using for positions.
+
+However, after we do that, we need to make a bind group. 
+
+== Bind groups
+
+We've already been introduced to bind groups because we needed them to load shaders.
+
+However, if there's time, let's go over `sample06` together.
+
+I loaded the matrix into a bindgroup along with the color of the triangle (because I wanted to use the same color for the whole triangle).
+
+Then, I changed the viewport 4 times, along with the bindgroup, to draw 4 triangles to different corners of the screen. Each with a different matrix.
+
+== Sample screenshot
+
+#figure(
+  image("screens/sample06.png", height: 85%, alt: "a screenshot of sample06. A red triangle is in the top left, untransformed. A green triangle is in the top right rotated about the z axis a little bit. A blue triangle is in the bottom left squashed and stretched by scaling it. Lastly a cyan triangle is in the bottom right, translated.")
+)
+
 == Homework
 
 Make sure you can download and run `sample06`.
