@@ -325,7 +325,7 @@ Hold your left hand up and make an "L". Poke your middle finger forward. Your mi
 
 Hold your right hand up with your thumb and index finger going the same way. You will have to twist it around. Z (your middle finger) will point toward you.
 
-#stack(dir: ltr,
+#stack(dir: ltr, spacing: 20%,
   figure(
     numbering: none,
     caption: text(20pt)[Left handed],
@@ -338,18 +338,299 @@ Hold your right hand up with your thumb and index finger going the same way. You
       line((0, 0), (1, 0))
       line((0, 0), (0, 1))
       line((0, 0), (.5, .5))
-      content((0.1, 1), [y])
+      content((0.2, 1), [y+])
+      content((1.2, 0), [x+])
+      content((0.7, 0.5), [z+])
+    })
+  ),
+  figure(
+    numbering: none,
+    caption: text(20pt)[Right handed],
+    alt: "Z points out of screen, towards you, but x and y still point the same way.",
+    
+    canvas(length: 2cm, {
+      import draw: *;
+      set-viewport((0, 0), (1, 1))
+      line((0, 0), (1, 0))
+      line((0, 0), (0, 1))
+      line((0, 0), (-.5, -.5))
+      content((0.28, 1), [y+])
+      content((1.3, 0), [x+])
+      content((-.2, -.5), [z+])
     })
   )
 )
-
 
 == Handedness of coordinate systems (3)
 
 The depth buffer in WebGPU is actually left-handed: larger Z values are considered behind smaller ones, so Z goes into the screen.
 
+In the old days, OpenGL's matrix helper library was right-handed. DirectX used left-handed matrices. 
 
-== Affine matrices
+Right handed is what math textbooks typically use, and it seems like it ended up winning out. Now, DirectX's math library supports both.
 
+The matrix library we are going to use, `gl-Matrix`, uses right-handed.
 
-== Swizzling
+== Shearing
+
+One more linear transformation: shearing.
+
+I won't go into a lot of detail because shearing is the most complex transform, and also the one we use the least (with one exception).
+
+The basic idea is to move one of the basis vectors by a fixed amount:
+
+#figure(
+  numbering: none,
+  caption: "A shear matrix",
+  math.equation($mat(
+    1, 0, 0;
+    d, 1, 0;
+    f, 0, 1;
+  )$, alt: "It's the identity matrix except there are two non-zero terms under the first 1, in the x-column.")
+)
+
+It's mathematically useful (rotations can be decomposed into shears), but it's not an operation that we frequently do in 3D computer graphics.
+
+#focus-slide("Questions?")
+
+== The missing operation
+
+Keep in mind, these operations are supposed to include _every positional transformation_ we want to do to a 3D model.
+
+There's one missing: translation.
+
+How can we do translation in 3D?
+
+#math.equation($mat(
+  ?, ?, ?; ?, ?, ?; ?, ?, ?                
+)$, alt: "a matrix with question marks for every element.")
+
+[class?]
+
+== Translation
+
+That was a trick question: we can't.
+
+At least, we can't do translation in 3D with a 3-by-3 matrix.
+
+We can add a vector to translate it, but we can't express that as a linear transformation. 
+
+So what? The problem is: we want to be able to concatenate all our transformations into one matrix. If we have random translations, suddenly we have to store our operations in a list or something.
+
+We _can_ do translation in 3D with a 4-by-4 matrix, though, if we change our coordinate system.
+
+== Homogenous Coordinates
+
+Homogenous coordinates allow us to use the same matrices to transform both points and vectors.
+
+Normally, matrices transform vectors. But vectors don't have a position.
+
+Linear transformation matrices assume that the origin is 0.
+
+This won't work. We want to be able to _move_ the origin by doing a matrix multiplication.
+
+== Homogenous coordinates (2)
+
+When we use homogenous coordinates, we add a dimension, named 'w'.
+
+The `w` dimension describes whether a value is a vector or a point, and if it's a point, how much it needs to be scaled.
+
+If the `w` dimension is 0, the value is a vector. `<1, 2, 0>` is basically the same vector as `<1, 2>`.
+
+If the `w` dimension is `1`, the value is a point. `<1, 2, 1>` is a point floating in space.
+
+If the `w` dimension is neither 0 nor 1, then it represents the same point as if we divided by `w`. So `<2, 4, 2>` `<3, 6, 3>`  are the same as `<1, 2, 1>`
+
+== Visualizing homogenous coordinates
+
+#stack(dir: ltr, spacing: 4%,
+box(width: 48%)[
+  With homogeneous coordinates, we _project_ points onto the plane w = 1.
+
+  The w axis points away from the origin.
+
+  What makes x and y shrink as they get closer to the origin?
+
+  Answer: we divide by w. 
+],
+box(width: 48%)[
+  #figure(
+    numbering: none,
+    caption: text(20pt)[#link("https://en.wikipedia.org/wiki/File:RationalBezier2D.svg", "Image") by #link("https://commons.wikimedia.org/wiki/User:Wojciech_mula", "Wojciech Muła"), #link("https://creativecommons.org/licenses/by-sa/3.0/deed.en", "CC-BY-SA 3.0")],
+    image("screens/homogenous_coordinates.webp", height: 85%, alt: "A curve that would normally be a 2D shape, but it's in 3D space. It is being projected downward on a plane labelled w = 1. As it gets closer to 0,0,0, it becomes smaller.")
+  )
+]
+)
+
+== Homogenous coordinates (3)
+
+By dividing by w, we normalize the homogenous coordinates.
+
+Your GPU does this automatically after the vertex shader runs. It's called the w divide.
+
+This is how perspective can be achieved on a GPU. We'll learn how to enable perspective next time.
+
+These homogenous coordinates are the reason why, most of the time, we use 4-by-4 transformation matrices instead of 3-by-3 ones.
+
+So what does the translation matrix look like?
+
+== A translation matrix
+
+#figure(
+  numbering: none,
+  caption: "The translation matrix",
+math.equation($mat(
+  1, 0, 0, t_x;
+  0, 1, 0, t_y;
+  0, 0, 1, t_z;
+  0, 0, 0, 1 ;
+)$,
+alt: "A 4-by-4 identity matrix except the right-most column (the w column) has t-x, t-y, t-z, and 1 as its elements.")
+)
+
+Consider what would happen if we performed this multiplication:
+
+#math.equation($
+mat(1, 0, 0, 1; 0, 1, 0, 2; 0, 0, 1, 3; 0, 0, 0, 1) mat(2; 3; 4; 1) = ???
+$, alt: "The translation matrix with 1, 2, and 3 as the translational amounts t-x, t-y, and t-z; multiplied by the homogenous vector 2 3 4 1.")
+
+== A translation matrix (2)
+
+Let's work the math:
+
+#math.equation($
+mat(1, 0, 0, 1; 0, 1, 0, 2; 0, 0, 1, 3; 0, 0, 0, 1) mat(2; 3; 4; 1) = mat(2 dot 1 + 0 + 0 + 1 dot 1; 0 + 3dot 1 + 0 + 1 dot 2; 0 + 0 + 4 dot 1 + 1 dot 3; 0 + 0 + 0 + 1 dot 1) = mat(3; 5; 7; 1)
+$, alt: "The translation matrix with 1, 2, and 3 as the translational amounts t-x, t-y, and t-z; multiplied by the homogenous vector 2 3 4 1. We take the dot product of the vector with every row. The result is 3 5 7 1.")
+
+Notice: because there's a 1 in the w-place of the vector, we just add the w-column of the matrix to the result. This lets us achieve translation with a _multiplication_ rather than addition.
+
+If there had been a 2 in the w-place, we would have translated twice as much. The result would be the same after dividing by w.
+
+If there had been a 0 in the w-place, we wouldn't have translated at all.
+
+== Affine transformations
+
+All the transformations we have seen today are *affine* transformations.
+
+An affine transformation is a linear transformation that can also optionally move the origin.
+
+We will use these matrices to position our 3D models in our scene. We can rotate, translate, scale, even shear them however we want.
+
+We take these matrices and we _multiply_ them.
+
+The resulting matrix _combines_ all the transformations.
+
+== Order of matrix operations
+
+What I'm about to show you is tricky and is something that people typically get wrong a lot.
+
+Suppose we want to first, translate by some vector (T), then rotate (R).
+
+Do we represent the compound transformation as:
+- `TR`, or
+- `RT`?
+
+Note: these are two different operations! If we rotate first, we rotate in place, then move. If we translate first, we rotate around the origin and will end up orbiting around the origin by the angle.
+
+== Order of matrix operations (2)
+
+The correct operation order is...`RT`
+
+That's right. It's the opposite of what you expect.
+
+Remember that matrices represent functions. Suppose R and T were functions, and p was our point. We would write this: R(T(p))
+
+That is, T would happen first, but because the name of the function comes first, the letter T appears after R.
+
+Matrices work the same way!
+
+== Order of matrix operations (3)
+
+In general, if A, B, and C are matrices:
+
+ABC means _first do C_, then B, then A
+
+If you want to actually go in the order of first A, then B, then C: `CBA`.
+
+This is confusing, and it will catch you many times. The solution is to think of a matrix as a function.
+
+== Associativity but not commutativity
+
+Remember that matrix operations are associative, but not necessarily commutative. 
+
+That means, we can pre-multiply matrices if we want, but we can't flip the left and right operands.
+
+For example, `A(BC)` is the same as `(AB)C`.
+
+But `AB` is not usually the same as `BA`.
+
+Let's take a quick question break, then learn how to install the matrix library we're going to use
+
+#focus-slide("Questions")
+
+== Installing `gl-matrix`
+
+In your project directory, run: `npm install gl-matrix`
+
+Now it's installed, but there are more things you have to do.
+
+First, we want to make sure Typescript understands it. In our `tsconfig.json` file add this key and these values:
+#[
+  #set text(20pt)
+```json
+"paths": {
+      "gl-matrix": ["../node_modules/gl-matrix/esm/index.js"],
+      "gl-matrix/*": ["./node_modules/gl-matrix/esm/*.js"]
+},
+```
+]
+
+== Installing `gl-matrix` (2)
+
+Lastly, we have store a source map in our HTML file.
+
+This makes it so that `import` statements in the javascript get resolved to the right place.
+
+Here is mine. This goes above the `<script....>` tag:
+
+#[
+  #set text(20pt)
+```html
+<script type="importmap">
+{
+    "imports": {
+        "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
+        "gl-matrix/": "./node_modules/gl-matrix/esm/"
+    }
+}
+</script>
+```
+]
+
+== Installing `gl-matrix` (3)
+
+This tells the browser that when `gl-matrix/something` is imported, to load `./node_modules/gl-matrix/esm/something`
+
+If `gl-matrix` is imported by itself, it will load its `index.js`.
+
+Make sure that the path exists for you. 
+
+If you didn't put node modules in the same directory as your HTML file, it won't. 
+
+Remember, '.' means the current directory. So './node_modules/...' means 'look in the current directory for a directory called `node_modules`, and then look under that ...
+
+== Making a matrix
+
+You'll want to read the #link("https://glmatrix.net/docs/v4/", "documentation") to make sure you understand the basic operations are available, but let's show off some simple matrices.
+
+There are 3 basic matrix types: `mat2`, `mat3` and `mat4`. We'll mainly be using `mat4` because it supports all the affine matrices we need.
+
+To create an identity matrix, run the static method `mat4.create()`
+
+== Homework
+
+Make sure you can download and run `sample06`.
+
+Tweak the matrices to make the triangles move around. 
+
+Make sure to review how bind-groups work. We need them for matrices!
