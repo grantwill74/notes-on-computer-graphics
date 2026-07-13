@@ -369,7 +369,7 @@ In the old days, OpenGL's matrix helper library was right-handed. DirectX used l
 
 Right handed is what math textbooks typically use, and it seems like it ended up winning out. Now, DirectX's math library supports both.
 
-The matrix library we are going to use, `gl-Matrix`, uses right-handed.
+The matrix library we are going to use, `gl-Matrix`, uses right-handed perspective matrices. However, before we get to perspective, we will use left-handed coordinates (which is how the hardware works naturally).
 
 == Shearing
 
