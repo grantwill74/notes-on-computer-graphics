@@ -660,6 +660,18 @@ Wait, I thought we wanted to rotate first!
 
 Yup, that's what we're doing. The result is `R*T*I`. Calling these methods results in a left-multiplication, so we go last to first. 
 
+== Making a matrix (4)
+
+The first argument most of the static matrix methods is the output matrix.
+
+`gl-matrix` prefers to write its result directly into the matrix instead of returning it. This is much faster (e.g., rotation only requires setting 4 elements instead of allocating and initializing a new 16 element matrix).
+
+The second argument is the matrix to be transformed.
+
+The third argument is how it will be transformed.
+
+So `mat4.rotateZ(matTranslate, matTranslate, .15 * TAU)` means "rotate `matTranslate` by a 15% turn; write the result to `matTranslate`.
+
 == Using a matrix in a shader
 
 Here's an example of how a matrix gets used in a shader:
@@ -721,6 +733,33 @@ However, if there's time, let's go over `sample06` together.
 I loaded the matrix into a bindgroup along with the color of the triangle (because I wanted to use the same color for the whole triangle).
 
 Then, I changed the viewport 4 times, along with the bindgroup, to draw 4 triangles to different corners of the screen. Each with a different matrix.
+
+== Matrix usage summary
+
+- In your shader, declare the matrix as a `var<uniform>`, and give it a binding and a group number, just like for textures.
+- We create an identity matrix with `mat4.create()`
+- We can transform it however we want using the `mat4...` methods, such as `mat4.translate` or `mat4.rotateZ`. There is a method for every affine matrix except for "shear".
+- A 4x4 matrix is stored as an array of 16 floats.
+
+== Matrix usage summary (2)
+
+- To send a matrix to the video card, first create a buffer. Create a `Float32Array` just like in the sample over the mapped range, like we've been doing for vertex buffers.
+- Then create a bind group layout. It will have the `buffer = {}` field.
+- Create a bind group, using the layout you created. Have it point to the buffer you put your matrix in.
+- Make sure your pipeline also has that bind group layout in it.
+- When defining your render pass, set the corresponding `@group` to the bind group you created.
+
+== Warning about odd sizes
+
+Your GPU secretly stores all vectors with 4 elements.
+
+So even if you have a `vec2f`, it is secretly using the space of a `vec4f`.
+
+This is also true of matrices: each row receives an entire vector.
+
+So if you create a `mat3x3`, you need to be sure that when you load it, you pad out each row. You'll store it in a vertex array as if it were a 3-by-4 matrix. 
+
+If you don't do this, every 4th element will get dropped. I did this when I was coding my initial sample for the lighting chapter and I was _very_ confused.
 
 == Sample screenshot
 
