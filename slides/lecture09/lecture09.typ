@@ -658,7 +658,7 @@ First, create an identity matrix. Then, left multiply a translation matrix. Fina
 
 Wait, I thought we wanted to rotate first!
 
-Yup, that's what we're doing. The result is `R*T*I`. Calling these methods results in a left-multiplication, so we go last to first. 
+Yup, that's what we're doing. The result is `I*T*R`. Calling these methods results in a right-multiplication, so the last one happens first. 
 
 == Making a matrix (4)
 
@@ -759,7 +759,9 @@ This is also true of matrices: each row receives an entire vector.
 
 So if you create a `mat3x3`, you need to be sure that when you load it, you pad out each row. You'll store it in a vertex array as if it were a 3-by-4 matrix. 
 
-If you don't do this, every 4th element will get dropped. I did this when I was coding my initial sample for the lighting chapter and I was _very_ confused.
+If you don't do this, every 4th element will get dropped. I did this when I was coding my initial sample for the lighting chapter. It was rough.
+
+I recommend just using 4x4 matrices for now.
 
 == Sample screenshot
 
