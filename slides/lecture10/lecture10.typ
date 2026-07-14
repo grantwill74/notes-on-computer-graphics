@@ -904,4 +904,7 @@ I made another video where the color is actually pulling the z-buffer value inst
 
 We covered a lot!
 - We learned about face culling and how it helps us draw solid objects correctly and efficiently
-- We saw that it has limitations: we still have to ensure that 
+- We saw that it has limitations: it still won't fix objects being drawn in the wrong order if they are at different depths.
+- We learned about the depth buffer. This is the key to rendering solid objects in any order.
+
+Make sure to download `sample07`, compile, and run it. Try to disable depth writing to reproduce the failed version without the depth buffer.
