@@ -819,4 +819,89 @@ This is useful for a bunch of random things, like drawing a boat in the water wi
 We won't be using the stencil buffer for your assignments, but I'm telling you about it because the storage for the depth buffer overlaps the stencil buffer, so I want you to know the term.
 
 == Creating the depth buffer
+To create the depth buffer, we create a texture with the right format.
 
+```ts
+this.depthBuffer = device.createTexture({
+    format: 'depth24plus-stencil8',
+    size: {
+        width: context.canvas.width,
+        height: context.canvas.height,
+        depthOrArrayLayers: 1
+    },
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    label: 'depth buffer',
+});
+```
+
+== Creating the depth buffer (2)
+
+The main thing to explain here is the format.
+
+`depth24plus-stencil8` means "use at least 24-bits for the depth buffer, but feel free to use more. Also, give me an 8-bit stencil buffer."
+
+We won't be using a stencil buffer for a while, but it's common for them to share space. For example, 24-bits of depth and 8-bits of stencil is a common format to pack the depth and stencil buffer into the same texture.
+
+We don't have to worry about this. The GPU handles it for us. By using `depth24plus` instead of `depth24` we give the driver the option to use more space if it wants. 
+
+== Defining the pipeline
+
+Let's add a `depthStencil` description to our pipeline. Depth buffering and stencil buffers go together a lot, because they are both used to reject fragments.
+
+```ts
+depthStencil: {
+    format: 'depth24plus-stencil8',
+    depthCompare: 'less-equal',
+    depthWriteEnabled: true,
+},
+```
+
+== Defining the pipeline (2)
+
+We specify the format so that it matches our texture.
+
+We also make sure `depthWriteEnabled` is true, so that the pipeline knows it can actually write into the depth buffer, which is the main point: we want to store the nearest pixel depth for each pixel. We only disable this typically when doing transparent rendering.
+
+Lastly, `depthCompare` tells it what rule needs to be satisfied for the pixel to be written. `less-equal` means that the pixel needs to have a depth value less than or equal to the one in the depth buffer.
+
+Note: there are stencil fields we're ignoring because we aren't using the stencil buffer yet.
+
+== The attachment
+
+Lastly, after defining the `colorAttachment`, we also define a `depthStencilAttachment` in the pass description:
+
+```ts
+depthStencilAttachment: {
+    view: this.depthBuffer,
+    depthClearValue: 1,
+    depthLoadOp: "clear",
+    depthStoreOp: "store",
+    stencilReadOnly: true,
+}
+```
+
+== Attachment options
+
+The `view` just points at the depth buffer texture we created.
+
+The `depthClearValue` is the value to reset the depth buffer to when we start a pass. 1 is the farthest value: we set it to 1 so that the first non-culled pixel it draws is always accepted. If we set this to 0, every pixel would be rejected unless it was exactly at z = 0.
+
+`depthLoadOp` defines what happens at the beginning of the pass. We clear the depth buffer to 1. Note: this only happens once per pass, not before each cube is drawn, that would prevent the depth buffer from working.
+
+`depthStoreOp: "store"` just means "don't discard the value".
+
+== It works!
+
+#image("screens/working-z-buffer.png", alt: "screenshot of sample06. The larger cube correctly obscures the smaller cube behind it.")
+
+== Two animations
+
+Take a look at `lecture10/screens/with-z-buffer.mp4` to see it working properly. It's a rotating cube in front of a smaller cube that is properly obscured.
+
+I made another video where the color is actually pulling the z-buffer value instead. Take a look at `lecture10/screens/z-values.mp4`. This video is gray scale version of the above video: the brightness of a pixel is its depth value. Brighter means farther away.
+
+== What an adventure
+
+We covered a lot!
+- We learned about face culling and how it helps us draw solid objects correctly and efficiently
+- We saw that it has limitations: we still have to ensure that 
