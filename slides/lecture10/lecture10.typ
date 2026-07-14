@@ -645,10 +645,178 @@ If we mix the order, we won't be able to keep track of whether the cross product
 
 The order in which triangles are specified is called *winding order*.
 
-The standard winding order for most 3D systems and file formats is counter-clockwise.
+It will determine the sign of the signed area (from the cross product).
 
-Therefore, from now on, let's stick to counter-clockwise winding!
+If the winding order flips (e.g., because we rotated the triangle), the cross product will change direction too. Front-facing -> back-facing or vice versa.
+
+The standard winding order for most 3D systems and file formats is counter-clockwise. Therefore, from now on, let's stick to counter-clockwise winding!
 
 But how do we tell WebGPU to use culling?
 
 == Enabling culling
+
+Culling is enabled in the pipeline. There's an optional field called `primitive` that refers to how triangles are specified:
+
+```ts
+primitive: { // I put this after fragment: {...} 
+    cullMode: 'back', // in the pipeline
+    frontFace: 'ccw',
+    topology: 'triangle-list',
+},
+```
+
+`cullMode` can be 'back', 'front', or 'none'. 'none' means don't do culling at all. 'back' means don't draw triangles facing away from the screen. 'front' means don't draw triangles facing towards the screen (normally only used for transparent blending).
+
+== Enabling culling (2)
+
+`frontFace` allows us to determine whether we will be using clockwise or counter-clockwise winding.
+
+`ccw` means counter-clockwise, `cw` is clockwise.
+
+As I said before, `ccw` is effectively standard now. But if you're working with some old data that was specified in clockwise order, you have the ability to change it.
+
+Lastly, `topology` tells it how we will issue triangle data. `triangle-list` is the one we've been using, where we give it groups of 3 vertices. There are others that are quite useful; we'll discuss them soon.
+
+== It works
+
+Check `lecture10/screens/with-culling.mp4` to see an example of the working quad.
+
+Looks good!
+
+But...it's still not quite done. Let's try drawing one more box to see why.
+
+== Drawing multiple boxes
+
+Once we call `.setVertexBuffer` in our pass encoder, it stays until we change it. This lets us draw the same 3D model multiple times.
+
+We can make another bind group to represent another object's model position. 
+
+```ts
+...
+pass.setVertexBuffer(0, this.vertBuf);
+pass.setBindGroup(0, this.bindGroup1);
+pass.draw(36); // draw the first cube
+pass.setBindGroup(0, this.bindGroup2); 
+pass.draw(36); // draw a cube with a different matrix
+...
+```
+
+== Making the matrix 
+
+Let's set up a smaller cube's matrix:
+
+#[
+#set text(18pt)
+
+```ts
+this.matBuf2 = device.createBuffer({
+    size: 16 * 4,
+    usage: GPUBufferUsage.UNIFORM,
+    label: "stationary matrix buffer",
+    mappedAtCreation: true,
+});
+const stationary = mat4.create();
+mat4.translate(stationary, stationary, vec3.fromValues(.4, 0, .86));        
+mat4.scale(stationary, stationary, vec3.fromValues(0.4, 0.4, 0.4));
+mat4.rotateX(stationary, stationary, -.05 * TAU);
+mat4.rotateY(stationary, stationary, -.15 * TAU);
+(new Float32Array(this.matBuf2.getMappedRange())).set(stationary);
+this.matBuf2.unmap();
+```
+]
+
+This one is stationary, so we map it like normal. (no `writeBuffer`)
+
+== Making the bind group
+
+We make a second bind group for the second cube.
+
+In general, every distinct object in your scene will have at least one bind group for it (maybe more than one).
+
+```ts
+this.bindGroup2 = device.createBindGroup({
+    entries: [{binding: 0, resource: this.matBuf2}],
+    layout: bgLayout
+});
+```
+
+It's the same as the first bind group except it's pointing at the second matrix buffer.
+
+== Let's draw!
+
+#image("screens/no-z-buffer.png", height: 80%, alt: "the cube from before, but with another, smaller cube drawn on top of it");
+
+Uhh...that's still not right...
+
+== Why is it on top
+
+We're using left-handed coordinates, so the second cube should be _behind_ the first cube.
+
+Its being translated by 0.75 into the screen, but the other cube is only being translated 0.5.
+
+However, it's being drawn _second_. Because we drew the smaller cube second, its pixels will be copied over the first cube's.
+
+So...just switch the order, right? Not so fast: that might work now, but what if we made the smaller cube rotate? Then it would be wrong once its position relative to the first cube changed.
+
+== The old days
+
+#stack(dir: ltr, spacing: 4%,
+box(width: 48%)[
+In the old days, there was no solution to this other than to sort the objects in your scene so that you drew them in the right order.
+
+This is why old 3D games on systems without a z-buffer (like the Playstation 1) are often so "grid based". They used the grid to ensure correct drawing order.
+],
+box(width: 48%)[#figure(
+  image("screens/tomb-raider-grid.jpg", width: 100%, alt: "a screenshot of Tomb Raider."),
+  numbering: none,
+  caption: "Notice how 'grid-based' the landscape is."
+)
+#place(top + right, dx: -1%, dy: 1%, game-name[Tomb Raider (1996)])
+],
+)
+
+== The old days (2)
+
+The Playstation actually had the ability to put polygons in buckets when submitting them for drawing. You could give it a drawing order.
+
+Unfortunately, this isn't enough. You can define 3 triangles that all overlap each other. This is called *cyclic overlap*.
+
+The only way to really solve the problem is to track each pixel individually, which was very expensive back in the 90s. 
+
+== But it's not the old days!
+
+The real fix here is to use some hardware that GPUs have had for decades now: the depth buffer (also called the z-buffer).
+
+The depth buffer keeps track of, for each pixel on the screen, the _nearest_ depth that we have written to that pixel.
+
+When we draw a fragment, if its depth is _greater_ than the _nearest_ depth, then it must be _behind_ something we have already drawn.
+
+Therefore, it's going to be hidden.#footnote[I'm leaving out transparency. We still use the depth-buffer with transparency, but it's more complicated. For now, assume everything in the scene is solid.]
+
+== Enabling the depth buffer
+
+There are several things we need to do to enable depth buffering:
++ Create the depth buffer. It's a texture.
++ Put a depth buffer description in our pipeline, so it knows that a depth buffer will be there.
++ Add a depth buffer attachment to our pass, pointing to the depth buffer we created. Now the buffer will be written to and read from automatically when we draw our passes.
+
+== Depth buffer storage
+
+A depth buffer is just a texture with a special format.
+
+Most depth buffers are 24 bits wide. This ends up being plenty for most applications. It's basically just a 24-bit number, where larger means farther away.
+
+The GPU will handle converting the z value of the fragment into a depth value that fits into that number.
+
+== Depth buffer storage (2)
+
+There is one other kind of buffer that serves a similar function to the depth buffer. It's called the *stencil buffer*.
+
+It's basically a way to control what parts of the image we want to draw to. For example, we can use the stencil buffer to protect part of an image to avoid copying over the pixels that are already there.
+
+This is useful for a bunch of random things, like drawing a boat in the water without the water being drawn over the inside of the boat.
+
+We won't be using the stencil buffer for your assignments, but I'm telling you about it because the storage for the depth buffer overlaps the stencil buffer, so I want you to know the term.
+
+== Creating the depth buffer
+
