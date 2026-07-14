@@ -635,7 +635,7 @@ So, how does the system know whether a face is facing towards us or facing away 
 
 Simply put: the cross product between two of the face's edges.
 
-By default, if that cross product is facing out of the screen, then the face is *front facing*. Otherwise, it is *back facing* (if it's perfectly sideways it also does not produce visible fragments).
+By default, if that cross product is facing out of the screen, then the face is *front facing*. Otherwise, it is *back facing* (if it's perfectly sideways it also does not produce visible fragments).#footnote[technically it doesn't compute the actual vector, but only the signed area. Negative or zero area means back-facing.]
 
 This means we must always define our triangles in the same order: either clockwise or counter-clockwise.
 
@@ -907,4 +907,4 @@ We covered a lot!
 - We saw that it has limitations: it still won't fix objects being drawn in the wrong order if they are at different depths.
 - We learned about the depth buffer. This is the key to rendering solid objects in any order.
 
-Make sure to download `sample07`, compile, and run it. Try to disable depth writing to reproduce the failed version without the depth buffer.
+Make sure to download `sample07`, compile, and run it. Try to disable depth writing to reproduce the failed version without the depth buffer. Also try to change the culling to `front` to see how it looks.
