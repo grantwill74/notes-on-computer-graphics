@@ -19,30 +19,35 @@ struct VertexOutput {
 }
 
 @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
+    // you can use the depth to choose the color to demonstrate the 
+    // depth buffer in action
+    //return vec4f(vo.pos.zzz, 1);
+
     return vo.color;
 }
 `;
 import { mat4, vec3 } from "gl-matrix";
 const TAU = Math.PI * 2;
 const TURNS_PER_SEC = 0.25;
-const UPDATES_PER_SEC = 60;
-const SECS_PER_UPDATE = 1 / UPDATES_PER_SEC;
-const TURNS_PER_UPDATE = TURNS_PER_SEC * SECS_PER_UPDATE;
 export class Sample07 {
     device;
     context;
     pipeline;
-    matBuf;
+    matBuf1;
+    matBuf2;
     vertBuf;
     textureFormat;
     depthBuffer;
-    bindGroup;
+    bindGroup1;
+    bindGroup2;
     rotationTurns;
+    lastRenderTime;
     constructor(device, context) {
         this.device = device;
         this.context = context;
         this.rotationTurns = 0;
         this.textureFormat = (context.getCurrentTexture().format + '-srgb');
+        this.lastRenderTime = performance.now(); // pretend we just rendered
         const shaderMod = device.createShaderModule({ code: shaderCode });
         const bgLayout = device.createBindGroupLayout({
             entries: [
@@ -53,42 +58,55 @@ export class Sample07 {
                 }
             ]
         });
-        this.matBuf = device.createBuffer({
+        this.matBuf1 = device.createBuffer({
             size: 16 * 4,
             // need copy dest in order to write the new matrix every frame
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            label: "matrix buffer",
+            label: "rotating matrix buffer",
             mappedAtCreation: false,
         });
         // notice: we're not mapping this one.
         // we're going to overwrite it once per frame, so there's no real
         // reason to write to it right now.
+        this.matBuf2 = device.createBuffer({
+            size: 16 * 4,
+            usage: GPUBufferUsage.UNIFORM,
+            label: "stationary matrix buffer",
+            mappedAtCreation: true,
+        });
+        const stationary = mat4.create();
+        mat4.translate(stationary, stationary, vec3.fromValues(.4, 0, .86));
+        mat4.scale(stationary, stationary, vec3.fromValues(0.4, 0.4, 0.4));
+        mat4.rotateX(stationary, stationary, -.05 * TAU);
+        mat4.rotateY(stationary, stationary, -.15 * TAU);
+        (new Float32Array(this.matBuf2.getMappedRange())).set(stationary);
+        this.matBuf2.unmap();
         const vertStride = 3 * 4 + 3 * 4;
         const vertData = new Float32Array([
             -.3, -.3, -.3, 1, 0, 0,
-            -.3, .3, -.3, 1, 0, 0,
-            .3, .3, -.3, 1, 0, 0,
             .3, -.3, -.3, 1, 0, 0,
+            .3, .3, -.3, 1, 0, 0,
             -.3, -.3, -.3, 1, 0, 0,
             .3, .3, -.3, 1, 0, 0,
-            .3, -.3, -.3, 0, 1, 0,
+            -.3, .3, -.3, 1, 0, 0,
             .3, .3, -.3, 0, 1, 0,
-            .3, .3, .3, 0, 1, 0,
-            .3, -.3, .3, 0, 1, 0,
             .3, -.3, -.3, 0, 1, 0,
+            .3, -.3, .3, 0, 1, 0,
+            .3, -.3, .3, 0, 1, 0,
             .3, .3, .3, 0, 1, 0,
-            .3, .3, .3, 0, 0, 1,
+            .3, .3, -.3, 0, 1, 0,
             -.3, .3, .3, 0, 0, 1,
-            -.3, -.3, .3, 0, 0, 1,
             .3, .3, .3, 0, 0, 1,
-            -.3, -.3, .3, 0, 0, 1,
             .3, -.3, .3, 0, 0, 1,
-            -.3, -.3, .3, 1, 1, 0,
-            -.3, .3, .3, 1, 1, 0,
-            -.3, .3, -.3, 1, 1, 0,
+            .3, -.3, .3, 0, 0, 1,
+            -.3, -.3, .3, 0, 0, 1,
+            -.3, .3, .3, 0, 0, 1,
             -.3, -.3, .3, 1, 1, 0,
             -.3, -.3, -.3, 1, 1, 0,
             -.3, .3, -.3, 1, 1, 0,
+            -.3, .3, -.3, 1, 1, 0,
+            -.3, .3, .3, 1, 1, 0,
+            -.3, -.3, .3, 1, 1, 0,
             -.3, .3, -.3, 1, 0, 1,
             .3, .3, -.3, 1, 0, 1,
             .3, .3, .3, 1, 0, 1,
@@ -140,11 +158,17 @@ export class Sample07 {
                         format: this.textureFormat,
                     }]
             },
+            primitive: {
+                cullMode: 'back',
+                // cullMode: 'none',
+                frontFace: 'ccw',
+                topology: 'triangle-list',
+            },
             // this is new, we need a depth buffer
             depthStencil: {
                 format: 'depth24plus-stencil8',
                 depthCompare: 'less-equal',
-                depthWriteEnabled: false,
+                depthWriteEnabled: true,
             },
         });
         // our depth buffer will be a texture.
@@ -159,35 +183,35 @@ export class Sample07 {
             usage: GPUTextureUsage.RENDER_ATTACHMENT,
             label: 'depth buffer',
         });
-        this.bindGroup = device.createBindGroup({
+        this.bindGroup1 = device.createBindGroup({
             entries: [
                 {
                     binding: 0,
-                    resource: this.matBuf,
+                    resource: this.matBuf1,
                 }
             ],
             layout: bgLayout
         });
+        this.bindGroup2 = device.createBindGroup({
+            entries: [{ binding: 0, resource: this.matBuf2 }],
+            layout: bgLayout
+        });
     }
     // send new matrix data to overwrite what was there before
-    update() {
+    update(dt) {
         const model = mat4.create();
         mat4.translate(model, model, vec3.fromValues(0, 0, .5));
         mat4.rotateX(model, model, -.05 * TAU);
-        mat4.rotateY(model, model, this.rotationTurns * TAU);
-        this.rotationTurns += TURNS_PER_UPDATE;
-        this.device.queue.writeBuffer(this.matBuf, 0, new Float32Array(model));
+        mat4.rotateY(model, model, -this.rotationTurns * TAU);
+        this.rotationTurns += dt * TURNS_PER_SEC;
+        this.rotationTurns %= 1; // wrap around once we hit 1 turn
+        this.device.queue.writeBuffer(this.matBuf1, 0, new Float32Array(model));
     }
-    startUpdating() {
-        setInterval(this.update.bind(this), SECS_PER_UPDATE * 1000);
-        // calling bind on a method allows you to set the 'this' parameter
-        // the result is a regular function you can call without a 'this'.
-        // so instead of sample.update(), we could do
-        // const func = sample.update.bind(sample)
-        // now calling func() has the same result as sample.update(),
-        // but we don't need the "sample."
-    }
-    render() {
+    render(now) {
+        // `now` is in milliseconds. We take the delta and convert it to seconds
+        const dt = (now - this.lastRenderTime) / 1000;
+        this.lastRenderTime = now;
+        this.update(dt);
         const encoder = this.device.createCommandEncoder();
         const pass = encoder.beginRenderPass({
             colorAttachments: [{
@@ -212,18 +236,20 @@ export class Sample07 {
         pass.setViewport(0, 0, this.context.canvas.width, this.context.canvas.height, 0, 1);
         pass.setPipeline(this.pipeline);
         pass.setVertexBuffer(0, this.vertBuf);
-        pass.setBindGroup(0, this.bindGroup);
+        pass.setBindGroup(0, this.bindGroup1);
+        pass.draw(36);
+        pass.setBindGroup(0, this.bindGroup2);
         pass.draw(36);
         pass.end();
         const commands = encoder.finish();
         this.device.queue.submit([commands]);
     }
     startRendering() {
-        const renderAndQueue = () => {
-            this.render();
+        const renderAndQueue = (now) => {
+            this.render(now);
             requestAnimationFrame(renderAndQueue);
         };
-        renderAndQueue();
+        renderAndQueue(performance.now());
     }
 }
 //# sourceMappingURL=sample.js.map
