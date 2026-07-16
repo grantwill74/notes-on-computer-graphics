@@ -504,6 +504,60 @@ We obtain world vertices by multiplying by the model matrix.
 
 Therefore, so far, we have `clip_pos = view * model * position`
 
+== Moving the camera around
+
+Suppose we want the camera to be at point (2, 1, 1), and pointing in the X+ direction.
+
+How would we do that?
+
+== Moving the camera around
+
+We translate the camera's model matrix, and rotate it:
+
+```ts
+const cam = mat4.create();
+mat4.translate(cam, cam, vec4.fromValues(2, 1, 1))
+mat4.rotateY(cam, cam, -.25 * TAU);
+// (the camera starts out looking in the -z direction,
+// we'll learn why next time, but that's why we rotate
+// right instead of left)
+```
+
+At this point the camera is just another object in the scene, like a cube that we want to rotate.
+
+== Generating the view matrix
+
+However, the closer the camera gets to something, the closer that thing gets to the screen.
+
+And the more the camera rotates left, the more everything else rotates right.
+
+We want the effect on the models in the scene to be the _inverse_ of the camera matrix. This inverse is called the view matrix:
+
+```ts
+const view = mat4.create();
+mat4.invert(view, cam)
+```
+
+== Using the view matrix
+
+Once we have this matrix, we can send it to the shader to be multiplied by our vertices in world coordinates.
+
+We want to wait though, we also need a projection, and we're about to learn perspective.
+
+One useful shortcut, however. It's so common to need to move the matrix and have it look at a point, that there's a built-in operation that does that in our matrix library...
+
+== Using the view matrix (2)
+```ts
+mat4.lookAt(view,
+  vec3.fromValues(0, 0, 0), // camera position
+  vec3.fromValues(0, 0, -1), // what point to look at?
+  vec3.fromValues(0, 1, 0)); // which direction is up?
+```
+
+This function outputs an already-inverted view matrix you can use.
+
+Personally, I don't think the next project will be easier if you use this method, because this method is designed for looking at absolute points, but our project will involve relative motion, but I leave it up to you.
+
 #focus-slide("Questions?")
 
 == Perspective
@@ -845,53 +899,137 @@ We want that when #math.equation($z = -n -> z' = 0$, alt: "z equals minus n, z p
 And when #math.equation($z = -f -> z' = 1$, alt: "z equals minus f, z prime equals 1")
 
 So, plugging into the equation on the previous slide: 
-- #math.equation($0 = -A - B/(-n) -> A=B/n -> A n = B$, alt: "zero equals minus 'a' minus B over minus n which implies that 'a' equals 'b' over n which implies that 'a' n equals b.")
-- #math.equation($1 = -A - B/(-f) -> A = B/f - 1$, alt: "one equals minus 'a' minus B over minus f which implies that 'a' = b over f minus 1")
+- #math.equation($0 = -A - B/(-n) ; A=B/n ; A n = B$, alt: "zero equals minus 'a' minus B over minus n which implies that 'a' equals 'b' over n which implies that 'a' n equals b.")
+- #math.equation($1 = -A - B/(-f) ; A = B/f - 1$, alt: "one equals minus 'a' minus B over minus f which implies that 'a' = b over f minus 1")
 
 Then, substitute #math.equation($A n = B$, alt: "'a' n equals b.")
-- 
+- #math.equation($A = (A n)/f - 1 ; A - (A n) / f = - 1 ; A f - A n = - f -> A = f/(n - f)$, alt: "a equals 'a' n over f minus 1, so a minus 'a' n over f equals minus 1. Multiply everything by f, 'a' f minus 'a' n equals minus f implies that 'a' equals f over quantity n minus f.")
+Finally, substitute again to solve for B:
+- #math.equation($A n = B; A = B / n; B/n = f / (n - f); B = (n f) / (n - f)$, alt: "'a' n equals B, so 'a' equals b over n, so b over n equals f over quantity n minus f (by substitution); so B equals n f over quantity n minus f.")
 
-== Improving the projection matrix 
+== What did that do?
 
-Let's start by handling the dimensions of the screen. We want to configure how far apart the left and right planes are from each other, as well as the top and bottom planes.
+Remember, after the w-divide, 
+#math.equation($z' = z/w' = (A z + B)/(-z) $, alt:"z-prime equals z over w-prime equals quantity 'a' z plus b over minus z")
 
-Let's think about top and bottom planes, and then the math will be similar for the left and right planes.
+The purpose was to make is to that the z value, after the w divide, has the correct value for the z-buffer. And we just solved for A and B.
 
-The farther apart the top and bottom planes are, the taller the screen is. What effect will that have on the image?
-
-== Improving the projection matrix (2)
-
-You might think: "it will stretch it", but not so fast.
-
-Remember that the purpose of the frustum is to determine what is contained in frame. If we stretch it vertically, _more stuff_ will fit in it.
-
-And the stuff that does fit will squash _more_ as we convert the frustum into the clipping volume.
-
-So, based on the top and bottom planes, how much does it squash?
-
-== Transforming a point
-
-Here is the frustom from the side. If we want to transform the point, we need to project it onto the near plane.
+Therefore, we can now modify our matrix to have these values. We put 'A' in the 'z' column, because it gets multiplied by z. We put B in the 'w' column, because it's just a constant addition (w is 1 for input points):
 
 #figure(
- canvas(length: 2cm, {
-  import draw: *;
-
-  set-viewport((-1, -1), (1, 1))
-
-  line((-.5, -.5), (-.5, .5))
-  line((-.5, -.5), (2, -1))
-  line((-.5, .5), (2, 1))
-  line((2,1), (2, -1))
-  circle((1, .375), radius: 0.02)
-  circle((-2, 0), radius: .02)
-  content((-2, -.1), anchor: "north", [camera \ origin])
-  line((1, .375), (-1, .1))
- }),
- alt: "test"
+  math.equation($mat(
+    (2 n) / (r - l), 0, (r + l) / (r - l), 0;
+    0, (2 n) / (t - b), (t + b) / (t - b), 0;
+    0, 0, A, B;
+    0, 0, -1, 0
+  ) = mat(
+     (2 n) / (r - l), 0, (r + l) / (r - l), 0;
+    0, (2 n) / (t - b), (t + b) / (t - b), 0;
+    0, 0, f / (n - f), (n f) / (n - f);
+    0, 0, -1, 0
+  )$, alt: "the matrix from earlier, but with A in cell 3,3 and B in cell 3,4. after substituting, there is now an 'f over quantity n minus f' in the 'A' cell and 'n f over quantity n minus f' in the B cell")
 )
 
+== Those z-coordinates
 
-== `viewProj` 
+Notice: the resulting z values will be nonlinear. Specifically, they will follow a plot that looks like this (using near = 1, far = 128):
+
+#import "@preview/cetz-plot:0.1.4": plot, chart
+
+#figure(
+  canvas(length: 8cm, {
+    import draw: *
+    let near = 1
+    let far = 128
+    let A = far / (near - far)
+    let B = (near * far) / (near - far)
+
+    let d(z) = {
+      if z == 0 { return -1 }
+      (A * (-z) + B) / (z) 
+      // flip sign so z represents distance
+    }
+
+    let q = d(10);
+
+    set-style(
+      axes: (stroke: 1pt, tick: (stroke: .5pt)),
+      legend: none,
+    )
+
+    plot.plot(size: (2.5, .5),
+      x-tick-step: 10,
+      y-tick-step: 0.25,
+      x-label: [distance from near plane],
+      y-label: [z/w],
+      x-min: 1, x-max: far,
+      y-min: -.1, y-max: 1,
+      legend: none,
+      {
+        let domain = (1, far)
+        plot.add(d, domain: domain, label: "distance of z",)
+      }
+    )
+
+  }),
+  alt: "A plot of how the distance of a point is mapped to a z-value. Near the near plane, the z value increases rapidly, going from 0 to 0.5 just from 1 to 2. However, it quickly saturates, with a distance of 10 yielding a z value of .90."
+)
+
+Notice how most of the precision is from 1 to 10. That is desirable. We still have plenty for farther values, even if it doesn't look like it  
+
+#focus-slide("Questions?")
+
+== The perspective matrix
+
+So that's the perspective matrix. We choose our near and far, pick an aspect ratio and field of view, and then solve for top, bottom, left, and right...
+
+_or_ we let our matrix library do it for us:
+
+```ts
+mat4.perspectiveZO( // NO is for z = [-1, 1], ZO's for [0, 1]
+  viewProj, 0.15 * TAU, // output and FOVy
+  context.canvas.width / context.canvas.height, // aspect R
+  1, 128); // near and far
+```
+
+But we always want to understand every line of code we write, so we had to make sure we _could_ generate one of these.
+
+== What is `viewProj`?
+
+In the previous slide, we saved the perspective matrix to a variable called `viewProj`.
+
+This is the projection matrix multiplied by the view matrix.
+
+You see, we always multiply projection by view:
+```ts
+  vo.pos = proj * view * model * position;
+```
+
+However, `proj` and `view` will be the same for every vertex in the object. We don't move the camera while we're drawing something.
+
+== What is `viewProj`? (2)
+
+Therefore, it makes sense to combine `proj` and `view` by pre-multiplying them: `viewProj = proj * view`
+
+Now we only have one matrix to multiply in the shader, which is faster because it gets multiplied by every single vertex in the scene.
 
 == Multiple bind groups
+
+In fact, we normally only change camera positions once per frame (maybe a couple of times if we're doing advanced lighting calculations such as shadow mapping).
+
+For that reason, we can set the `viewProj` matrix and just leave it alone. We don't need to change it for every object we draw like we did for the `model` matrix.
+
+Therefore, we like to put `viewProj` in a different bind group. That lets us change per-object things, like the `model` matrix, without changing per pass variables such as `viewProj`.
+
+
+== Homework
+
+Be sure to review `sample08`.
+
+It demonstrates setting up a camera, using perspective, and putting a little cube into position.
+
+There's also a spinning cube elsewhere in the scene. Try to move the camera so that both cubes are visible!
+
+Read the #link("https://shi-yan.github.io/webgpuunleashed/Basics/implementing_cameras.html", "book chapter"). Be aware though, that there's an error in it: the author thinks that NDC values for z need to be in the range [-1 ,1], but this is only for OpenGL. For WebGPU, the range is [0, 1]. Therefore, you'll notice his perspective matrix is not the same as mine.
+
+#focus-slide("Questions?")
