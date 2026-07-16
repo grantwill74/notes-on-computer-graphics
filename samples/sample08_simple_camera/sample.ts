@@ -100,9 +100,10 @@ export class Sample08 {
             mappedAtCreation: true,
         });
         const stationary = mat4.create();
-        mat4.translate(stationary, stationary, vec3.fromValues(3, 0, -18));        
+        // mat4.rotateY(stationary, stationary, .05* TAU);
+        mat4.translate(stationary, stationary, vec3.fromValues(5, 0, 0));        
         mat4.scale(stationary, stationary, vec3.fromValues(1, 1, 1));
-        mat4.rotateX(stationary, stationary, .05 * TAU);
+        //mat4.rotateX(stationary, stationary, .05 * TAU);
         mat4.rotateY(stationary, stationary, .15 * TAU);
         (new Float32Array(this.matBuf2.getMappedRange())).set(stationary);
         this.matBuf2.unmap();
@@ -172,8 +173,20 @@ export class Sample08 {
         mat4.perspectiveZO(viewProj, 0.15 * TAU, 
             context.canvas.width / context.canvas.height,
             1, 128);
-        console.log(viewProj);
-        // TODO: PUT YOUR CAMERA TRANSFORMATIONS HERE
+
+        
+        const view = mat4.create();
+        //mat4.lookAt(view,
+        //    vec3.fromValues(0, 0, 0),
+        //    vec3.fromValues(0, 0, -1),
+        //    vec3.fromValues(0, 1, 0));
+        // don't use invert when using look at, it does it for you.
+        mat4.rotateY(view, view, -.25*TAU);
+        mat4.invert(view, view);
+        
+
+        // viewProj is proj * view
+        mat4.mul(viewProj, viewProj, view);
         (new Float32Array(this.matBufViewProj.getMappedRange())).set(viewProj);
         this.matBufViewProj.unmap();
 
@@ -305,7 +318,7 @@ export class Sample08 {
         // cubes, so we only have to set it once. This is the main benefit of 
         // splitting data into multiple bind groups.
         pass.setBindGroup(0, this.bindGroup1);
-        pass.draw(36);
+        //pass.draw(36);
         pass.setBindGroup(0, this.bindGroup2);
         pass.draw(36);
         pass.end();
