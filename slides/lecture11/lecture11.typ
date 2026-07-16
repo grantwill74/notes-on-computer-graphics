@@ -1011,6 +1011,15 @@ However, `proj` and `view` will be the same for every vertex in the object. We d
 
 Therefore, it makes sense to combine `proj` and `view` by pre-multiplying them: `viewProj = proj * view`
 
+```ts
+// in typescript:
+const proj = mat4.perspectiveZO(...);
+const camera = ... // move the camera where you want it
+const view = mat4.create(); mat4.invert(view, camera);
+const viewProj = mat4.create(); 
+mat4.mul(viewProj, proj, view); // this goes in a bindgroup
+```
+
 Now we only have one matrix to multiply in the shader, which is faster because it gets multiplied by every single vertex in the scene.
 
 == Multiple bind groups
@@ -1030,6 +1039,6 @@ It demonstrates setting up a camera, using perspective, and putting a little cub
 
 There's also a spinning cube elsewhere in the scene. Try to move the camera so that both cubes are visible!
 
-Read the #link("https://shi-yan.github.io/webgpuunleashed/Basics/implementing_cameras.html", "book chapter"). Be aware though, that there's an error in it: the author thinks that NDC values for z need to be in the range [-1 ,1], but this is only for OpenGL. For WebGPU, the range is [0, 1]. Therefore, you'll notice his perspective matrix is not the same as mine.
+Read the #link("https://shi-yan.github.io/webgpuunleashed/Basics/implementing_cameras.html", "book chapter"). Be aware though, that there's an error in it: the author thinks that NDC values for z need to be in the range [-1 ,1], but this is only for OpenGL. For WebGPU, the range is [0, 1]. Therefore, you'll notice the perspective matrix they use is not the same as mine.
 
 #focus-slide("Questions?")
