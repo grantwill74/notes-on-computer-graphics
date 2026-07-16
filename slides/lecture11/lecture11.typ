@@ -457,7 +457,7 @@ Is there any difference between this, and just rotating the object to the left (
 #stack(dir: ltr, spacing: 10%,
 
 figure(
-  image("screens/cam_n5pc_tau.png", width: 45%, alt: "a screensht of a cube in the left half of the screen"),
+  image("screens/cam_n5pc_tau.png", width: 45%, alt: "a screenshot of a cube in the left half of the screen"),
   caption: [Rotated the camera right 5%#sym.tau.],
   numbering: none,
 ),
@@ -548,7 +548,6 @@ Then, the GPU divides x, y, and z, by the w-value. Achieving perspective.
 == The simplest projection matrix
 
 Here's a really simple matrix that does that:
-
 #math.equation($mat(                 
   1, 0, 0, 0;
   0, 1, 0, 0;
@@ -644,10 +643,10 @@ The top, bottom, left, and right values describe the distance from the middle of
     line((1, 0), (2, -1))
     line((1, 1), (2, 2))
   }),
+  alt: "Picture of a frustum, showing the smaller front plane centered.",
   caption: "The frustum from the front, showing the left plane value, which is the distance from the center of the near plane to its left edge. Increasing the left and right values will make the near plane wider.",
   numbering: none,
 )
-
 == Our goal
 
 First, let's figure out the values for those 6 planes.
@@ -675,28 +674,12 @@ Halving the near plane distance uses a bit, and so does doubling the far plane d
 == Z-fighting (2)
 
 #figure(
-  image("screens/z-fighting.png", width: 80%),
-  alt: "a screenshot demonstrating z-fighting. Objects that occupy the same position bleed into each other.",
+  image("screens/z-fighting.png", width: 80%, 
+  alt: "a screenshot demonstrating z-fighting. Objects that occupy the same position bleed into each other."),
   caption: [Z-fighting is what happens when two triangles overlap in the Z-buffer. (#link("https://commons.wikimedia.org/wiki/File:ZfightingCB.png", "Image by CompuHacker"), Public Domain)],
   numbering: none,
 )
 
-/*
-We want to figure out, based on where we place those 6 plane distances, what the matrix should look like.
-
-As a reminder, here is our starting point:
-
-#figure(
-math.equation($mat(                 
-  1, 0, 0, 0;
-  0, 1, 0, 0;
-  0, 0, 0, 0;
-  0, 0, -1, 0
-)$, alt: "4-by-4 matrix with 1, 1, 0, 0, along the diagonal, and zeros everywhere else except for -1 in the z column, w-row")
-)
-
-First, we need to account for the fact that our screen usually isn't square.
-*/
 
 == Choosing plane values
 
@@ -709,7 +692,7 @@ Fundamentally, the relationship between them comes from the aspect ratio:
 #figure(
   math.equation($
     "AspectR" = "width" / "height" = (r - l) / (t - b)
-  $, alt: "")
+  $, alt: "Aspect-ratio equals width over height which equals quantity 'r' minus 'l' over quantity 't' minus 'b'. ")
 )
 
 == Aspect ratio and Field of View
@@ -720,11 +703,153 @@ For my samples, I've been using an 800-by-600 canvas, which is a 4:3 ratio, or 1
 
 Then, there's *field of view (FOV)*, which is how wide the view angle is.
 
-Most people use _horizontal field of view_ expressed in degrees to determine how wide the frustum is. A typical PC game will have a horizontal field of view of between 60 and 90 degrees. Console games have narrower fields of view, typically. #footnote[Sitting far from the screen makes a narrow field of view more appropriate. Small FOV can reduce the cost to render indoor environments.]
+Most people use _horizontal field of view_ expressed in degrees to determine how wide the frustum is. A typical PC game will have a horizontal field of view of between 60 and 85 degrees. Console games have narrower fields of view, typically. #footnote[Sitting far from the screen makes a narrow field of view more appropriate. Small FOV can reduce the cost to render indoor environments.]
 
 == Aspect ratio and Field of View (2)
 
-For historical reasons, in 3D programming APIs, *vertical field of view (vFOV)* is more commonly used, including in gl-matrix.  
+For historical reasons, in 3D programming APIs, *vertical field of view (vFOV)* is more commonly used, including in gl-matrix.
+
+To get the vFOV, we just take the horizontal FOV and divide by the aspect ratio. So if we want 60 degrees to be the FOV (1/6 #sym.tau) and we have a 4:3 canvas, we divide 60 degrees by 4/3, which is 45 degrees (1/8 #sym.tau).
+
+Let's say we pick that. Now what are our top and bottom planes?
+
+Let's draw a triangle...
+
+== Determining `t` and `b`
+
+#figure(
+  canvas(length: 2cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+
+    circle((-1, 0), radius: 0.02)
+    line((0, -.5), (0, .5))
+    line((0, -.5), (1, -1))
+    line((0,  .5), (1, 1))
+    line((0, -.5), (-1, 0))
+    line((0,  .5), (-1, 0))
+    line((-1, 0), (1, 0))
+    line((1, 1), (1, 0))
+    line((1, 0), (1, -1))
+    content((.23, .25), text(18pt)[t (top)])
+    content((.39, -.25), text(18pt)[b (bottom)])
+    content((-.3, .1), text(18pt)[n (near)])
+    content((-.8, .02), text(18pt)[#sym.theta])
+    content((0.8, -.1), text(18pt)[f (far)])
+  }),
+  numbering: none,
+  caption: text(18pt)[A side view of the frustum. The angle between the middle and the top is #sym.theta / 2. #math.equation($tan (theta/ 2) = t / n -> n dot tan(theta/2)= t$, alt: "tan of quantity theta over two equals t over n, which implies that n times tan quantity theta over two equals t")],
+  alt: "a "
+)
+
+== Determining l and r
+
+Once we've solved for t and b, getting (l - r) distance just means multiplying the (t - b) distance by the aspect ratio.
+
+And once we have the (l - r) distance, we can get all the individual values.
+
+t = (t - b) / 2. b = -t. r = (r - l) / 2. l = -r.
+
+We've solved for all the plane offsets. But what matrix does that correspond to?
+
+== Solving for the projection matrix
+
+Let's remind ourselves of the simplest projection matrix:
+
+#figure(
+  math.equation($mat(                 
+    1, 0, 0, 0;
+    0, 1, 0, 0;
+    0, 0, 0, 0;
+    0, 0, -1, 0
+  )$, alt: "4-by-4 matrix with 1, 1, 0, 0, along the diagonal, and zeros everywhere else except for -1 in the z column, w-row")
+)
+
+We have two things that will change how x and y will behave on the near plane...
+
+== Solving for the projection matrix (2)
+
+On the one hand, if the distance from the eye to the near plane increases, everything visible gets bigger because it's closer to the screen. The screen has width 2 (from 1 to -1). So we scale by 2n. The 2 offsets the fact that (r - l) is twice the distance from the center to the edge.  
+
+The denominator is (r - l), which is the total distance which is being mapped to the coordinate '1'. Top and bottom is similar.
+
+#figure(
+  math.equation($mat(                 
+    ((2n) / (r - l)), 0, 0, 0;
+    0, ((2n) / (t - b)), 0, 0;
+    0, 0, 0, 0;
+    0, 0, -1, 0
+  )$, alt: "replacing the 1s in 0,0 and 1,1 with (2n) over r minus l and (2n) over t minus b respectively.")
+)
+
+== If we're doing VR...
+
+This isn't going to be an issue for this class, but it's interesting, so I thought I'd mention it.
+
+In VR, each eye has a slightly different position. We can translate the eye by adding a constant term to x and y. We do this for both eyes, so we get two slightly different projection matrices.
+
+Remember the w-divide. We have to multiply the amount of translation by z, so that when w takes on the value of z, we divide it out again: 
+
+#figure(
+  math.equation($mat(                 
+    ((2n) / (r - l)), 0, (r + l)/(r - l), 0;
+    0, ((2n) / (t - b)), (t + b)/(t - b), 0;
+    0, 0, 0, 0;
+    0, 0, -1, 0
+  )$, alt: "the previous matrix, but the z column starts with two new terms that replace the zeros that were there before. The first is (r plus l) over (r minus l); the second is (t plus b) over (t minus b).")
+)
+
+== Linearly mapping depth values
+
+There's one more critical thing to do. Right now, our matrix throws away the z-values. They always become zero.
+
+We can't have that. The GPU will do the w-divide, and then set the depth buffer equal to the resulting z value.
+
+So, we need to convert the z value to a value between 0 in 1, where 0 means touching the near plane, and 1 means touching the far plane. Anything outside that should get clipped.
+
+It seems like a simple linear map could work: #math.equation($z' = (z - n) / (f - n)$, alt: "quantity z minus near over quantity far minus near.")
+
+However, after the w divide happens, this will not be in the right range.
+
+== Linearly mapping depth values (2)
+
+If we truly wanted to do this, we could. 
+
+After performing the linear mapping, but _before_ returning from the vertex shader, we could multiply `position.z *= position.w`.
+
+Then, after the w-divide, we'd get the z value back.
+
+This works fine, but there's an approach that is much more common.
+
+This approach allows us to do everything in the matrix, and has a nice side effect: we get more depth precision for closer objects than for further ones.
+
+== Non-linearly mapping depth values (2)
+
+Let's try to find some values to plug into the matrix that will give us the [0, 1] depth mapping of Z.
+
+Recall that the near plane is at position -n, and far at -f.
+
+The new z coordinate, which I will call z' ("z-prime"), was produced from some linear function: #math.equation($z' = A z + B$, alt: "z prime equals 'a' times z plus b.")
+
+The new w coordinate, was set to be the negative of the old z coord.
+
+Therefore, after the w-divide:
+
+#math.equation($z' = z/w' = (A z + B)/(-z) = -A - B/z$, alt:"z-prime equals z over w-prime equals quantity 'a' z plus b over minus z equals minus a minus b over z.")
+
+== Non-linearly mapping depth values (3)
+
+We want that when #math.equation($z = -n -> z' = 0$, alt: "z equals minus n, z prime equals 0"),
+
+And when #math.equation($z = -f -> z' = 1$, alt: "z equals minus f, z prime equals 1")
+
+So, plugging into the equation on the previous slide: 
+- #math.equation($0 = -A - B/(-n) -> A=B/n -> A n = B$, alt: "zero equals minus 'a' minus B over minus n which implies that 'a' equals 'b' over n which implies that 'a' n equals b.")
+- #math.equation($1 = -A - B/(-f) -> A = B/f - 1$, alt: "one equals minus 'a' minus B over minus f which implies that 'a' = b over f minus 1")
+
+Then, substitute #math.equation($A n = B$, alt: "'a' n equals b.")
+- 
 
 == Improving the projection matrix 
 
@@ -762,7 +887,8 @@ Here is the frustom from the side. If we want to transform the point, we need to
   circle((-2, 0), radius: .02)
   content((-2, -.1), anchor: "north", [camera \ origin])
   line((1, .375), (-1, .1))
- })
+ }),
+ alt: "test"
 )
 
 
