@@ -13,7 +13,7 @@
 
 #title-slide[
   = Computer Graphics: Lecture 11
-  == Cameras and Scenes
+  == Cameras and Perspective
 
   \
   \
