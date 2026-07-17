@@ -148,8 +148,8 @@ const FOV_X = (1/6) * TAU
 
 const CUBE1_ROT_SPEED = 0.25;
 const CUBE2_NOD_AMP = .05;
-const CUBE2_NOD_SPEED = TAU / 2;
-const CUBE3_WAVE_SPEED = TAU / 2;
+const CUBE2_NOD_SPEED = 1 / 4;
+const CUBE3_WAVE_SPEED = 1 / 2;
 const CUBE3_WAVE_AMP = 1;
 const CAM_MOVE_SPEED = 5;       // units per second        
 const CAM_ROTATE_SPEED = 1 / 6; // turns per second
@@ -324,14 +324,14 @@ export class Sample09 {
         this.keys = new Keys();
     }
 
-    cube3Phase = 0;
+    cubePhase = 0;
 
     update(dt: number): void {
         this.cube1.yaw += (CUBE1_ROT_SPEED * dt) % 1;
-        this.cube2.pitch += Math.sin(CUBE2_NOD_SPEED * dt) * CUBE2_NOD_AMP;
-        this.cube3Phase += CUBE3_WAVE_SPEED * dt;
-        this.cube3Phase %= TAU;
-        this.cube3.pos[1] = Math.sin(this.cube3Phase) * CUBE3_WAVE_AMP;
+        this.cube2.pitch = Math.sin(CUBE2_NOD_SPEED * this.cubePhase * TAU) * CUBE2_NOD_AMP;
+        this.cubePhase += dt;
+        this.cubePhase %= 4;
+        this.cube3.pos[1] = Math.sin(this.cubePhase * CUBE3_WAVE_SPEED * TAU) * CUBE3_WAVE_AMP;
 
         if (this.keys.isDown('KeyW')) {
             const forward = this.camera.forward();

@@ -40,7 +40,7 @@ export declare class Sample09 {
     depthBuffer: GPUTexture;
     keys: Keys;
     constructor(device: GPUDevice, context: GPUCanvasContext);
-    cube3Phase: number;
+    cubePhase: number;
     update(dt: number): void;
     render(now: number): void;
     startRendering(): void;
