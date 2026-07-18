@@ -130,9 +130,8 @@ const CUBE3_WAVE_AMP = 1;
 const CAM_MOVE_SPEED = 5; // units per second        
 const CAM_ROTATE_SPEED = 1 / 6; // turns per second
 export class Keys {
-    down;
+    down = new Set();
     constructor() {
-        this.down = new Set();
         // start listening 
         addEventListener('keydown', (event) => {
             this.down.add(event.code);
