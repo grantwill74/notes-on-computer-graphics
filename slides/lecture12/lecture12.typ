@@ -583,15 +583,94 @@ We haven't discussed it, but there's actually a #link("https://en.wikipedia.org/
 
 This can be nice for, e.g., a space sim, where the fixed 3-axis rotations are inappropriate.
 
-Why are they a problem? Because of something called *Gimble Lock*
+Why are they a problem? Because of something called *Gimbal Lock*
 
-== Gimble lock
+== Gimbal lock
 
-Try this right now: 
+Pretend that you are using the 3-fixed-axes we talked about earlier. You have a pitch, a yaw, and a roll.
 
-== Gimble lock (2)
+Try this (once you read it all, since you'll be facing the ceiling): 
+- Pitch up until you're looking up
+- Now, rotate right and left. Notice that you spin around.
+- Now, _roll_ right and left. Notice that it's exactly the same as rotating
+
+At this point, you're sort of stuck. You can't rotate towards your shoulders anymore. You've lost a degree of freedom. The only way to fix it is to "unpitch" yourself first, then rotate.
+
+This condition is called *gimbal lock*.
+
+
+== Gimbal lock (2)
+
+#figure(
+  image("screens/Gimbal_Lock_Plane.gif", height: 80%, alt: "animation of plane experiencing gimbal lock. As it pitches up, two of the gimbals become aligned, so they spin in the same direction as rotation."),
+  numbering: none,
+  caption: [A gimbal getting locked. #link("https://en.wikipedia.org/wiki/File:Gimbal_Lock_Plane.gif", [Animation]) by DrummyFish, public domain.]
+)
+
+== Gimbal lock (3)
+
+In some situations we don't have to worry about gimbal lock.
+
+Most first person games never let you rotate all the way up to look perfectly vertically. Therefore, they avoid the problem.
+
+This is actually a pretty big restriction on range of motion: most people can rotate so far that we can look backwards, but most games won't let you do that.
+
+But what if your app requires true free rotation? We're in space, or some kind of 3D maze environment where we actually need 3 degrees of freedom always? Then we don't use 3 fixed scalars...
+
+== Axis-angle rotations(2)
+
+#stack(dir:ltr, spacing: 4%, 
+box(width: 48%)[
+One option is to rotate around an arbitrary axis.
+
+_Which axis_?
+
+Usually, the camera's axes. Instead of rotating around the global X, Y, and Z axes, we can use the camera vectors.
+
+This avoids the problem.
+],
+box(width: 48%)[
+  #image("screens/hellbender.png", alt: "a game screenshot")
+  #place(bottom+right, dy: -2%, dx: -2%, game-name("Hellbender"))
+]
+)
+
 
 == Quaternion Cameras
+
+Alternatively, we could use quaternions instead.
+
+A quaternion can encode a direction _and_ a magnitude.
+
+Quaternions conveniently encode arbitrary rotations.
+
+You would still use a vector for the position.
+
+The different columns of the matrix can be reconstructed using the #link("https://en.wikipedia.org/wiki/Euler%E2%80%93Rodrigues_formula", "Euler-Rodriguez formula").
+
+Afterwards, we can set the w-column to be the camera's position.
+
+But there's another way...
+
+== Quaternion Cameras (2)
+
+Applying a quaternion is a little weird. To rotate a vector by a quaternion, you transform a vector 'v' with: #math.equation($q v q^(-1)$, alt: "'q' times 'v' times 'q'-conjugate")
+
+Where that last factor is the "conjugate" of the quaternion (i.e., the quaternion with the sign flipped for the imaginary parts)
+
+The interesting thing is that you can apply this transformation to the standard axes (e.g., (1, 0, 0), (0, 1, 0), and (0, 0, 1)) to get the right, up, and forward vectors of the camera.
+
+In practice...it's easier to use a matrix. The shader doesn't have built-in quaternion operators, for example. 
+
+== Today's summary
+
+It was a whirlwind today, but now you're ready for the project.
+
+We learned how to make interactive cameras, how to encode rotations, avoid gimbal lock, and move around.
+
+We also learned how to make a simple scene, with nodes that store the matrices of each thing we want in our scene.
+
+Be sure to build the sample and #link("https://shi-yan.github.io/webgpuunleashed/Basics/implementing_cameras.html", "read the book") (mindful of the fact that the  NDC z-range is actually [0, 1], not [-1, 1]).
 
 
 == Next Steps
