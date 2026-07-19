@@ -312,7 +312,6 @@ export class Sample09 {
             this.camera.yaw += -CAM_ROTATE_SPEED * dt;
             this.camera.yaw %= 1;
         }
-        console.log(this.camera.forward());
         this.cube1.updateMatrix(this.device);
         this.cube2.updateMatrix(this.device);
         this.cube3.updateMatrix(this.device);
