@@ -556,7 +556,7 @@ mat4.lookAt(view,
 
 This function outputs an already-inverted view matrix you can use.
 
-Personally, I don't think the next project will be easier if you use this method, because this method is designed for looking at absolute points, but our project will involve relative motion, but I leave it up to you.
+If you want the _model_ matrix (pre-inverted), you can use `mat4.targetTo`, which takes the same parameters but returns an uninverted matrix.
 
 #focus-slide("Questions?")
 
