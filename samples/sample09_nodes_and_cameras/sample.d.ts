@@ -12,7 +12,7 @@ export declare class SimpleNode {
     constructor(name: string, device: GPUDevice, layout: GPUBindGroupLayout);
     vertData: GPUBuffer | undefined;
     updateMatrix(device: GPUDevice): void;
-    forward(): vec3;
+    backward(): vec3;
     right(): vec3;
     up(): vec3;
 }

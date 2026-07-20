@@ -84,7 +84,7 @@ export class SimpleNode {
     }
 
     // assumes matrix is up to date
-    forward(): vec3 {
+    backward(): vec3 {
         return vec3.fromValues(this.matrix[8], this.matrix[9], this.matrix[10]);
     }
 
@@ -332,12 +332,12 @@ export class Sample09 {
         this.cube3.pos[1] = Math.sin(this.cubePhase * CUBE3_WAVE_SPEED * TAU) * CUBE3_WAVE_AMP;
 
         if (this.keys.isDown('KeyW')) {
-            const forward = this.camera.forward();
-            vec3.scaleAndAdd(this.camera.pos, this.camera.pos, forward, -CAM_MOVE_SPEED * dt);
+            const back = this.camera.backward();
+            vec3.scaleAndAdd(this.camera.pos, this.camera.pos, back, -CAM_MOVE_SPEED * dt);
         }
         if (this.keys.isDown('KeyS')) {
-            const forward = this.camera.forward();
-            vec3.scaleAndAdd(this.camera.pos, this.camera.pos, forward, CAM_MOVE_SPEED * dt);
+            const back = this.camera.backward();
+            vec3.scaleAndAdd(this.camera.pos, this.camera.pos, back, CAM_MOVE_SPEED * dt);
         }
         if (this.keys.isDown('Space')) {
             const up = this.camera.up();
