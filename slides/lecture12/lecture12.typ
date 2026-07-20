@@ -268,7 +268,9 @@ mat4.rotateX(this.matrix, this.matrix, this.pitch * TAU);
 
 If you do that _before_ rotating around X, then, you will end up rotating around X at an angle. 
 
-To be honest, I found this super confusing until I played around with it. Try changing the order! Get a feel for how they all behave. Remember that the X, Y, Z rotation functions create matrices that rotate around a global axis. 
+Just to be clear, I have named the matrices Y, P, and R because they correspond to those operations when used _in this order_. If you move the Y matrix out of order, it's no longer a Yaw matrix. It's a "rotate wrong" matrix.
+
+If you want a matrix that will apply yaw to the object's local coordinate system and not a global rotation, you need an axis-angle rotation, described later in this lecture.
 
 == What about roll, translation, and scaling?
 
@@ -565,7 +567,7 @@ But, if-statements are a simple starting point:
 if (this.keys.isDown('KeyW')) {
     vec3.scaleAndAdd(this.camera.pos, this.camera.pos,
       this.camera.backward(), -CAM_MOVE_SPEED * dt); 
-} // we negate because of right handed coordinates
+} // we negate to make backward be forward
 ```
 
 (we can use `scaleAndAdd` to efficiently scale the vector and add it)
