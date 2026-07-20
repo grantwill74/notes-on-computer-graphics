@@ -28,6 +28,12 @@ You must implement the same flying camera that was demonstrated in `sample09`, w
 - Make at least one of the cubes textured. Use a _single texture_ that contains all 6 sides of the cube, and apply them to each side of the cube. If you do this, your grade for this assignment will replace your grade for project 2.
 
 == Right
+See the attached "right.mp4" to see the camera in action. Here's a description of what it's doing:
+- The camera starts by moving backwards
+- Then, I hit T, casing the view to snap to the 4th box (which is below the horizon)
+- I move to the left, holding T, which causes me to stay locked on to the object.
+- After moving about a quarter turn I hit R to reset the camera.
+- Now I roll right, then left, then right again. I look up and down while rolled to show how I still look up and down relative to the fixed global axis while maintaining my roll. Yours should behave the same way. Remember TYPRS! 
 
 
 == Grading
@@ -39,15 +45,14 @@ You must implement the same flying camera that was demonstrated in `sample09`, w
 - (20%) Rolling with Q and E works.
 
 Up to a -25% penalty applies if the other camera controls are not working correctly.
-Up to a -25% penalty applies if the cube meshes are incorrect (i.e., visible seams or mixed colors)
+Up to a -25% penalty applies if the cube meshes are incorrect (i.e., visible seams, not a box shape, or mixed colors)
 
 == Hints 
 
 - If you use a scale matrix, you can reuse the same cube mesh all 4 times, and only change the scale. This is a reward for thinking in matrices!
 - What does the identity matrix mean when interpreted as a camera matrix?
-- Since lookAt generates a view matrix, that means it's the inverse of a model matrix. What if we invert it again? This might be useful for solving for the matrix components. 
-- I didn't specify the "up" direction for the targetting requirement. Just make sure that whatever you choose is orthogonal to the other axes! Otherwise you'll skew the camera. 
-- On the other hand, you can solve for the pitch and yaw yourself, using trig. This involves computing the angle between the camera's forward axis and the vector to the object we want to target. This is a great application of atan2.
+- `mat4.targetTo` is the easiest way to look at an object initially. It returns a new model matrix you can use. But how can you get the pitch, yaw, and roll back out? It might be easier to use some trig and compute the yaw and pitch yourself. The pitch can be computed with just the arcsine. The yaw is easiest with `atan2`.
+- I didn't specify the "up" direction for the targetting requirement. It's fine to use whatever.
 
 == Submission
 
