@@ -231,8 +231,8 @@ Now I look up. What should happen? There are two logical options:
 
 It turns out, the behavior is a consequence of the order we do the rotations. Suppose Y, P, and R are matrices that apply yaw, pitch, roll.
 
-- #math.equation($P times Y times R$, alt: "Y times P times R.") means roll _first_ #footnote[remember, matrix multiplication follows function application order, so this is like #math.equation($P(Y(R("point")))$, alt: "pitch of yaw of roll of point")]. If we roll first, it will change the x and y basis vectors of our camera, so then pitch and yaw will happen around the new roll angle.
-- #math.equation($R times P times Y$, alt: "R times P times Y.") means roll _last_. So the pitch and yaw will ignore the amount of roll. The roll will just kind of happen at the end. The camera controls will be unaffected by the roll amount basically.
+- #math.equation($P times Y times R times v$, alt: "Y times P times R times v.") means roll _is independent_. First we roll a vector. Then we yaw it, but the roll already happened, and the yaw isn't affected.. If we roll first, it will change the x and y basis vectors of our camera, so then pitch and yaw will happen around the new roll angle.
+- #math.equation($R times P times Y times v$, alt: "R times P times Y times v.") means roll around the Z-axis after doing everything else. This will rotate in a confusing direction if you go off the initial axes.
 
 == The other permutations
 
@@ -244,31 +244,37 @@ In particular, each one is _different_. Even though you can reach any orientatio
 
 == Tait-Bryan for flight
 
-Describing aircraft is what this system was invented for, so it works well. The order you probably want to use is: #math.equation($Y times P times R$, alt: "Y times P times R")
+Describing aircraft is what this system was invented for, so it works well. The order you probably want to use is: #math.equation($P times Y times R$, alt: "P times P times R")
 
-That is, first we apply roll to the aircraft. Then, pitching up and down is relative to our roll, so we can turn the plane with just roll + pitch. 
+That is, first we roll around the Z axis. Then we rotate around the Y axis. Finally we rotate around the X axis.
 
-Yaw is applied last, and it is applied laterally, after applying the other two rotations.
-
-Note that the actual airfract controls just happen continuously. It's when we want to describe an aircraft's orientation in 3D with three scalars that we use this order.
+If we wanted to actually simulate an aircraft, we would need the rotations to happen relative to the actual unique axes of the aircraft, which is axis-angle style rotation, discussed later.
 
 == Tait-Bryan for first-person games
 
-For first-person, non-aircraft, applications, let's first consider just pitch and yaw. If we apply pitch before yaw (i.e., Y times P), then _twisting will be affected by looking up or down_.
+For first-person, non-aircraft, applications, let's first consider just pitch and yaw. If we apply pitch after yaw (i.e., P times Y), then _we will rotate around the world's x-axis after twisting, causing us to go off at an angle_.
 
-This makes sense for aircraft, but not for humans. Usually we want rotation to happen around a constant axis. We don't want it to "cut" left or right along a different angle depending on the angle of our neck.
+We don't want it to "cut" left or right along a different angle depending on the angle of our body.
 
-So, our sample uses P times Y (_remember the order is swapped!_):
+So, our sample uses P times Y:
 ```ts
 mat4.rotateY(this.matrix, this.matrix, this.yaw * TAU);
 mat4.rotateX(this.matrix, this.matrix, this.pitch * TAU);
 ```
 
+== Remember, these are world axes
+
+`rotateY` means "rotate around the Y axis".
+
+If you do that _before_ rotating around X, then, you will end up rotating around X at an angle. 
+
+To be honest, I found this super confusing until I played around with it. Try changing the order! Get a feel for how they all behave. Remember that the X, Y, Z rotation functions create matrices that rotate around a global axis. 
+
 == What about roll, translation, and scaling?
 
-For your project, I want airplane rules.
+For your project, I want it to feel like a flying camera in an FPS game.
 
-That is, roll first, then pitch, then yaw. This is _different_ than the sample!
+That is, roll needs to happen first. 
 
 What about translation? It has to happen last. If we translate first, we will apply our rotations around the origin, which will cause us to orbit the center of the world.
 
@@ -324,16 +330,16 @@ The camera's model matrix tells us a lot about it:
 
 #figure(
   math.equation($mat(
-    R_x, U_x, F_x, T_x;
-    R_y, U_y, F_y, T_y;
-    R_z, U_z, F_z, T_z;
+    R_x, U_x, B_x, T_x;
+    R_y, U_y, B_y, T_y;
+    R_z, U_z, B_z, T_z;
     0, 0, 0, 1
-  )$, alt: "camera matrix. The x-basis is named R-x, R-Y, R-z, and then zero. The y-basis is U-x, U-y, U-z, and then zero. The z-basis is F-x, F-y, F-z, then 0, finally the w-basis is T-x, T-y, T-z, 1. These names will be explained shortly")
+  )$, alt: "camera matrix. The x-basis is named R-x, R-Y, R-z, and then zero. The y-basis is U-x, U-y, U-z, and then zero. The z-basis is B-x, B-y, B-z, then 0, finally the w-basis is T-x, T-y, T-z, 1. These names will be explained shortly")
 )
 
 Those basis vectors are very important. Each one tells us something about the camera's orientation or position.
 
-For instance, the F vector stands for "forward". It literally points forward, in the direction the camera is facing. 
+For instance, the B vector stands for "backward". It literally points backward, in the direction opposite the camera is facing.#footnote[If we used left-handed coordinates it would be the "forward" vector instead. IMO left handed coordinates are nicer.]
 
 == Camera vectors (2)
 
@@ -343,9 +349,9 @@ The R vector points right.
 
 The T vector is the position (translation) of the camera.
 
-This isn't just theoretical. If we want to move forward, we don't want to just add (0, 0, -1) to the camera's position. _That will make it so that it always moves relative to the z-axis instead of taking into account the direction we're facing_.
+This isn't just theoretical. If we want to move backward, we don't want to just add (0, 0, 1) to the camera's position. _That will make it so that it always moves relative to the z-axis instead of taking into account the direction we're facing_.
 
-Instead, we want to grab the forward vector and move that way.
+Instead, we want to grab the backward vector and move that way.
 
 == Camera storage
 
@@ -379,10 +385,10 @@ This is not how WebGPU (or OpenGL) work. They are *column major* for matrix stor
 
 == Camera storage (3)
 
-Therefore, if we want to pull the forward vector out of the camera's matrix, we need to do it lke this:
+Therefore, if we want to pull the backward vector out of the camera's matrix, we need to do it lke this:
 
 ```ts
-forward(): vec3 {
+backward(): vec3 {
     return vec3.fromValues(
       this.matrix[8], this.matrix[9], this.matrix[10]);
 }
@@ -390,17 +396,17 @@ forward(): vec3 {
 
 Notice, we got values 8, 9, and 10. Not values 2, 6, 10 like it would have been if it were row-major.
 
-But what do we do with the forward vector?
+But what do we do with the backward vector?
 
 == Moving forward
 
 To move forward, we need these pieces of information:
-- The forward vector
+- The backward/forward vector
 - The camera's position
 - The camera's speed (a constant that you pick)
 - The timestep (the time since the last update)
 
-We just discussed the forward vector.
+We just discussed the backward vector.
 
 The camera's position is the last column (the w-column) of the camera's matrix. Alternatively, you can store it separately like I am.
 
@@ -432,17 +438,17 @@ This time delta, in seconds, is used to determine how much to move.
 
 What we need to do, is compute the total movement amount.
 
-Then scale the forward vector by that amount.
+Then scale the backward vector by the opposite amount.
 
 Finally, add that scaled vector to the cameras position.
 
 Something like this:
 
 #figure(
-  math.equation($p' = F times "speed" times delta t + p$, alt: "p-prime equals 'F' times speed times delta t plus p")
+  math.equation($p' = B times "speed" times delta t + p$, alt: "p-prime equals 'B' times speed times delta t plus p")
 )
 
-That is, the new position is the old one, plus the forward vector, times the speed, times the change in time (in seconds)
+That is, the new position is the old one, plus the backward vector, times the speed, times the change in time (in seconds)
 
 [How do you think we move to the side?]
 
@@ -557,9 +563,8 @@ But, if-statements are a simple starting point:
 
 ```ts
 if (this.keys.isDown('KeyW')) {
-    const forward = this.camera.forward();
     vec3.scaleAndAdd(this.camera.pos, this.camera.pos,
-      forward, -CAM_MOVE_SPEED * dt); 
+      this.camera.backward(), -CAM_MOVE_SPEED * dt); 
 } // we negate because of right handed coordinates
 ```
 
@@ -658,7 +663,7 @@ Applying a quaternion is a little weird. To rotate a vector by a quaternion, you
 
 Where that last factor is the "conjugate" of the quaternion (i.e., the quaternion with the sign flipped for the imaginary parts)
 
-The interesting thing is that you can apply this transformation to the standard axes (e.g., (1, 0, 0), (0, 1, 0), and (0, 0, 1)) to get the right, up, and forward vectors of the camera.
+The interesting thing is that you can apply this transformation to the standard axes (e.g., (1, 0, 0), (0, 1, 0), and (0, 0, 1)) to get the right, up, and backward/forward vectors of the camera.
 
 In practice...it's easier to use a matrix. The shader doesn't have built-in quaternion operators, for example. 
 
