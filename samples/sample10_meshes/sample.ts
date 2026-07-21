@@ -111,6 +111,43 @@ export class SimpleMesh {
     }
 }
 
+function simpleCubeMesh(): SimpleMesh {
+    // vec3 is just a wrapper type around a tuple of 3 values.
+    // we can construct them like this:
+    const positions: vec3[] = [
+        [-1,  1,  1],   // 0
+        [-1, -1,  1],   // 1
+        [ 1,  1,  1],   // 2
+        [ 1, -1,  1],   // 3
+        [ 1,  1, -1],   // 4
+        [ 1, -1, -1],   // 5
+        [-1,  1, -1],   // 6
+        [-1, -1, -1],   // 7
+    ];
+
+    const colors: vec3[] = [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 1, 0],
+        [1, 0, 1],
+        [0, 1, 1],
+        [1, 1, 1],
+        [0, 0, 0],
+    ]
+
+    const indis: number[] = [
+        0, 1, 2, 3,
+        4, 5,
+        6, 7,
+        0, 1, 0xFFFFFFFF,
+        0, 2, 6, 4, 0xFFFFFFFF,
+        3, 1, 5, 7
+    ];
+
+    return new SimpleMesh('triangle-strip', indis, positions, colors, 'cube');
+}
+
 class LoadedSimpleMesh {
     vertexBuffer: GPUBuffer;
     indexBuffer: GPUBuffer;
@@ -204,14 +241,17 @@ export class Sample10 {
     context: GPUCanvasContext;
     
     mesh: LoadedSimpleMesh;
+    cubeMesh: LoadedSimpleMesh;
 
     teapot: SimpleNode;
+    cube: SimpleNode;
     camera: SimpleNode;
 
     matViewProj: GPUBuffer;
     bgViewProj: GPUBindGroup;
 
-    pipeline: GPURenderPipeline;
+    triangleListPipeline: GPURenderPipeline;
+    triangleStripPipeline: GPURenderPipeline;
 
     zBuffer: GPUTexture;
 
@@ -229,6 +269,7 @@ export class Sample10 {
         this.format = (this.context.getCurrentTexture().format + '-srgb') as GPUTextureFormat;
 
         this.mesh = new LoadedSimpleMesh(device, meshData);
+        this.cubeMesh = new LoadedSimpleMesh(device, simpleCubeMesh());
 
         const modelBgLayout = device.createBindGroupLayout({
             entries: [{
@@ -266,7 +307,7 @@ export class Sample10 {
             }]
         });
 
-        this.pipeline = device.createRenderPipeline({
+        const listPipelineDesc: GPURenderPipelineDescriptor = {
             layout: device.createPipelineLayout({
                 bindGroupLayouts: [modelBgLayout, viewProjBgLayout]
             }),
@@ -300,16 +341,27 @@ export class Sample10 {
                 depthCompare: 'less-equal',
             },
             primitive: {
-                cullMode: 'none',
+                cullMode: 'back',
                 frontFace: 'ccw',
-                topology: this.mesh.topology,
+                topology: 'triangle-list',
                 // stripIndexFormat: 'uint32',
             },
-        });
+        };
+
+        this.triangleListPipeline = device.createRenderPipeline(listPipelineDesc);
+
+        const stripPipelineDesc = listPipelineDesc;
+        stripPipelineDesc.primitive!.topology = 'triangle-strip';
+        stripPipelineDesc.primitive!.stripIndexFormat = 'uint32';
+        this.triangleStripPipeline = device.createRenderPipeline(stripPipelineDesc);
 
         this.teapot = new SimpleNode('teapot', device, modelBgLayout);
         this.teapot.pos[2] = -10;
         this.teapot.pos[1] = -3;
+
+        this.cube = new SimpleNode('cube', device, modelBgLayout);
+        this.cube.pos[2] = -10;
+        this.cube.pos[1] = 2;
 
         this.camera = new SimpleNode('camera', device, modelBgLayout);
     }
@@ -327,13 +379,15 @@ export class Sample10 {
         this.lastUpdate = now;
 
         this.teapot.yaw += dt * ROT_SPEED;
+        this.cube.pitch -= dt * ROT_SPEED;
+        this.cube.yaw += dt * ROT_SPEED / 2;
 
         const encoder = this.device.createCommandEncoder();
 
         const canv = this.context.canvas;
         const aspectR = canv.width / canv.height;
 
-        
+        this.cube.updateMatrix(this.device);
         this.teapot.updateMatrix(this.device);
         this.camera.updateMatrix(this.device);
 
@@ -364,12 +418,20 @@ export class Sample10 {
             }
         });
         pass.setViewport(0, 0, canv.width, canv.height, 0, 1);
-        pass.setPipeline(this.pipeline);
+
+        pass.setPipeline(this.triangleListPipeline);
+        pass.setBindGroup(1, this.bgViewProj);
         pass.setVertexBuffer(0, this.mesh.vertexBuffer); 
         pass.setIndexBuffer(this.mesh.indexBuffer, 'uint32');
-        pass.setBindGroup(1, this.bgViewProj);
         pass.setBindGroup(0, this.teapot.matrixBg);
         pass.drawIndexed(this.mesh.nIndis);
+
+        pass.setPipeline(this.triangleStripPipeline);
+        pass.setVertexBuffer(0, this.cubeMesh.vertexBuffer);
+        pass.setIndexBuffer(this.cubeMesh.indexBuffer, 'uint32');
+        pass.setBindGroup(0, this.cube.matrixBg);
+        pass.drawIndexed(this.cubeMesh.nIndis);
+
         pass.end();
         
         const commands = encoder.finish();

@@ -23,11 +23,14 @@ export declare class Sample10 {
     device: GPUDevice;
     context: GPUCanvasContext;
     mesh: LoadedSimpleMesh;
+    cubeMesh: LoadedSimpleMesh;
     teapot: SimpleNode;
+    cube: SimpleNode;
     camera: SimpleNode;
     matViewProj: GPUBuffer;
     bgViewProj: GPUBindGroup;
-    pipeline: GPURenderPipeline;
+    triangleListPipeline: GPURenderPipeline;
+    triangleStripPipeline: GPURenderPipeline;
     zBuffer: GPUTexture;
     format: GPUTextureFormat;
     lastUpdate: number;
