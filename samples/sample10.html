@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My WebGPU sample</title>
+        <script type="importmap">
+            {
+                "imports": {
+                    "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
+                    "gl-matrix/": "./node_modules/gl-matrix/esm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
+            import { Sample10, loadObj, SimpleMesh } from
+                "./sample10_meshes/sample.js"
+
+            const [device, context] = await initWebGpu();
+
+            const meshUrl = new URL('meshes/utah_teapot.obj', import.meta.url);
+            const meshData = await loadObj(meshUrl);
+
+            const sample = new Sample10(device, context, meshData);
+
+            sample.startRendering();
+        </script>
+    </head>
+    <body>
+        <canvas width="800" height="600"></canvas>
+    </body>
+</html>
+
+
