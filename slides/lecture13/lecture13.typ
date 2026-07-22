@@ -470,3 +470,103 @@ image("screens/utah_teapot_graph_paper.jpg", height: 85%, alt: "A graph-paper sk
 The teapot is a _real_ mesh. Not a cube or a triangle, but an actual boundary surface of a 3D object.
 
 But how do we draw it? There's no `pass.drawTeapot()` method in WebGPU. #link("https://en.wikipedia.org/wiki/File:The_Six_Platonic_Solids.png", [Though maybe there should be]). #footnote[You might think I'm joking but some graphics libraries literally have a draw teapot function. It's that popular. It's useful to test lighting.]
+
+We're going to have to load this one from a file! But what kind of file?
+
+== Obj files
+
+We're going to use an `.obj` file!
+
+No, not the object files your C compiler spits out. That has the same name but it's  completely different.
+
+This file format refers 3D objects. It's also a text format, so it will be easier for us to parse.
+
+Let's briefly cover some ancient history...
+
+== Obj file history
+
+#stack(dir: ltr, spacing: 4%,
+box(width: 50%)[
+This file format was created by Wavefront Technologies, for their "The Advanced Visualizer" (TAV) 3D graphics production toolkit.
+
+TAV was used in a number of movies, including The Abyss, Terminator 2, and Jurassic Park.
+
+It was software for Silicon Graphics computers, and ran on their version of Unix (Irix). 
+],
+image("screens/tav.jpg", width: 50%, alt: "A screenshot of TAV")
+)
+
+== SGI computers
+
+SGI was Silicon Graphics Interactive. An influential company that made special workstations that could do realtime 3D.
+
+Their workstations ran their own Unix called Irix, and had a graphics library called IrixGL, which became OpenGL, WebGPU's predecessor.
+
+#figure(
+  image("screens/sgi_indy.jpg", height: 40%, alt: "a picture of an SGI Indy workstation, and a monitor showing it in use. The game Waverace 64 is playing in a window on the monitor"),
+  numbering: none,
+  caption: text(18pt)[Image credited to Shane Battye from #link("https://www.techspot.com/article/2142-silicon-graphics/#google_vignette", "here"). Fair use.]
+)
+
+== OBJ Files
+
+Since TAV was software for a unix system, it's not surprising that it followed the unix philosophy.
+
+That is: it was a suite of small programs that interacted using text files.
+
+One of these text file formats was `.obj`, which was used to describe a 3D mesh. It's simple enough for us to use for class!
+
+It's actually still widely used, due to its high compatibility. You can export OBJ files from tools like Blender.
+
+== OBJ files (2)
+
+An obj file is a text file. It consists of a list of lines.
+
+If a line starts with `#`, it is a comment, so ignore it.
+
+If a line starts with `v`, it's a vertex. The next 3 wspace-separated numbers are treated as the x, y, and z components of the it. For example:
+
+```obj
+v -0.75 -0.75 0
+v 0 0.75 0
+v 0.75 -0.75 0
+```
+
+Defines the vertices of a triangle
+
+== OBJ files (3)
+
+If a line starts with `f`, it is a _face_. Usually that is a triangle, but it doesn't have to be. (All of the .obj files I give you will have only triangle faces)
+
+A face is followed by 3 integers, which are the indices of the vertices that form the face. *Important: they start counting at 1, not 0*
+
+Here is a face that makes a triangle out of the verts in the last slide:
+```obj
+f 1 2 3
+```
+
+Notice, it's not 0, 1, 2. We have to subtract 1 from these values for them to work with WebGPU correctly! (or add an unused vertex to shift them all up by one).
+
+== Loading OBJ files
+
+How do we load them? It's not too bad:
+- Create arrays for your vertices and indices
+- Read the file into a string
+- Split the string into lines
+- For each line:
+  - If the line starts with `v`, read the next 3 numbers and add the data to the vertex buffer.
+  - If the line starts with `f`, read the next 3 numbers and add the data to the index buffer. (I'm ignoring non-triangular faces)
+  - If it's a comment or blank line, ignore it.
+  - Otherwise, it's another kind of attribute. You can ignore it for now.
+
+== Other attributes and faces
+
+OBJ files can have more than vertex positions and faces. They can also have texture coordinates (`vt` lines), normals (`vn` lines), and other things.
+
+Annoyingly, they can also make faces from combinations of vertices. So instead of `f 1 2 3` you might see OBJ files that look like `f 1/7/14 2/5/3 3/9/17`, which means "the first point of the face has position 1, texture coordinate 7, and vertex normal 14". This basically forces you to create a unique vertex with those components, either using dynamic programming or falling back to non-indexed drawing.
+
+I won't give you any OBJ files that do that.
+
+== Loading a text file
+
+Loading a text file in browser-land requires the `fetch` API like we used for textures.
