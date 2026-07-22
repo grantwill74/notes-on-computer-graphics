@@ -1,4 +1,4 @@
-#set document(title: "Notes on Computer Graphics: Lecture 11")
+#set document(title: "Notes on Computer Graphics: Lecture 13")
 
 #import "@preview/touying:0.7.4": *
 #import themes.simple: *
