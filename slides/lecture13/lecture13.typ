@@ -570,3 +570,128 @@ I won't give you any OBJ files that do that.
 == Loading a text file
 
 Loading a text file in browser-land requires the `fetch` API like we used for textures.
+
+We need to `await` it, so we need an `async` function:
+
+```ts
+export async function loadObj(url: URL): Promise<SimpleMesh>{
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const text = await blob.text();
+  ...
+}
+```
+
+After the last await, `text` contains the file as a string.
+
+== Preparing the data
+
+The OBJ files we're supporting only have positions and faces. We're randomly generating colors so we can actually see the teapot's triangles.
+
+```ts
+const positions: vec3[] = [];
+const colors: vec3[] = [];
+const indis: number[] = [];
+```
+
+Then we're splitting over lines:
+```ts
+for (const line of text.split(/\r?\n/)) {
+        const parts = line.split(/\s+/)
+        if (parts.length != 1) continue;
+```
+
+Let's talk about that...
+
+== Regexes
+
+Regular expressions (regexes) in Javascript are written between `//`.#footnote[this might seem weird, but it was popularized by Perl and seems to be a widely used notation.]
+
+If you haven't had automata theory yet, regular expressions are ways of describing patterns in text that can be "matched". Like an email address, or a URL, or a phone number.
+
+In our case, we're matching `/\r?\n/`. `\r` means a carriage return, which is an ascii command to reset the "carriage" (column under cursor) back to the start of the line. `\n` in its original ascii meaning only advanced the line, it kept the cursor over the same column. 
+
+== Regexes (2)
+
+On Unixy systems (such as Linux, MacOS, and BSD), `\n` is all you need.
+
+But on Windows, newlines in text files are written with a `\r\n`.#footnote[A popular software engineering streamer, ThePrimagen, refers to these as "registered nurse" line endings, as a mnemonic for the order.]
+
+OBJ files are supposed to be unixy, but since anyone can open up a text editor and write one out, and since I happen to find myself on Windows right now, it seemed prudent to detect both.
+
+`\r?` means "optional carriage return". The question mark makes the string it's attached to optional.
+
+== Regexes (3)
+
+We used the `split` method, which breaks a string into an array of strings. The regex is used to detect when the current string is finished.
+
+Afterwards, for each line, we split it again based on spaces.
+
+This makes it easier to read the individual components of the line.
+
+If there aren't the right number of elements in the line, we ignore it.
+
+We use the first element in the array to detect what type of line it is.
+
+== Loading OBJs (2)
+
+#[
+  #set text(20pt)
+```ts
+switch (parts[0]) {
+  case 'v':
+    // vertex position line
+    positions.push(vec3.fromValues(
+      // '!' means "I promise it's not null or undefined"
+        Number.parseFloat(parts[1]!),
+        Number.parseFloat(parts[2]!),
+        Number.parseFloat(parts[3]!),
+    ));
+    // generate a random color
+    colors.push(vec3.fromValues(
+      Math.random(), Math.random(), Math.random()));
+    break;
+```
+]
+
+Here's how we read vertices...
+
+== Loading OBJs (3)
+
+We use `Number.parseFloat` to pull the string components and convert them to floats.
+
+If this fails, it will return `NaN` (not a number), so it would be wise to check for that, but I wanted to keep the code short for the slides.
+
+The `!` casts a `something|undefined` into a `something`. In this case, a string, which is fed to `parseFloat`.
+
+Then we generate a random color. We don't have to do this here, we could actually do it in the vertex shader, but it's a little janky (no built-in random number generator).
+
+== Loading OBJs (4)
+
+```ts
+case 'f': // only triangle supported
+  indis.push(
+    Number.parseInt(parts[1]!) - 1, // obj files count from 1
+    Number.parseInt(parts[2]!) - 1, // webgpu counts from 0
+    Number.parseInt(parts[3]!) - 1, // so we subtract 1.
+  );
+  break
+case '#':
+  break // comment means do nothing
+```
+
+Last wrinkles: we use `parseInt` instead of `parseFloat`. We also subtract by 1, because index `1` in an OBJ file will be called `0` in an index buffer.
+
+== How was that?
+
+That's about it. Once we have the vertex data, we can pack it into a buffer, which we do in our `LoadedMesh` class.
+
+At that point, we've got everything we need to draw it on screen!
+
+Homework: you're going to need to load OBJ files for your next project, so be sure the sample works for you. Try loading some of the other OBJ files I've included, such as the Cow, the Bunny, and the Armadillo. You might need to change how they are scaled.
+
+
+So, what do you think? Any questions?
+
+#focus-slide("Questions?")
+
