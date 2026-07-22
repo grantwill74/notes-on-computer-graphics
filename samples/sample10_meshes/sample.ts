@@ -199,7 +199,7 @@ export async function loadObj(url: URL): Promise<SimpleMesh> {
 
     for (const line of text.split(/\r?\n/)) {
         const parts = line.split(/\s+/)
-        if (parts.length != 4) continue;
+        if (parts.length == 0) continue;
         
         switch (parts[0]) {
             case 'v':
