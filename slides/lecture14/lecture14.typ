@@ -452,8 +452,6 @@ for (let child of this.children) {
 ```
 
 
-
-
 == The hierarchy
 
 But where did children get added to the scene? Let's consider how we can add new children _below_ a node in the hierarchy:
@@ -477,7 +475,9 @@ addChild(
 
 == The hierarchy (2)
 
-In this case, the children are stored in an array.
+After adding the child to the data  structure and setting its parent, we return it so the user can easily modify it.
+
+The children are stored in an array.
 
 This doesn't have to be the case: we could have required names, and used a hashmap to store the children. An array is fine for our purposes, however.
 
@@ -495,7 +495,145 @@ I kind of regretted it: the issue with only having the matrix is that all transf
 
 A raw matrix also has issues with stability: over time, the basis vectors will start to drift. For cameras, this will result in weird skewness creeping in the more you rotate.
 
+== Optional meshes
+
+One last thing that deserved a brief mention: the mesh was `LoadedMesh | undefined`
+
+The logic behind this is that a node can be empty.
+
+Why would a node be empty?
+
+Well, it might be a camera. Or it might only exist to group other nodes together...
+
+== Optional meshes (2)
+#figure(
+  box[
+    #image("screens/pilotwings.png", width: 60%, alt: "a screenshot of the nintendo 64 game Pilotwings 64.")
+    #place(bottom + right, dx: -1%, dy: -1%, game-name([Pilotwings 64]))
+  ],
+numbering: none,
+caption:
+[The group of hang gliders in the screenshot above move together. They could be grouped under an empty node. #link("https://noclip.website/#Pilotwings64/0:4;ShareData=ArtEw=1v4FWp]h^=s0$-i8", "What do you think?")]
+)
+
+== Setting up the scene
+
+Building the scene usually starts with the root. We define its name, mesh, and transform it as we wish.
+
+Then we add any children we want:
+
+#[
+#set text(20pt)
+```ts
+this.root = new SceneNode(device, modelColorLayout, "root cube");
+this.root.mesh = this.cube;
+
+const right = this.root.addChild(device, modelColorLayout, "right cube");
+right.mesh = this.cube;
+right.move([7, 0, 0]);
+right.scale([.5, .5, .5]);
+```
+]
+
+Here, we add a right node underneath the root, move it, and scale it.
+
+== Storing the scene
+
+Nodes can be entirely defined by the following:
+- Their local matrices
+- Their parents/children
+- Their mesh
+
+If we refer to meshes by an identifier, we can easily store this structure in a JSON file.
+
+This is actually fairly easy to do, and might be worth exploring for your final project if you'd like the ability to save and load the scene.
+
+== Drawing the scene
+
+We have a new node class, and a way for changes to a parent node to propagate forward to its children. Now, let's draw the results. Pretend we have a `pass` already prepared:
+
+#[
+#set text(18pt)
+```ts
+let stack = [this.root];
+while (stack.length > 0) {
+    const top = stack.pop()!;
+    stack = stack.concat(top.children);
+    if (!top.mesh) continue; // don't draw invisible nodes
+    pass.setIndexBuffer(top.mesh!.indexBuffer, 'uint32');
+    pass.setVertexBuffer(0, top.mesh!.vertexBuffer);
+    pass.setBindGroup(0, top.modelBg);
+    pass.drawIndexed(top.mesh!.nIndis);
+}
+```
+]
+
+Take a second to try to parse this yourself...
+
+== Drawing the scene (2)
+
+Here's what's going on:
+
+We're doing a depth-first search over our scene. That requires a stack.
+
+We store the root in the stack. Then, in a loop, we pop the top element of the stack and draw it.
+
+Remember, to draw it, we set the vertex and index buffers of the mesh, set the bind group so the model matrix points to the final matrix of the node, and then we draw everything.
+
+The postfix`!` operator is like the `?.` operator but it means "I promise this exists" instead of meaning "test if this exists". It removes `|undefined`.
+
+== Drawing the scene (3)
+
+Every time we process a node, we also add its children to the stack.
+
+This is what causes us to walk the scene hierarchy recursively.
+
+This is a simple way of drawing everything: start with the root and work your way down.
+
+However, I don't want you to think this is the only way to handle scenes. Or even the _best_ way...
+
+== Alternatives to recursive drawing
+
+We don't have to draw recursively. In fact, it might be worth refactoring this later when we get to lighting.
+
+The reason is that not everything in the scene is going to be a mesh. There might be lights stored in a node. Collision boxes, cameras, all kinds of things.
+
+These all have different rules. We'll see later how lights work. Basically, a light is attached as a bind group to all the nodes that can see it.
+
+This means the light won't show up if we draw a root node that has a light as a child: the light won't have been processed yet.
+
+== Alternatives to recursive drawing (2)
+
+To fix this issue, game engines will typically *flatten* the scene.
+
+That means, they walk all the nodes, but they save all the different kinds of nodes into different data structures.
+
+For example, solid meshes go into a drawing queue.
+
+Lights might go into a spacial data structure of just lights.
+
+== Handling lights and transparency
+
+We typically only have enough room in a shader to handle a small, fixed number of lights. Therefore, we might have to sort them by how bright they are, which depends on their distance.
+
+Not to mention: transparent meshes have special rules. 
+
+We usually can't draw transparent meshes as soon as we see them. They have to be drawn in a particular order, often in their own render pass.
+
+So we can't just draw nodes as soon as we see them, except in the very simple scenario where everything is a solid, unlit object like we see above.
+
+== Alternatives to recursive drawing (3)
+
+Therefore, a more complex rendering system would be split into a *frontend* and *backend* renderer.
+
+The frontend is responsible for walking the scene tree and building a list of things to draw, lights, transparent objects, etc.
+
+Then, it hands that set of structures off to the backend renderer which draws them as quickly as possible.
+
+These stages can be interleaved, so that the backend can start rendering (or at least, encoding the pass) as soon as solid nodes are visited, reducing the latency.
+
 #focus-slide("Questions?")
+
 
 == The Sample
 
@@ -534,13 +672,31 @@ This game had _mirrored tracks_.
 
 A mirrored track is a track that is reflected about one axis.
 
-If we reflect the track about the Y axis, and also 
+If we reflect the track about the Y axis, all the right turns will be left turns, which will make it feel novel.
 
+However, the track will still be completable. A reversed track might not be (e.g., if there's a giant ramp going one way). 
 
+This is a really simple trick that can add a lot of value.
 
-== The scene can store a lot of things...
-
-== Alternatives to recursive drawing
 
 == Homework and Project
 
+Hopefully, it's starting to come together how we can use these low-level graphics APIs to build a 3D engine.
+
+There are many more topics to cover, but in my experience, understanding hierarchical scenes is key to things "clicking".
+
+
+== Thanks for listening!
+
+You're ready for the next project now!
+
+#figure(
+  box[
+    #image("screens/diddy_kong_racing.png", height: 60%, alt: "a scene from the game Diddy Kong Racing, showing a dinosaur wandering around a cave with lava-filled craters, pterodactyls flying around, and some balloon sprite objects.")
+    #place(bottom + right, dx: -1%, dy: -1%, game-name([Diddy Kong Racing]))
+  ]
+)
+
+(it won't look like this)
+
+#focus-slide("Questions?")
