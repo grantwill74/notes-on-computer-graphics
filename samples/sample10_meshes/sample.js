@@ -174,7 +174,12 @@ export async function loadObj(url) {
     const colors = [];
     const indis = [];
     for (const line of text.split(/\r?\n/)) {
-        const parts = line.split(/\s+/);
+        const l = line.trim();
+        if (l == '')
+            continue;
+        if (l.startsWith('#'))
+            continue;
+        const parts = l.split(/\s+/);
         if (parts.length == 0)
             continue;
         switch (parts[0]) {
@@ -190,8 +195,6 @@ export async function loadObj(url) {
                 Number.parseInt(parts[2]) - 1, // webgpu counts from 0
                 Number.parseInt(parts[3]) - 1);
                 break;
-            case '#':
-                break; // comment means do nothing
             default:
                 console.warn('unsupported attribute encountered in obj file:', parts);
         }

@@ -198,7 +198,10 @@ export async function loadObj(url: URL): Promise<SimpleMesh> {
     const indis: number[] = [];
 
     for (const line of text.split(/\r?\n/)) {
-        const parts = line.split(/\s+/)
+        const l = line.trim();
+        if (l == '') continue;
+        if (l.startsWith('#')) continue;
+        const parts = l.split(/\s+/)
         if (parts.length == 0) continue;
         
         switch (parts[0]) {
@@ -219,8 +222,6 @@ export async function loadObj(url: URL): Promise<SimpleMesh> {
                     Number.parseInt(parts[3]!) - 1, // so we subtract 1.
                 );
                 break
-            case '#':
-                break // comment means do nothing
             
             default:
                 console.warn('unsupported attribute encountered in obj file:', parts);
