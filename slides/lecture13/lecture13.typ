@@ -586,6 +586,8 @@ After the last await, `text` contains the file as a string.
 
 == Preparing the data
 
+#[
+  #set text(20pt)
 The OBJ files we're supporting only have positions and faces. We're randomly generating colors so we can actually see the teapot's triangles.
 
 ```ts
@@ -597,11 +599,16 @@ const indis: number[] = [];
 Then we're splitting over lines:
 ```ts
 for (const line of text.split(/\r?\n/)) {
-        const parts = line.split(/\s+/)
-        if (parts.length != 1) continue;
+         const l = line.trim(); // remove extra whitespace before and after
+        if (l == '') continue; // ignore empty lines
+        if (l.startsWith('#')) continue; // ignore comments
+        const parts = l.split(/\s+/)
+        if (parts.length == 0) continue;
+        
 ```
 
 Let's talk about that...
+]
 
 == Regexes
 
