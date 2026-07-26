@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My WebGPU sample</title>
+        <script type="importmap">
+            {
+                "imports": {
+                    "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
+                    "gl-matrix/": "./node_modules/gl-matrix/esm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
+            import { Sample12, loadObj } from "./sample12_lights/sample.js"
+
+            const [device, context] = await initWebGpu();
+
+            const meshFiles = {
+                'Teapot': 'utah_teapot.obj'
+            }
+
+            const meshPromises = new Map();
+            for (let [name, file] of Object.entries(meshFiles)) {
+                try {
+                    const url = new URL('meshes/' + file, import.meta.url);
+                    meshPromises[name] = loadObj(url);
+                } catch(e) {
+                    console.error("couldn't load file", name);
+                    print(e);
+                }
+            }
+
+            const sel = document.querySelector('#MeshSelect');
+            const meshDatas = new Map();
+            for (let [name, promise] of Object.entries(meshPromises)) {
+                const mesh = await promise;
+                meshDatas.set(name, mesh);
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.text = name;
+                sel.add(opt);
+            }
+            
+
+            const sample = new Sample12(device, context, meshDatas);
+
+            sample.startRendering();
+        </script>
+    </head>
+    <body>
+        <canvas width="800" height="600"></canvas>
+
+        <select id="MeshSelect"></select>
+    </body>
+</html>
+
+
+
