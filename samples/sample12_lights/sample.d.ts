@@ -5,6 +5,17 @@ export declare class Mesh {
     nVerts: number;
     stride: number;
     name: string;
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+    minZ: number;
+    maxZ: number;
+    xDist: number;
+    yDist: number;
+    zDist: number;
+    widestExtent: number;
+    offset: vec3;
     constructor(indices: number[], positions: vec3[], name?: string);
 }
 export declare function loadObj(url: URL): Promise<Mesh>;
@@ -45,6 +56,7 @@ export declare class Sample12 {
     zBuffer: GPUTexture;
     lastUpdate: number;
     constructor(device: GPUDevice, context: GPUCanvasContext, meshes: Map<string, Mesh>);
+    changeCurrentMesh(change: string): void;
     update(t: number, dt: number): void;
     render(now: number): void;
     startRendering(): void;

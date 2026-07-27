@@ -13,7 +13,8 @@ const shaderCode = /*wgsl*/ `
     struct VertexOutput {
         @builtin(position)  pos: vec4f,
         @location(0)        norm: vec3f,
-        @location(1)        color: vec3f,
+        @location(1)        world_pos: vec4f,
+        // @location(1)        color: vec3f,
     };
 
     @vertex fn vs(
@@ -22,17 +23,23 @@ const shaderCode = /*wgsl*/ `
     ) -> VertexOutput
     {
         var vo: VertexOutput;
-        vo.pos = m_viewProj * m_model * vec4f(pos, 1);
-        vo.norm = m_normal * normal;
-
-        let diffuse_color = dot(dir_light_dir, vo.norm) * dir_light_color;
-        vo.color = ambient_color + diffuse_color;
+        vo.world_pos = m_model * vec4f(pos, 1);
+        vo.pos = m_viewProj * vo.world_pos;
+        vo.norm = normalize(m_normal * normal);
+       // vo.color = ambient_color * mtl_ambient + diffuse_color;
         
         return vo;
     }
 
     @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
-        return vec4f(vo.color, 1.0);
+        let diffuse_term =
+            max(dot(dir_light_dir, normalize(vo.norm)), 0) *
+            dir_light_color * 
+            mtl_diffuse;
+        let ambient_term = ambient_color * mtl_ambient;
+        let color = diffuse_term + ambient_term;
+
+        return vec4f(color, 1.0);
     }
 `;
 import { vec3, mat4, mat3 } from "gl-matrix";
@@ -42,11 +49,42 @@ export class Mesh {
     nVerts;
     stride = 6 * 4; // 3 position floats, 3 normal/color floats
     name;
+    minX = Number.POSITIVE_INFINITY;
+    maxX = Number.NEGATIVE_INFINITY;
+    minY = Number.POSITIVE_INFINITY;
+    maxY = Number.NEGATIVE_INFINITY;
+    minZ = Number.POSITIVE_INFINITY;
+    maxZ = Number.NEGATIVE_INFINITY;
+    xDist;
+    yDist;
+    zDist;
+    widestExtent;
+    offset;
     constructor(indices, positions, name) {
         this.indices = indices;
         // this.vertData = vertData;
         this.nVerts = positions.length;
         this.name = name ?? 'unnamed'; //'unnamed' will be used if name is undefined
+        for (let pos of positions) {
+            this.minX = Math.min(this.minX, pos[0]);
+            this.maxX = Math.max(this.maxX, pos[0]);
+            this.minY = Math.min(this.minY, pos[1]);
+            this.maxY = Math.max(this.maxY, pos[1]);
+            this.minZ = Math.min(this.minZ, pos[2]);
+            this.maxZ = Math.max(this.maxZ, pos[2]);
+        }
+        this.xDist = this.maxX - this.minX;
+        this.yDist = this.maxY - this.minY;
+        this.zDist = this.maxZ - this.minZ;
+        const widestExtent = Math.max(this.xDist, this.yDist, this.zDist);
+        this.widestExtent = widestExtent;
+        this.offset = [
+            -(this.maxX + this.minX) / 2,
+            -(this.maxY + this.minY) / 2,
+            -(this.minZ + this.maxZ) / 2
+        ];
+        //vec3.scale(this.offset, this.offset, 1/widestExtent);
+        // we already scale later in the update method, so don't do it twice.
         const vertHasFaces = new Array(this.nVerts);
         const faceHasNormal = new Array(Math.floor(indices.length / 3));
         for (let i = 0; i < indices.length; i += 3) {
@@ -181,11 +219,11 @@ export class Sample12 {
     matProj = mat4.create();
     matModel = mat4.create();
     matNormal = mat3.create();
-    mtlAmbient = [1, 1, 1];
-    mtlDiffuse = [1, 1, 1];
-    ambientColor = [0.2, 0.15, 0.1];
-    dirLightPos = vec3.create();
-    dirLightColor = [0, 1, 0];
+    mtlAmbient = [0.9, .9, .9];
+    mtlDiffuse = [0.7, 0.7, 0.7];
+    ambientColor = [0.02, 0.02, 0.02];
+    dirLightPos = [1, 0, 0];
+    dirLightColor = [.15, .7, .30];
     matProjBuf;
     matModelBuf;
     matNormalBuf;
@@ -215,10 +253,10 @@ export class Sample12 {
         // finally using the correct FOV-y
         const fov_y = 2 * Math.atan2(Math.tan(FOV / 2), aspectR);
         // set up lights and local matrices
-        vec3.normalize(this.dirLightPos, [1, 1, -1]);
-        mat4.perspectiveZO(this.matProj, fov_y, aspectR, 1, 128);
+        vec3.normalize(this.dirLightPos, this.dirLightPos);
+        mat4.perspectiveZO(this.matProj, fov_y, aspectR, 1, 15);
         const view = mat4.create();
-        mat4.translate(view, view, [0, 0, -10]);
+        mat4.translate(view, view, [0, 0, -2]);
         mat4.mul(this.matProj, this.matProj, view);
         const usage = GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST;
         // create buffers
@@ -415,8 +453,21 @@ export class Sample12 {
             }
         });
     }
+    changeCurrentMesh(change) {
+        this.currentMesh = change;
+    }
     update(t, dt) {
+        // rotate the light
+        this.dirLightPos = [1, 0, 0];
+        const matLight = mat4.create();
+        mat4.rotateY(matLight, matLight, -LIGHT_ROT_SPEED * t);
+        vec3.transformMat4(this.dirLightPos, this.dirLightPos, matLight);
+        // scale, shift, and rotate the model
+        const curMesh = this.meshes.get(this.currentMesh);
         mat4.rotateY(this.matModel, mat4.create(), MESH_ROT_SPEED * t);
+        const scale = 1 / curMesh.widestExtent;
+        mat4.scale(this.matModel, this.matModel, [scale, scale, scale]);
+        mat4.translate(this.matModel, this.matModel, curMesh.offset);
         mat3.normalFromMat4(this.matNormal, this.matModel);
         const w = this.device.queue.writeBuffer.bind(this.device.queue);
         const f32a = Float32Array;
@@ -456,7 +507,7 @@ export class Sample12 {
                     clearValue: { r: .7, g: .8, b: .9, a: 1 },
                 }],
             depthStencilAttachment: {
-                view: this.zBuffer,
+                view: this.zBuffer.createView(),
                 depthClearValue: 1,
                 depthLoadOp: 'clear',
                 depthReadOnly: false,

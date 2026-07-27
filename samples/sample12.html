@@ -18,7 +18,10 @@
             const [device, context] = await initWebGpu();
 
             const meshFiles = {
-                'Teapot': 'utah_teapot.obj'
+                'Teapot': 'utah_teapot.obj',
+                'Cow': 'cow.obj',
+                'Bunny': 'stanford-bunny.obj',
+                'Mecha-dillo': 'armadillo.obj',
             }
 
             const meshPromises = new Map();
@@ -33,6 +36,7 @@
             }
 
             const sel = document.querySelector('#MeshSelect');
+            
             const meshDatas = new Map();
             for (let [name, promise] of Object.entries(meshPromises)) {
                 const mesh = await promise;
@@ -45,7 +49,14 @@
             
 
             const sample = new Sample12(device, context, meshDatas);
+            sel.value = 'Teapot';
+            sample.changeCurrentMesh('Teapot');
 
+
+            sel.addEventListener('change', (event) => {
+                sample.changeCurrentMesh(event.target.value);
+            });
+            
             sample.startRendering();
         </script>
     </head>
