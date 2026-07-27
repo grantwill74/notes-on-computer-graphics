@@ -313,9 +313,9 @@ export class Sample12 {
 
         // set up lights and local matrices
         vec3.normalize(this.dirLightDir, this.dirLightDir);
-        mat4.perspectiveZO(this.matProj, fov_y, aspectR, 1, 5);
+        mat4.perspectiveZO(this.matProj, fov_y, aspectR, 0.25, 5);
         const view = mat4.create();
-        mat4.translate(view, view, [0, 0, -2]);
+        mat4.translate(view, view, [0, 0, -1.5]);
         mat4.mul(this.matProj, this.matProj, view);
 
         const usage = GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST;
