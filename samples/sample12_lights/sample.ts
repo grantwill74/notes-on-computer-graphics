@@ -263,10 +263,10 @@ export class Sample12 {
     matProj: mat4 = mat4.create();
     matModel: mat4 = mat4.create();
     matNormal: mat3 = mat3.create();
-    mtlAmbient: vec3 = [0.9, .9, .9];
-    mtlDiffuse: vec3 = [0.7, 0.7, 0.7];
+    mtlAmbient: vec3 = [1, 1, 1];
+    mtlDiffuse: vec3 = [1, 1, 1];
     ambientColor: vec3 = [0.02, 0.02, 0.02];
-    dirLightPos: vec3 = [1, 0, 0];
+    dirLightDir: vec3 = [1, 0, 0];
     dirLightColor: vec3 = [.15, .7, .30];
 
     matProjBuf: GPUBuffer;
@@ -275,7 +275,7 @@ export class Sample12 {
     mtlAmbientBuf: GPUBuffer;
     mtlDiffuseBuf: GPUBuffer;
     ambientColorBuf: GPUBuffer;
-    dirLightPosBuf: GPUBuffer;
+    dirLightDirBuf: GPUBuffer;
     dirLightColorBuf: GPUBuffer;
 
     format: GPUTextureFormat;
@@ -312,8 +312,8 @@ export class Sample12 {
         const fov_y = 2 * Math.atan2(Math.tan(FOV/2), aspectR);
 
         // set up lights and local matrices
-        vec3.normalize(this.dirLightPos, this.dirLightPos);
-        mat4.perspectiveZO(this.matProj, fov_y, aspectR, 1, 15);
+        vec3.normalize(this.dirLightDir, this.dirLightDir);
+        mat4.perspectiveZO(this.matProj, fov_y, aspectR, 1, 5);
         const view = mat4.create();
         mat4.translate(view, view, [0, 0, -2]);
         mat4.mul(this.matProj, this.matProj, view);
@@ -355,7 +355,7 @@ export class Sample12 {
             usage,
             label: "material diffuse factor buffer"
         });
-        this.dirLightPosBuf = device.createBuffer({
+        this.dirLightDirBuf = device.createBuffer({
             size: 4 * 4, // vectors are always 4 elements in size, even when it's a vec3
             usage,       // that's why a 3x3 matrix requires 12 elements of storage.
             label: "directional light position buffer"
@@ -457,7 +457,7 @@ export class Sample12 {
                 },
                 {
                     binding: 1,
-                    resource: this.dirLightPosBuf
+                    resource: this.dirLightDirBuf
                 },
                 {
                     binding: 2,
@@ -529,12 +529,28 @@ export class Sample12 {
         this.currentMesh = change;
     }
 
+    changeDirLightColor(change: vec3): void {
+        this.dirLightColor = change;
+    }
+
+    changeAmbientcolor(change: vec3): void {
+        this.ambientColor = change;
+    }
+
+    changeMaterialAmbient(change: vec3): void {
+        this.mtlAmbient = change;
+    }
+
+    changeMaterialDiffuse(change: vec3): void {
+        this.mtlDiffuse = change;
+    }
+
     update(t: number, dt: number) {
         // rotate the light
-        this.dirLightPos = [1, 0, 0];
+        this.dirLightDir = [1, 0, 0];
         const matLight = mat4.create();
         mat4.rotateY(matLight, matLight, -LIGHT_ROT_SPEED * t);
-        vec3.transformMat4(this.dirLightPos, this.dirLightPos, matLight);
+        vec3.transformMat4(this.dirLightDir, this.dirLightDir, matLight);
 
         // scale, shift, and rotate the model
         const curMesh = this.meshes.get(this.currentMesh)!;
@@ -549,7 +565,7 @@ export class Sample12 {
         const f32a = Float32Array;
         w(this.ambientColorBuf, 0, new f32a(this.ambientColor));
         w(this.dirLightColorBuf, 0, new f32a(this.dirLightColor));
-        w(this.dirLightPosBuf, 0, new f32a(this.dirLightPos));
+        w(this.dirLightDirBuf, 0, new f32a(this.dirLightDir));
         w(this.mtlAmbientBuf, 0, new f32a(this.mtlAmbient));
         w(this.mtlDiffuseBuf, 0, new f32a(this.mtlDiffuse));
         w(this.matProjBuf, 0, new f32a(this.matProj));

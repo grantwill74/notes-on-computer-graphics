@@ -38,7 +38,7 @@ export declare class Sample12 {
     mtlAmbient: vec3;
     mtlDiffuse: vec3;
     ambientColor: vec3;
-    dirLightPos: vec3;
+    dirLightDir: vec3;
     dirLightColor: vec3;
     matProjBuf: GPUBuffer;
     matModelBuf: GPUBuffer;
@@ -46,7 +46,7 @@ export declare class Sample12 {
     mtlAmbientBuf: GPUBuffer;
     mtlDiffuseBuf: GPUBuffer;
     ambientColorBuf: GPUBuffer;
-    dirLightPosBuf: GPUBuffer;
+    dirLightDirBuf: GPUBuffer;
     dirLightColorBuf: GPUBuffer;
     format: GPUTextureFormat;
     bgProj: GPUBindGroup;
@@ -57,6 +57,10 @@ export declare class Sample12 {
     lastUpdate: number;
     constructor(device: GPUDevice, context: GPUCanvasContext, meshes: Map<string, Mesh>);
     changeCurrentMesh(change: string): void;
+    changeDirLightColor(change: vec3): void;
+    changeAmbientcolor(change: vec3): void;
+    changeMaterialAmbient(change: vec3): void;
+    changeMaterialDiffuse(change: vec3): void;
     update(t: number, dt: number): void;
     render(now: number): void;
     startRendering(): void;

@@ -52,18 +52,40 @@
             sel.value = 'Teapot';
             sample.changeCurrentMesh('Teapot');
 
-
             sel.addEventListener('change', (event) => {
                 sample.changeCurrentMesh(event.target.value);
             });
+
+            const light_r = document.querySelector("#light-r");
+            const light_g = document.querySelector("#light-g");
+            const light_b = document.querySelector("#light-b");
+            for (const light_widget of [light_r, light_g, light_b]) {
+                light_widget.addEventListener('change', (event) => {
+                    sample.changeDirLightColor(
+                        [light_r.value, light_g.value, light_b.value]);
+                });
+            }
+
+            sample.changeDirLightColor(
+                [light_r.value, light_g.value, light_b.value]);
             
             sample.startRendering();
         </script>
     </head>
     <body>
+        <h1>Diffuse Lighting Sandbox</h1>
         <canvas width="800" height="600"></canvas>
-
+        <h2>Mesh:</h2>
         <select id="MeshSelect"></select>
+
+        <h2>Light:</h2>
+        <ul>
+            <li>R: <input id="light-r" type="range" value="0.2" min="0" max="1" step="0.004"></input></li>
+            <li>G: <input id="light-g" type="range" value="0.7" min="0" max="1" step="0.004"></input></li>
+            <li>B: <input id="light-b" type="range" value="0.3" min="0" max="1" step="0.004"></input></li>
+        </ul>
+
+        
     </body>
 </html>
 
