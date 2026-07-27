@@ -533,7 +533,7 @@ export class Sample12 {
         this.dirLightColor = change;
     }
 
-    changeAmbientcolor(change: vec3): void {
+    changeAmbientColor(change: vec3): void {
         this.ambientColor = change;
     }
 

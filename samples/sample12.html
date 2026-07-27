@@ -56,19 +56,72 @@
                 sample.changeCurrentMesh(event.target.value);
             });
 
-            const light_r = document.querySelector("#light-r");
-            const light_g = document.querySelector("#light-g");
-            const light_b = document.querySelector("#light-b");
-            for (const light_widget of [light_r, light_g, light_b]) {
+            const dirlight_r = document.querySelector('#dirlight-r');
+            const dirlight_g = document.querySelector('#dirlight-g');
+            const dirlight_b = document.querySelector('#dirlight-b');
+            function update_dirlight() {
+                const r = Number.parseFloat(dirlight_r.value);
+                const g = Number.parseFloat(dirlight_g.value);
+                const b = Number.parseFloat(dirlight_b.value);
+                sample.changeDirLightColor([r, g, b]);
+            }
+
+            for (const light_widget of [dirlight_r, dirlight_g, dirlight_b]) {
                 light_widget.addEventListener('change', (event) => {
-                    sample.changeDirLightColor(
-                        [light_r.value, light_g.value, light_b.value]);
+                    update_dirlight();
                 });
             }
 
-            sample.changeDirLightColor(
-                [light_r.value, light_g.value, light_b.value]);
-            
+            const amb_r = document.querySelector('#amb-r');
+            const amb_g = document.querySelector('#amb-g');
+            const amb_b = document.querySelector('#amb-b');
+            function update_ambient() {
+                const r = Number.parseFloat(amb_r.value);
+                const g = Number.parseFloat(amb_g.value);
+                const b = Number.parseFloat(amb_b.value);
+                sample.changeAmbientColor([r, g, b]);
+            }
+            for (const amb_widget of [amb_r, amb_g, amb_b]) {
+                amb_widget.addEventListener('change', (event) => {
+                    update_ambient();
+                })
+            }
+
+            const mat_diff_r = document.querySelector('#mat-diff-r');
+            const mat_diff_g = document.querySelector('#mat-diff-g');
+            const mat_diff_b = document.querySelector('#mat-diff-b');
+            function update_mat_diff() {
+                const r = Number.parseFloat(mat_diff_r.value);
+                const g = Number.parseFloat(mat_diff_g.value);
+                const b = Number.parseFloat(mat_diff_b.value);
+                sample.changeMaterialDiffuse([r, g, b]);
+            }
+            for (const widget of [mat_diff_r, mat_diff_g, mat_diff_b]) {
+                widget.addEventListener('change', (event) => {
+                    update_mat_diff();
+                });
+            }
+
+            const mat_amb_r = document.querySelector('#mat-amb-r');
+            const mat_amb_g = document.querySelector('#mat-amb-g');
+            const mat_amb_b = document.querySelector('#mat-amb-b');
+            function update_mat_amb() {
+                const r = Number.parseFloat(mat_amb_r.value);
+                const g = Number.parseFloat(mat_amb_g.value);
+                const b = Number.parseFloat(mat_amb_b.value);
+                sample.changeMaterialAmbient([r, g, b]);
+            }
+            for (const widget of [mat_amb_r, mat_amb_g, mat_amb_b]) {
+                widget.addEventListener('change', (event) => {
+                    update_mat_amb();
+                });
+            }
+
+            update_dirlight();
+            update_ambient();
+            update_mat_diff();
+            update_mat_amb();
+
             sample.startRendering();
         </script>
     </head>
@@ -79,13 +132,32 @@
         <select id="MeshSelect"></select>
 
         <h2>Light:</h2>
+        <h3>Directional Light</h3>
         <ul>
-            <li>R: <input id="light-r" type="range" value="0.2" min="0" max="1" step="0.004"></input></li>
-            <li>G: <input id="light-g" type="range" value="0.7" min="0" max="1" step="0.004"></input></li>
-            <li>B: <input id="light-b" type="range" value="0.3" min="0" max="1" step="0.004"></input></li>
+            <li><label for="dirlight-r">R: </label><input id="dirlight-r" type="range" value="0.2" min="0" max="1" step="0.004"></li>
+            <li><label for="dirlight-g">G: </label><input id="dirlight-g" type="range" value="0.7" min="0" max="1" step="0.004"></li>
+            <li><label for="dirlight-b">B: </label><input id="dirlight-b" type="range" value="0.3" min="0" max="1" step="0.004"></li>
+        </ul>
+        <h3>Ambient Light</h3>
+        <ul>
+            <li><label for="amb-r">R: </label> <input id="amb-r" type="range" value="0.008" min="0" max="1" step="0.004"></li>
+            <li><label for="amb-g">G: </label> <input id="amb-g" type="range" value="0.008" min="0" max="1" step="0.004"></li>
+            <li><label for="amb-b">B: </label> <input id="amb-b" type="range" value="0.008" min="0" max="1" step="0.004"></li>
         </ul>
 
-        
+        <h2>Material:</h2>
+        <h3>Diffuse Response</h3>
+        <ul>
+            <li><label for="mat-diff-r">R: </label><input id ="mat-diff-r" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-diff-g">G: </label><input id ="mat-diff-g" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-diff-g">B: </label><input id ="mat-diff-b" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+        </ul>
+        <h3>Ambient Response</h3>
+        <ul>
+            <li><label for="mat-amb-r">R: </label><input id ="mat-amb-r" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-amb-g">G: </label><input id ="mat-amb-g" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-amb-b">B: </label><input id ="mat-amb-b" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+        </ul>
     </body>
 </html>
 

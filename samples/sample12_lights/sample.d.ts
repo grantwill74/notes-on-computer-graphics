@@ -58,7 +58,7 @@ export declare class Sample12 {
     constructor(device: GPUDevice, context: GPUCanvasContext, meshes: Map<string, Mesh>);
     changeCurrentMesh(change: string): void;
     changeDirLightColor(change: vec3): void;
-    changeAmbientcolor(change: vec3): void;
+    changeAmbientColor(change: vec3): void;
     changeMaterialAmbient(change: vec3): void;
     changeMaterialDiffuse(change: vec3): void;
     update(t: number, dt: number): void;

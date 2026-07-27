@@ -459,7 +459,7 @@ export class Sample12 {
     changeDirLightColor(change) {
         this.dirLightColor = change;
     }
-    changeAmbientcolor(change) {
+    changeAmbientColor(change) {
         this.ambientColor = change;
     }
     changeMaterialAmbient(change) {
