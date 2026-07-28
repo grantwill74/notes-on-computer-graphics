@@ -685,7 +685,7 @@ One last thing: different materials will scatter or absorb different amounts of 
 
 We'll learn more about this next time, but for now, we can define how much diffuse or ambient light a surface reflects as its material. This way, surfaces that absorb light can be dimmer.
 
-Materials can be different per channel: some materials will absorb more red, some more blue, etc.
+Materials can be different per channel: some materials will absorb more red, some more blue, etc. Since materials can be unique to an object, they're in the same bindgroup as the model and normal matrix.
 
 Okay, that's theory for now, let's see the rest of the shader...
 
