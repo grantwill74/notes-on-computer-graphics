@@ -583,5 +583,151 @@ The reason is _alignment_.
 
 == Vector alignment 
 
+Alignment is important for fast memory access, CPU or GPU.
+
+We don't want data to be misaligned.
+
+That is, we want to avoid this kind of situation:
+```wgsl
+var f: f32; // single float, bytes 0-4
+var v1: vec4f; // bytes 5-20
+```
+
+The reason is that for reasons of size and cost, the underlying electronics both CPU and GPU vector units are built to assume that copies will only happen from certain addresses
+
+== Vector alignment (2)
+
+That is, the underlying vector unit can copy data to and from bytes 0-15 and to and from bytes 16-31, and so on, in 16-byte chunks.
+
+The underlying electronics are wired this way. Making the vectors byte addressable would increase the cost.
+
+If we allowed a float to bump the vector over by 4-bytes, it would be out of alignment. Then, to access it, we would need to access both neighboring memory blocks and do bit-operations on the results to piece together the vector.
+
+This would be dramatically slower.
+
+== Vector alignment (3)
+
+To avoid this slowdown, WebGPU will insert empty bytes, called padding, in order to guarantee alignment. 
+
+So the float will be in the same place, but the vector will be located at byte 16 instead of 4. There will be 12-bytes of padding inserted between them.
+
+Now both the float and the vector can be addressed in one memory operation, without needing multiple accesses and shifts.
+
+Why does this matter?
+
+== Vector alignment (4)
+
+Because matrices are stored as basis vectors.
+
+Specifically, a 4-by-4 matrix is stored as 4, 4-dimensional vectors.
+
+But what about a 3-by-3 matrix? Like a normal matrix?
+
+It's stored as 3, *4-dimensional* vectors. That's not a typo. It's 48 bytes.
+
+Why? because a 3-float vector would not be aligned to 16-bytes.
+
+Unfortunately, OpenGL did _not_ work this way. OpenGL assumed that a 3-by-3 matrix was stored as 9 floats that would then be unpacked by the driver into the correct alignment.
+
+== Vector alignment (5)
+
+Therefore, when we send a 3x3 gl-matrix matrix to the video card, it will not get the correct values. The x-component of the second basis will be lost (it will be put in the padding), the y component will become the x, and so on down the line. It will be completely wrong.
+
+So, we have to unpack it ourselves:
+#[#set text(20pt)
+```ts
+const n = this.matNormal;
+const unpacked = [
+  n[0], n[1], n[2], 0, // the zeros are the padding
+  n[3], n[4], n[5], 0, // we make sure that the xyz components go in the
+  n[6], n[7], n[8], 0  // first 3 components of each vector in the GPU.
+];
+this.device.queue.writeBuffer(this.matNormalBuf, 0, new f32a(unpacked));
+```
+]
+
+== Vector alignment (6)
+
+Alternatively, we could have just made the normal matrix a 4-by-4.
+
+Then the alignment works out naturally.
+
+Just remember: if you're copying a matrix to the video card and it's not 4-by-4, you need to be careful. 
+
+#focus-slide("Questions?")
+
+== Ambient light
+
+Of course, we can't completely ignore global illumination. Our simple lighting code can fake it by adding a fixed light color to every fragment.
+
+This fixed color is called *ambient light*.
+
+It lets us, e.g., give ever object in a room a base level of light to simulate the light that would otherwise be bouncing around.
+
+It's not a substitute for global illumination, but without it, the scene would be too dark.
+
+
+== Adding light
+
+Light is _additive_. If I shine a red and a blue light at a white wall, it will reflect back purple.
+
+That means, if we have multiple sources of light, we can just add their brightnesses together.
+
+Brightness isn't stored separately, it's a factor of the light's color. If you want a dimmer light, you can divide its color vector.
+
+(you can also change its attenuation, which is how quickly its brightness falls off over time. We'll discuss this next time)
+
+We use linear space to add light. Gamma correctness is important here!
 
 == Materials 
+
+One last thing: different materials will scatter or absorb different amounts of light.
+
+We'll learn more about this next time, but for now, we can define how much diffuse or ambient light a surface reflects as its material. This way, surfaces that absorb light can be dimmer.
+
+Materials can be different per channel: some materials will absorb more red, some more blue, etc.
+
+Okay, that's theory for now, let's see the rest of the shader...
+
+== The fragment shader 
+
+```ts
+@fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
+    let diffuse_term =
+        max(dot(dir_light_dir, normalize(vo.norm)), 0) *
+        dir_light_color * 
+        mtl_diffuse;
+    let ambient_term = ambient_color * mtl_ambient;
+    let color = diffuse_term + ambient_term;
+
+    return vec4f(color, 1.0);
+}
+```
+
+== The fragment shader (2)
+
+The color of the fragment is just the diffuse light it receives plus the ambient light it receives.
+
+The ambient term is the amount of ambient light we're pretending is bouncing around, times the amount of ambient light the material reflects.
+
+The diffuse term is the dot product between the light direction and the surface normal, bounded to be 0 at the minimum. We also multiply the diffuse reflectance of the material.
+
+== The sample 
+
+I really went all out with the sample. It lets you tune all of these things independently.
+
+You can change the color of the light, the material settings, and the ambient state. You can even change the mesh in a little drop down box.
+
+This sample is a bit more complicated than usual, feel free to ask questions. Let's spend some time exploring it.
+
+== Next time
+
+I left out a super important thing: attentuation
+
+This sample pretended that the only thing that mattered was where the light was. What about how far away it is? There are different kinds of light! (we're modelling a directional light source, like the sun)
+
+Also, what about reflective, metallic surfaces? The aren't diffuse! We need a more complex model to handle specular surfaces.
+
+Next time we cover the Phong model and goureaud shading. This is where we finally get up to about the mid-90s in terms of our technological advancement.
+
+#focus-slide("Questions?")
