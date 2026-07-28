@@ -704,6 +704,9 @@ Okay, that's theory for now, let's see the rest of the shader...
 }
 ```
 
+Notice: we _re-normalize_ the normal. Why? Because it will be linearly interpolated. That does not preserve distance. [whiteboard] 
+
+
 == The fragment shader (2)
 
 The color of the fragment is just the diffuse light it receives plus the ambient light it receives.
