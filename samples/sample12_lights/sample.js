@@ -156,7 +156,7 @@ export async function loadObj(url) {
     const mesh = new Mesh(indis, positions, url.toString());
     return mesh;
 }
-function simpleCubeMesh() {
+export function simpleCubeMesh() {
     // vec3 is just a wrapper type around a tuple of 3 values.
     // we can construct them like this:
     const verts = [
@@ -179,7 +179,7 @@ function simpleCubeMesh() {
     ];
     return new Mesh(indis, verts, 'cube');
 }
-class LoadedMesh {
+export class LoadedMesh {
     vertexBuffer;
     indexBuffer;
     nVerts;

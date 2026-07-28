@@ -19,7 +19,8 @@ export declare class Mesh {
     constructor(indices: number[], positions: vec3[], name?: string);
 }
 export declare function loadObj(url: URL): Promise<Mesh>;
-declare class LoadedMesh {
+export declare function simpleCubeMesh(): Mesh;
+export declare class LoadedMesh {
     vertexBuffer: GPUBuffer;
     indexBuffer: GPUBuffer;
     nVerts: number;
@@ -65,5 +66,4 @@ export declare class Sample12 {
     render(now: number): void;
     startRendering(): void;
 }
-export {};
 //# sourceMappingURL=sample.d.ts.map
