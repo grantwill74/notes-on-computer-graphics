@@ -685,6 +685,7 @@ Hopefully, it's starting to come together how we can use these low-level graphic
 
 There are many more topics to cover, but in my experience, understanding hierarchical scenes is key to things "clicking".
 
+Be sure to read #link("https://shi-yan.github.io/webgpuunleashed/Basics/understanding_normals.html", "this chapter") of WebGPU unleashed so that you understand normal vectors and matrices. It will be important next time when we cover lighting.
 
 == Thanks for listening!
 
@@ -698,5 +699,6 @@ You're ready for the next project now!
 )
 
 (it won't look like this)
+
 
 #focus-slide("Questions?")
