@@ -29,6 +29,7 @@ export declare class Sample13 {
     dirLightBuf: GPUBuffer;
     pointLightBuf: GPUBuffer;
     eyePosBuf: GPUBuffer;
+    paused: boolean;
     format: GPUTextureFormat;
     bgProj: GPUBindGroup;
     bgLight: GPUBindGroup;
@@ -47,6 +48,7 @@ export declare class Sample13 {
     changeMaterialDiffuse(change: vec3): void;
     changeMaterialSpecular(change: vec3): void;
     changeMaterialShininess(change: number): void;
+    pauseResume(): void;
     update(t: number, dt: number): void;
     render(now: number): void;
     startRendering(): void;

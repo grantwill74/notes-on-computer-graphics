@@ -177,7 +177,6 @@
                 const kc = Number.parseFloat(atten_kc.value);
                 const kl = Number.parseFloat(atten_kl.value);
                 const kq = Number.parseFloat(atten_kq.value);
-                console.log(kc, kl, kq);
                 sample.changePointLightAttenuation([kc, kl, kq]);
             }
             updateAttenuation();
@@ -186,6 +185,11 @@
                     updateAttenuation();
                 });
             }
+
+            const pauseBtn = document.querySelector('#pause');
+            pauseBtn.addEventListener('click', (ev) => {
+                sample.pauseResume();
+            });
 
             sample.startRendering();
         </script>
@@ -198,6 +202,7 @@
             <div class="control-group">
                 <h2>Mesh:</h2>
                 <select id="MeshSelect"></select>
+                <button id="pause">Pause/Resume</button>
             </div>
 
             <div class="control-group">

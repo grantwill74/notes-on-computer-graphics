@@ -162,6 +162,9 @@ export class Sample13 {
     dirLightBuf;
     pointLightBuf;
     eyePosBuf;
+    // janky little pause option so I can take screenshots for class
+    // better.
+    paused = false;
     format;
     bgProj;
     bgLight;
@@ -419,25 +422,30 @@ export class Sample13 {
     changeMaterialShininess(change) {
         this.mtlShiny = change;
     }
+    pauseResume() {
+        this.paused = !this.paused;
+    }
     update(t, dt) {
-        // rotate the lights
-        this.dirLightDir = [1, 0, 0, 0];
-        const matLight = mat4.create();
-        mat4.rotateY(matLight, matLight, -LIGHT_ROT_SPEED * t);
-        vec4.transformMat4(this.dirLightDir, this.dirLightDir, matLight);
-        // the point light will be a quarter turn behind the directional light
-        this.pointLightPos = [0, 0, 1, 1];
-        mat4.scale(matLight, matLight, [this.pointLightDist, this.pointLightDist, this.pointLightDist]);
-        vec4.transformMat4(this.pointLightPos, this.pointLightPos, matLight);
-        // scale, shift, and rotate the model
-        const curMesh = this.meshes.get(this.currentMesh);
-        mat4.rotateY(this.matModel, mat4.create(), MESH_ROT_SPEED * t);
-        const scale = 1 / curMesh.widestExtent;
-        mat4.scale(this.matModel, this.matModel, [scale, scale, scale]);
-        mat4.translate(this.matModel, this.matModel, curMesh.offset);
-        mat3.normalFromMat4(this.matNormal, this.matModel);
         const w = this.device.queue.writeBuffer.bind(this.device.queue);
         const f32a = Float32Array;
+        if (!this.paused) {
+            // rotate the lights
+            this.dirLightDir = [1, 0, 0, 0];
+            const matLight = mat4.create();
+            mat4.rotateY(matLight, matLight, -LIGHT_ROT_SPEED * t);
+            vec4.transformMat4(this.dirLightDir, this.dirLightDir, matLight);
+            // the point light will be a quarter turn behind the directional light
+            this.pointLightPos = [0, 0, 1, 1];
+            mat4.scale(matLight, matLight, [this.pointLightDist, this.pointLightDist, this.pointLightDist]);
+            vec4.transformMat4(this.pointLightPos, this.pointLightPos, matLight);
+            // scale, shift, and rotate the model
+            const curMesh = this.meshes.get(this.currentMesh);
+            mat4.rotateY(this.matModel, mat4.create(), MESH_ROT_SPEED * t);
+            const scale = 1 / curMesh.widestExtent;
+            mat4.scale(this.matModel, this.matModel, [scale, scale, scale]);
+            mat4.translate(this.matModel, this.matModel, curMesh.offset);
+            mat3.normalFromMat4(this.matNormal, this.matModel);
+        }
         w(this.ambientColorBuf, 0, new f32a(this.ambientColor));
         w(this.dirLightBuf, 0, packLight(this.dirLightDir, this.dirLightColor));
         w(this.pointLightBuf, 0, packLight(this.pointLightPos, this.pointLightColor, this.pointLightAtten));
