@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My WebGPU sample</title>
+        <script type="importmap">
+            {
+                "imports": {
+                    "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
+                    "gl-matrix/": "./node_modules/gl-matrix/esm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
+            import { loadObj } from "./sample12_lights/sample.js"
+            import { Sample13 } from "./sample13_phong/sample.js"
+
+            const [device, context] = await initWebGpu();
+
+            const meshFiles = {
+                'Teapot': 'utah_teapot.obj',
+                'Cow': 'cow.obj',
+                'Bunny': 'stanford-bunny.obj',
+                'Mecha-dillo': 'armadillo.obj',
+            }
+
+            const meshPromises = new Map();
+            for (let [name, file] of Object.entries(meshFiles)) {
+                try {
+                    const url = new URL('meshes/' + file, import.meta.url);
+                    meshPromises[name] = loadObj(url);
+                } catch(e) {
+                    console.error("couldn't load file", name);
+                    print(e);
+                }
+            }
+
+            const sel = document.querySelector('#MeshSelect');
+            
+            const meshDatas = new Map();
+            for (let [name, promise] of Object.entries(meshPromises)) {
+                const mesh = await promise;
+                meshDatas.set(name, mesh);
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.text = name;
+                sel.add(opt);
+            }
+            
+
+            const sample = new Sample13(device, context, meshDatas);
+            sel.value = 'Teapot';
+            sample.changeCurrentMesh('Teapot');
+
+            sel.addEventListener('change', (event) => {
+                sample.changeCurrentMesh(event.target.value);
+            });
+
+            const rgb_widgets_and_changers = [
+                ['#pointlight', sample.changePointLightColor.bind(sample)],
+                ['#dirlight', sample.changeDirLightColor.bind(sample)],
+                ['#amb', sample.changeAmbientColor.bind(sample)],
+                ['#mat-spec', sample.changeMaterialSpecular.bind(sample)],
+                ['#mat-diff', sample.changeMaterialDiffuse.bind(sample)],
+                ['#mat-amb', sample.changeMaterialAmbient.bind(sample)],
+            ];
+
+            for (let [baseName, changer] of rgb_widgets_and_changers) {
+                const widg_r = document.querySelector(baseName + '-r');
+                const widg_g = document.querySelector(baseName + '-g');
+                const widg_b = document.querySelector(baseName + '-b');
+                const widgets = [widg_r, widg_g, widg_b];
+                const update = () => {
+                    const rgb = []
+                    for (let widget of widgets) {
+                        rgb.push(widget.value);
+                    }
+                    changer(rgb);
+                }
+                update();
+
+                for (let widget of widgets) {
+                    widget.addEventListener('change', (ev) => {
+                        update();
+                    });
+                }
+            }
+
+            const widg_shininess = document.querySelector('#mat-shiny');
+            const text_shininess = document.querySelector('#shininess-display');
+            const updateShininess = () => {
+                const logVal = Number.parseFloat(widg_shininess.value);
+                const val = Math.pow(10, logVal);
+                text_shininess.value = val;
+                sample.changeMaterialShininess(val);
+            };
+            widg_shininess.addEventListener('change', (ev) => {
+                updateShininess();
+            });
+            updateShininess();
+
+            const point_dist = document.querySelector('#pointlight-dist');
+            const point_dist_text = document.querySelector('#pointlight-dist-display');
+            const updateDistance = () => {
+                const logVal = Number.parseFloat(point_dist.value);
+                const val = Math.pow(10, logVal);
+                point_dist_text.value = val;
+                sample.changePointLightDistance(val);
+            }
+            point_dist.addEventListener('change', (ev) => {
+                updateDistance();
+            });
+            updateDistance();
+
+            const atten_kc = document.querySelector('#pointlight-kc');
+            const atten_kl = document.querySelector('#pointlight-kl');
+            const atten_kq = document.querySelector('#pointlight-kq');
+            const updateAttenuation = () => {
+                const kc = Number.parseFloat(atten_kc.value);
+                const kl = Number.parseFloat(atten_kl.value);
+                const kq = Number.parseFloat(atten_kq.value);
+                console.log(kc, kl, kq);
+                sample.changePointLightAttenuation([kc, kl, kq]);
+            }
+            updateAttenuation();
+            for (let widg of [atten_kc, atten_kl, atten_kq]) {
+                widg.addEventListener('change', (ev) => {
+                    updateAttenuation();
+                });
+            }
+
+            sample.startRendering();
+        </script>
+    </head>
+    <body>
+        <h1>Phong Sandbox</h1>
+        <canvas width="800" height="600"></canvas>
+        <h2>Mesh:</h2>
+        <select id="MeshSelect"></select>
+
+        <h2>Light Colors:</h2>
+        <h3>Point Light</h3>
+        <ul>
+            <li><label for="pointlight-r">R: </label><input id="pointlight-r" type="range" value="0.5" min="0" max="1" step="0.004"></li>
+            <li><label for="pointlight-g">G: </label><input id="pointlight-g" type="range" value="0.05" min="0" max="1" step="0.004"></li>
+            <li><label for="pointlight-b">B: </label><input id="pointlight-b" type="range" value="0.25" min="0" max="1" step="0.004"></li>
+        </ul>
+        <h3>Directional Light</h3>
+        <ul>
+            <li><label for="dirlight-r">R: </label><input id="dirlight-r" type="range" value="0.2" min="0" max="1" step="0.004"></li>
+            <li><label for="dirlight-g">G: </label><input id="dirlight-g" type="range" value="0.7" min="0" max="1" step="0.004"></li>
+            <li><label for="dirlight-b">B: </label><input id="dirlight-b" type="range" value="0.3" min="0" max="1" step="0.004"></li>
+        </ul>
+        <h3>Ambient Light</h3>
+        <ul>
+            <li><label for="amb-r">R: </label> <input id="amb-r" type="range" value="0.012" min="0" max="1" step="0.004"></li>
+            <li><label for="amb-g">G: </label> <input id="amb-g" type="range" value="0.012" min="0" max="1" step="0.004"></li>
+            <li><label for="amb-b">B: </label> <input id="amb-b" type="range" value="0.012" min="0" max="1" step="0.004"></li>
+        </ul>
+
+        <h2>Light Attenuation</h2>
+        <ul>
+            <li>
+                <label for="pointlight-dist">(log)Distance: </label>
+                <input id="pointlight-dist" type="range" value="0" min="-3" max="3" step="0.1">
+                <input id="pointlight-dist-display" type="text" disabled="true">
+            </li>
+            <li>
+                <label for="pointlight-kc">Constant attenuation (Kc): </label>
+                <input id="pointlight-kc" type="text" value="1">
+            </li>
+            <li>
+                <label for="pointlight-kl">Linear attenuation (Kl): </label>
+                <input id="pointlight-kl" type="text" value="0.7">
+            </li>
+            <li>
+                <label for="pointlight-kq">Quadratic attenuation (kq): </label>
+                <input id="pointlight-kq" type="text" value="1.0">
+            </li>
+        </ul>
+
+        <h2>Material:</h2>
+        <h3>Shininess</h3>
+        <label for="mat-shiny">(log) Shininess</label><input id="mat-shiny" type="range" value="1" min="-3" max="3" step="0.1">
+        <input id = "shininess-display" type="text" disabled="true">
+        <h3>Specular Response</h3>
+        <ul>
+            <li><label for="mat-spec-r">R: </label><input id="mat-spec-r" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-spec-g">G: </label><input id="mat-spec-g" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-spec-g">B: </label><input id="mat-spec-b" type="range" value="0.9" min="0" max="1" step="0.004"></li>
+        </ul>
+        <h3>Diffuse Response</h3>
+        <ul>
+            <li><label for="mat-diff-r">R: </label><input id="mat-diff-r" type="range" value="0.4" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-diff-g">G: </label><input id="mat-diff-g" type="range" value="0.4" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-diff-g">B: </label><input id="mat-diff-b" type="range" value="0.4" min="0" max="1" step="0.004"></li>
+        </ul>
+        <h3>Ambient Response</h3>
+        <ul>
+            <li><label for="mat-amb-r">R: </label><input id="mat-amb-r" type="range" value="0.1" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-amb-g">G: </label><input id="mat-amb-g" type="range" value="0.1" min="0" max="1" step="0.004"></li>
+            <li><label for="mat-amb-b">B: </label><input id="mat-amb-b" type="range" value="0.1" min="0" max="1" step="0.004"></li>
+        </ul>
+    </body>
+</html>
+
+
+

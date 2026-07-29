@@ -41,6 +41,7 @@ export declare class Sample13 {
     changeDirLightColor(change: vec3): void;
     changePointLightColor(change: vec3): void;
     changePointLightDistance(change: number): void;
+    changePointLightAttenuation(change: vec3): void;
     changeAmbientColor(change: vec3): void;
     changeMaterialAmbient(change: vec3): void;
     changeMaterialDiffuse(change: vec3): void;

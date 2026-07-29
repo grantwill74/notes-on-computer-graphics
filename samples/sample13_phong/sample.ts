@@ -139,10 +139,10 @@ function packMaterial(
 function packLight(
     posOrDir: vec4,
     color: vec3,
-    attenuation?: vec3
+    attenuation: vec3 = [1, 0, 0]
 ): Float32Array
 {
-    return new Float32Array([...posOrDir, ...color, ...(attenuation ?? [0, 0, 0])]);
+    return new Float32Array([...posOrDir, ...color, 0, ...attenuation, 0]);
 }
 
 const TAU = Math.PI * 2;
@@ -450,6 +450,10 @@ export class Sample13 {
 
     changePointLightDistance(change: number): void {
         this.pointLightDist = change;
+    }
+
+    changePointLightAttenuation(change: vec3): void {
+        this.pointLightAtten = change;
     }
 
     changeAmbientColor(change: vec3): void {

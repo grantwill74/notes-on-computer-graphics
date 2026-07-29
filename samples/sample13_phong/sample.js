@@ -126,8 +126,8 @@ function packMaterial(ambient, diffuse, specular, shininess) {
         shininess
     ]);
 }
-function packLight(posOrDir, color, attenuation) {
-    return new Float32Array([...posOrDir, ...color, ...(attenuation ?? [0, 0, 0])]);
+function packLight(posOrDir, color, attenuation = [1, 0, 0]) {
+    return new Float32Array([...posOrDir, ...color, 0, ...attenuation, 0]);
 }
 const TAU = Math.PI * 2;
 const FOV = TAU / 6;
@@ -400,6 +400,9 @@ export class Sample13 {
     }
     changePointLightDistance(change) {
         this.pointLightDist = change;
+    }
+    changePointLightAttenuation(change) {
+        this.pointLightAtten = change;
     }
     changeAmbientColor(change) {
         this.ambientColor = change;
