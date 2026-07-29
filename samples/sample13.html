@@ -2,6 +2,63 @@
 <html>
     <head>
         <title>My WebGPU sample</title>
+
+        <style>
+            /* with some help from Kimi 2.7 coder for the CSS flexbox stuff */
+            #controls {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 1rem;
+                align-items: start;
+            }
+
+            .control-group {
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                box-shadow: #234 5px 3px 3px;
+                padding: 0.75rem;
+            }
+
+            .control-group h2,
+            .control-group h3 {
+                margin: 0 0 0.5rem 0;
+            }
+
+            .control {
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+            }
+
+            .control h3 {
+                margin: 0 0 0.5rem 0;
+                min-width: 4rem;
+                width: 4.5rem;
+                max-width: 5rem;
+                flex: 3;
+            }
+
+            .rgb-row {
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+            }
+
+            .rgb-row label {
+                width: 1.0rem;
+            }
+
+            .rgb-row input[type="range"] {
+                flex: 1;
+            }
+
+            ul {
+                list-style: none;
+                padding: 0;
+            }
+
+            </style>
+
         <script type="importmap">
             {
                 "imports": {
@@ -136,72 +193,100 @@
     <body>
         <h1>Phong Sandbox</h1>
         <canvas width="800" height="600"></canvas>
-        <h2>Mesh:</h2>
-        <select id="MeshSelect"></select>
 
-        <h2>Light Colors:</h2>
-        <h3>Point Light</h3>
-        <ul>
-            <li><label for="pointlight-r">R: </label><input id="pointlight-r" type="range" value="0.5" min="0" max="1" step="0.004"></li>
-            <li><label for="pointlight-g">G: </label><input id="pointlight-g" type="range" value="0.05" min="0" max="1" step="0.004"></li>
-            <li><label for="pointlight-b">B: </label><input id="pointlight-b" type="range" value="0.25" min="0" max="1" step="0.004"></li>
-        </ul>
-        <h3>Directional Light</h3>
-        <ul>
-            <li><label for="dirlight-r">R: </label><input id="dirlight-r" type="range" value="0.2" min="0" max="1" step="0.004"></li>
-            <li><label for="dirlight-g">G: </label><input id="dirlight-g" type="range" value="0.7" min="0" max="1" step="0.004"></li>
-            <li><label for="dirlight-b">B: </label><input id="dirlight-b" type="range" value="0.3" min="0" max="1" step="0.004"></li>
-        </ul>
-        <h3>Ambient Light</h3>
-        <ul>
-            <li><label for="amb-r">R: </label> <input id="amb-r" type="range" value="0.012" min="0" max="1" step="0.004"></li>
-            <li><label for="amb-g">G: </label> <input id="amb-g" type="range" value="0.012" min="0" max="1" step="0.004"></li>
-            <li><label for="amb-b">B: </label> <input id="amb-b" type="range" value="0.012" min="0" max="1" step="0.004"></li>
-        </ul>
+        <div id="controls">
+            <div class="control-group">
+                <h2>Mesh:</h2>
+                <select id="MeshSelect"></select>
+            </div>
 
-        <h2>Light Attenuation</h2>
-        <ul>
-            <li>
-                <label for="pointlight-dist">(log)Distance: </label>
-                <input id="pointlight-dist" type="range" value="0" min="-3" max="3" step="0.1">
-                <input id="pointlight-dist-display" type="text" disabled="true">
-            </li>
-            <li>
-                <label for="pointlight-kc">Constant attenuation (Kc): </label>
-                <input id="pointlight-kc" type="text" value="1">
-            </li>
-            <li>
-                <label for="pointlight-kl">Linear attenuation (Kl): </label>
-                <input id="pointlight-kl" type="text" value="0.7">
-            </li>
-            <li>
-                <label for="pointlight-kq">Quadratic attenuation (kq): </label>
-                <input id="pointlight-kq" type="text" value="1.0">
-            </li>
-        </ul>
+            <div class="control-group">
+                <h2>Light Colors:</h2>
+                <div class="control">
+                    <h3>Point Light</h3>
+                    <ul>
+                        <li><div class="rgb-row"><label for="pointlight-r">R:</label><input id="pointlight-r" type="range" value="0.5" min="0" max="1" step="0.004"></div></li>
+                        <li><div class="rgb-row"><label for="pointlight-g">G:</label><input id="pointlight-g" type="range" value="0.05" min="0" max="1" step="0.004"></div></li>
+                        <li><div class="rgb-row"><label for="pointlight-b">B:</label><input id="pointlight-b" type="range" value="0.25" min="0" max="1" step="0.004"></div></li>
+                    </ul>
+                </div>
+                <div class="control">
+                    <h3>Directional Light</h3>
+                    <ul>
+                        <li><div class="rgb-row"><label for="dirlight-r">R:</label><input id="dirlight-r" type="range" value="0.2" min="0" max="1" step="0.004"></div></li>
+                        <li><div class="rgb-row"><label for="dirlight-g">G:</label><input id="dirlight-g" type="range" value="0.7" min="0" max="1" step="0.004"></div></li>
+                        <li><div class="rgb-row"><label for="dirlight-b">B:</label><input id="dirlight-b" type="range" value="0.3" min="0" max="1" step="0.004"></div></li>
+                    </ul>
+                </div>
+                <div class="control">
+                    <h3>Ambient Light</h3>
+                    <ul>
+                        <li><div class="rgb-row"><label for="amb-r">R:</label> <input id="amb-r" type="range" value="0.012" min="0" max="1" step="0.004"></div></li>
+                        <li><div class="rgb-row"><label for="amb-g">G:</label> <input id="amb-g" type="range" value="0.012" min="0" max="1" step="0.004"></div></li>
+                        <li><div class="rgb-row"><label for="amb-b">B:</label> <input id="amb-b" type="range" value="0.012" min="0" max="1" step="0.004"></div></li>
+                    </ul>
+                </div>
+            </div>
 
-        <h2>Material:</h2>
-        <h3>Shininess</h3>
-        <label for="mat-shiny">(log) Shininess</label><input id="mat-shiny" type="range" value="1" min="-3" max="3" step="0.1">
-        <input id = "shininess-display" type="text" disabled="true">
-        <h3>Specular Response</h3>
-        <ul>
-            <li><label for="mat-spec-r">R: </label><input id="mat-spec-r" type="range" value="0.9" min="0" max="1" step="0.004"></li>
-            <li><label for="mat-spec-g">G: </label><input id="mat-spec-g" type="range" value="0.9" min="0" max="1" step="0.004"></li>
-            <li><label for="mat-spec-g">B: </label><input id="mat-spec-b" type="range" value="0.9" min="0" max="1" step="0.004"></li>
-        </ul>
-        <h3>Diffuse Response</h3>
-        <ul>
-            <li><label for="mat-diff-r">R: </label><input id="mat-diff-r" type="range" value="0.4" min="0" max="1" step="0.004"></li>
-            <li><label for="mat-diff-g">G: </label><input id="mat-diff-g" type="range" value="0.4" min="0" max="1" step="0.004"></li>
-            <li><label for="mat-diff-g">B: </label><input id="mat-diff-b" type="range" value="0.4" min="0" max="1" step="0.004"></li>
-        </ul>
-        <h3>Ambient Response</h3>
-        <ul>
-            <li><label for="mat-amb-r">R: </label><input id="mat-amb-r" type="range" value="0.1" min="0" max="1" step="0.004"></li>
-            <li><label for="mat-amb-g">G: </label><input id="mat-amb-g" type="range" value="0.1" min="0" max="1" step="0.004"></li>
-            <li><label for="mat-amb-b">B: </label><input id="mat-amb-b" type="range" value="0.1" min="0" max="1" step="0.004"></li>
-        </ul>
+        
+            <div class="control-group">
+                <h2>Material:</h2>
+                
+                <h3>Shininess</h3>
+                <label for="mat-shiny">(log) Shininess</label><input id="mat-shiny" type="range" value="1" min="-3" max="3" step="0.1">
+                <input id = "shininess-display" type="text" disabled="true">
+                <div class="control">
+                <h3>Specular Response</h3>
+                <ul>
+                    <li><div class="rgb-row"><label for="mat-spec-r">R: </label><input id="mat-spec-r" type="range" value="0.9" min="0" max="1" step="0.004"></div></li>
+                    <li><div class="rgb-row"><label for="mat-spec-g">G: </label><input id="mat-spec-g" type="range" value="0.9" min="0" max="1" step="0.004"></div></li>
+                    <li><div class="rgb-row"><label for="mat-spec-g">B: </label><input id="mat-spec-b" type="range" value="0.9" min="0" max="1" step="0.004"></div></li>
+                </ul>
+                </div>
+                <div class="control">
+                <h3>Diffuse Response</h3>
+                <ul>
+                    <li><div class="rgb-row"><label for="mat-diff-r">R: </label><input id="mat-diff-r" type="range" value="0.4" min="0" max="1" step="0.004"></div></li>
+                    <li><div class="rgb-row"><label for="mat-diff-g">G: </label><input id="mat-diff-g" type="range" value="0.4" min="0" max="1" step="0.004"></div></li>
+                    <li><div class="rgb-row"><label for="mat-diff-g">B: </label><input id="mat-diff-b" type="range" value="0.4" min="0" max="1" step="0.004"></div></li>
+                </ul>
+                </div>
+                <div class="control">
+                <h3>Ambient Response</h3>
+                <ul>
+                    <li><div class="rgb-row"><label for="mat-amb-r">R: </label><input id="mat-amb-r" type="range" value="0.1" min="0" max="1" step="0.004"></div></li>
+                    <li><div class="rgb-row"><label for="mat-amb-g">G: </label><input id="mat-amb-g" type="range" value="0.1" min="0" max="1" step="0.004"></div></li>
+                    <li><div class="rgb-row"><label for="mat-amb-b">B: </label><input id="mat-amb-b" type="range" value="0.1" min="0" max="1" step="0.004"></div></li>
+                </ul>
+                </div>
+            </div>
+
+
+            <div class="control-group">
+                <h2>Light Attenuation</h2>
+                <ul>
+                    <li>
+                        <label for="pointlight-dist">(log)Distance: </label>
+                        <input id="pointlight-dist" type="range" value="0" min="-3" max="3" step="0.1">
+                        <input id="pointlight-dist-display" type="text" disabled="true">
+                    </li>
+                    <li>
+                        <label for="pointlight-kc">Constant attenuation (Kc): </label>
+                        <input id="pointlight-kc" type="text" value="1">
+                    </li>
+                    <li>
+                        <label for="pointlight-kl">Linear attenuation (Kl): </label>
+                        <input id="pointlight-kl" type="text" value="0.7">
+                    </li>
+                    <li>
+                        <label for="pointlight-kq">Quadratic attenuation (kq): </label>
+                        <input id="pointlight-kq" type="text" value="1.0">
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
     </body>
 </html>
 
