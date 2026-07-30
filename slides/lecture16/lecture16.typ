@@ -292,6 +292,8 @@ So: we compute the Phong color in the vertex shader and return it as a vertex ou
 
 Phong shading generates smooth lights, whereas Gouraud shading generates 
 
+== Blinn-materials
+
 == Alignment
 
 == Swizzling
