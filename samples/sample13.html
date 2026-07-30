@@ -191,6 +191,18 @@
                 sample.pauseResume();
             });
 
+            const gouraud = document.querySelector('#gouraud');
+            const phong = document.querySelector('#phong');
+            const blinn = document.querySelector('#blinn');
+            const updateShadeMode = () => {
+                sample.changeShadingMode(!!gouraud.checked, !!blinn.checked);
+            }
+            for (let widget of [gouraud, phong, blinn]) {
+                widget.addEventListener('change', (ev) => {
+                    updateShadeMode();
+                });
+            }
+
             sample.startRendering();
         </script>
     </head>
@@ -203,6 +215,15 @@
                 <h2>Mesh:</h2>
                 <select id="MeshSelect"></select>
                 <button id="pause">Pause/Resume</button>
+                <fieldset>
+                    <legend>Shader mode</legend>
+                    <input type="radio" name="shader-mode" id="gouraud" value="gouraud" checked>
+                    <label for="gouraud">Gouraud</label>
+                    <input type="radio" name="shader-mode" id="phong" value="phong">
+                    <label for="phong">Phong</label>
+                    <input type="checkbox" name="blinn" id="blinn" value="true">
+                    <label for="blinn">Blinn?</label>
+                </fieldset>
             </div>
 
             <div class="control-group">

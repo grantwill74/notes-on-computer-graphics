@@ -20,7 +20,13 @@ const shaderCode = /*wgsl*/`
     @group(1) @binding(0) var<uniform> ambient_color: vec3f;
     @group(1) @binding(1) var<uniform> dir_light: Light;
     @group(1) @binding(2) var<uniform> point_light: Light;
-
+    // x = gouraud, y = blinn
+    @group(1) @binding(3) var<uniform> shading_mode: vec2<u32>;
+    
+    const SHADING_MODE_PHONG: u32 = 0;
+    const SHADING_MODE_GOURAUD: u32 = 1;
+    const SHADING_MODE_NO_BLINN: u32 = 0;
+    const SHADING_MODE_BLINN: u32 = 1;
 
     @group(2) @binding(0) var<uniform> m_viewProj: mat4x4<f32>;
     // world level camera position
@@ -49,13 +55,27 @@ const shaderCode = /*wgsl*/`
         light_dir: vec3f,
         light_color: vec3f,
         norm: vec3f,
-        eye_dir: vec3f,
-        shininess: f32
+        eye_dir: vec3f
     )-> vec3f
     {
         let reflected = reflect(-light_dir, norm);
         let brightness = max(0.0, dot(reflected, eye_dir));
-        let shine = pow(brightness, shininess);
+        let shine = pow(brightness, mtl.shininess);
+        return light_color * shine * mtl.specular;
+    }
+
+    fn specular_color_blinn(
+        light_dir: vec3f,
+        light_color: vec3f,
+        norm: vec3f,
+        eye_dir: vec3f
+    )-> vec3f
+    {
+        // if we wanted to be efficient, we would pre-compute this
+        // and pass it as a uniform.
+        let halfway = normalize(light_dir + eye_dir);
+        let brightness = max(0.0, dot(halfway, norm));
+        let shine = pow(brightness, mtl.shininess);
         return light_color * shine * mtl.specular;
     }
 
@@ -70,6 +90,68 @@ const shaderCode = /*wgsl*/`
             factors.y * distance +
             factors.z * distance * distance  
         );
+    }
+
+    fn phong_brightness_for_light(
+        light: Light,
+        blinn: bool,
+        world_pos: vec3f,
+        norm: vec3f,
+        eye_dir: vec3f,
+    ) -> vec3f 
+    {
+        var light_off: vec3f;
+        if (light.pos_dir.w == 0) {
+            light_off = light.pos_dir.xyz;
+        }
+        else {
+            light_off = light.pos_dir.xyz - world_pos;
+        }
+
+        let light_dist = length(light_off);
+        let light_dir = light_off / light_dist;
+
+        let diff = diffuse_color(light_dir, light.color, norm);
+        var spec: vec3f;
+        if blinn {
+            spec = specular_color_blinn(light_dir, light.color, norm, eye_dir);
+        }
+        else {
+            spec = specular_color(light_dir, light.color, norm, eye_dir);
+        }
+
+        var color = diff + spec;
+        
+        if (light.pos_dir.w != 0) {
+            color = attenuate(color, light_dist, light.atten);    
+        }
+
+        return color;
+    }
+
+    fn total_phong_brightness(
+        // obviously, with only two lights, we could just pass them
+        // as parameters or use the global constants. But this shows
+        // how to use arrays: useful if your scene has lots of lights!
+        lights: array<Light, 2>,
+        blinn: bool,
+        world_pos: vec3f,
+        norm: vec3f,
+        eye_dir: vec3f,
+    ) -> vec3f
+    {
+        // this is the phong equation like we saw in the lecture:
+        // start with ambient, but then add the brightnesses for
+        // each light. Here we have 2 lights: a directional light
+        // and a point light
+        var color = ambient_color * mtl.ambient;
+        color += phong_brightness_for_light(
+            lights[0], blinn,
+            world_pos, norm, eye_dir);
+        color += phong_brightness_for_light(
+            lights[1], blinn,
+            world_pos, norm, eye_dir);
+        return color;
     }
 
     @vertex fn vs(
@@ -87,33 +169,42 @@ const shaderCode = /*wgsl*/`
 
         vo.pos = m_viewProj * vo.world_pos;
         vo.norm = normalize(m_normal * normal);
-        let color_from_dir_light =
-            diffuse_color(dir_light.pos_dir.xyz, dir_light.color, vo.norm) +
-            specular_color(dir_light.pos_dir.xyz, dir_light.color, vo.norm, eye_dir, mtl.shininess);
-        let point_light_off = point_light.pos_dir.xyz - vo.world_pos.xyz;
-        let point_light_dir = normalize(point_light_off);
-        let distance_to_point_light = length(point_light_off);
-        // small optimization: you can compute distance first, then divide dir by it
-        // downside: length works in the 0-distance case, but 0/0 will be NaN.
-        let color_from_point_light =
-            diffuse_color(
-                point_light_dir,
-                point_light.color,
-                vo.norm) +
-            specular_color(
-                point_light_dir,
-                point_light.color,
-                vo.norm, eye_dir, mtl.shininess);
 
-        vo.color = ambient_color * mtl.ambient +
-            color_from_dir_light +
-            attenuate(color_from_point_light, distance_to_point_light, point_light.atten);
-        
+
+        // if we're in phong mode, we don't need the vertex color
+        // for this shader
+        if shading_mode.x == SHADING_MODE_GOURAUD {
+            vo.color = total_phong_brightness(
+                array(dir_light, point_light),
+                shading_mode.y == SHADING_MODE_BLINN,
+                vo.world_pos.xyz,
+                vo.norm, eye_dir
+            );
+        } else {
+            vo.color = vec3f(0.0, 0.0, 0.0);
+        }
+
         return vo;
     }
 
     @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
-        return vec4f(vo.color, 1.0);
+        let eye_dir = normalize(eye_pos - vo.world_pos.xyz);
+
+        // if we're doing phong shading
+        if shading_mode.x == SHADING_MODE_PHONG {
+            return vec4f(total_phong_brightness(
+                array(dir_light, point_light),
+                shading_mode.y == SHADING_MODE_BLINN,
+                vo.world_pos.xyz,
+                // we have to re-normalize the normal. linear 
+                // interpolation does not preserve length.
+                normalize(vo.norm),
+                eye_dir
+            ), 1.0);
+        }
+        else {
+            return vec4f(vo.color, 1.0);
+        }
     }
 `;
 
@@ -173,6 +264,8 @@ export class Sample13 {
     pointLightAtten: vec3 = [1, .7, 1.0];
     pointLightDist: number = 1;
     eyePos: vec3 = [0, 0, 1.5];
+    gouraudMode: boolean = true;
+    blinnMode: boolean = false;
 
     matProjBuf: GPUBuffer;
     matModelBuf: GPUBuffer;
@@ -182,6 +275,7 @@ export class Sample13 {
     dirLightBuf: GPUBuffer;
     pointLightBuf: GPUBuffer;
     eyePosBuf: GPUBuffer;
+    shadingModeBuf: GPUBuffer;
 
     // janky little pause option so I can take screenshots for class
     // better.
@@ -276,6 +370,11 @@ export class Sample13 {
             usage,
             label: "eye position"
         });
+        this.shadingModeBuf = device.createBuffer({
+            size: 2 * 4,
+            usage,
+            label: "shading mode: gouraud and blinn"
+        });
 
         // create bind group layouts
         const bgModelLayout = device.createBindGroupLayout({
@@ -317,6 +416,11 @@ export class Sample13 {
                     binding: 2,
                     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: {}
+                },
+                {   // mode
+                    binding: 3,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: {}
                 }
             ],
             label: "lighting bind group layout"
@@ -329,9 +433,9 @@ export class Sample13 {
                     visibility: GPUShaderStage.VERTEX,
                     buffer: {}
                 },
-                {
+                {   // eye pos
                     binding: 1,
-                    visibility: GPUShaderStage.VERTEX,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: {}
                 }
             ]
@@ -371,6 +475,10 @@ export class Sample13 {
                 {
                     binding: 2,
                     resource: this.pointLightBuf
+                },
+                {
+                    binding: 3,
+                    resource: this.shadingModeBuf
                 }
             ],
             label: "lighting bind group"
@@ -438,6 +546,15 @@ export class Sample13 {
                 depthWriteEnabled: true,
             }
         });
+        
+        this.changeShadingMode(this.gouraudMode, this.blinnMode);
+    }
+
+    changeShadingMode(gouraud: boolean, blinn: boolean): void {
+        const packed = new Uint32Array([gouraud ? 1 : 0, blinn ? 1 : 0]);
+        this.gouraudMode = gouraud;
+        this.blinnMode = blinn;
+        this.device.queue.writeBuffer(this.shadingModeBuf, 0, packed);
     }
 
     changeCurrentMesh(change: string): void {

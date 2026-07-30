@@ -21,6 +21,8 @@ export declare class Sample13 {
     pointLightAtten: vec3;
     pointLightDist: number;
     eyePos: vec3;
+    gouraudMode: boolean;
+    blinnMode: boolean;
     matProjBuf: GPUBuffer;
     matModelBuf: GPUBuffer;
     matNormalBuf: GPUBuffer;
@@ -29,6 +31,7 @@ export declare class Sample13 {
     dirLightBuf: GPUBuffer;
     pointLightBuf: GPUBuffer;
     eyePosBuf: GPUBuffer;
+    shadingModeBuf: GPUBuffer;
     paused: boolean;
     format: GPUTextureFormat;
     bgProj: GPUBindGroup;
@@ -38,6 +41,7 @@ export declare class Sample13 {
     zBuffer: GPUTexture;
     lastUpdate: number;
     constructor(device: GPUDevice, context: GPUCanvasContext, meshes: Map<string, Mesh>);
+    changeShadingMode(gouraud: boolean, blinn: boolean): void;
     changeCurrentMesh(change: string): void;
     changeDirLightColor(change: vec3): void;
     changePointLightColor(change: vec3): void;
