@@ -127,7 +127,7 @@ The Phong reflection model has _three_ components:
 - Diffuse (same as above)
 - Specular (new)
 
-These components are added together, just like before.
+These components are added together, for each light, just like before.
 
 == Specular calculation
 
@@ -165,7 +165,7 @@ The Phong model is a way of calculating light. It's different from *Phong Shadin
 
 This is the high level view of the Phong model:
 
-#math.equation($"ambient color" + "diffuse color" + ("specular color")^"shininess"$, alt: "ambient color plus diffuse color plus quantity specular color raised to the power of shininess.")
+#math.equation($"ambient color" + sum_("light") ["diffuse color" + ("specular color")^"shininess"]$, alt: "ambient color plus sum for each light of quantity diffuse color plus specular color raised to the power of shininess.")
 
 We've already seen how to compute ambient and diffuse. Specular and shininess are new.
 
@@ -201,15 +201,103 @@ Since the Phong model is additive, we can think of each kind of brightness as be
 
 == The Phong Equation
 
-The Phong Model is defined in the 
+The Phong Model is defined by its equation, from which we obtain the color to draw the pixel:
 
-This is the full Phong equation, includ
+#math.equation($I_p = k_a i_a + sum_(m in "lights")(k_d (hat(L)_m dot hat(N))i_(m,d) + k_s (hat(R)_m dot hat(V))^alpha i_(m,s))$, alt: "eye sub pea equals kay-sub-ey eye-sub-ey plus sum of each light m of the quantity kay-sub-dee times the dot product of ell-hat-sub-imm and inn-hat times eye-sub-imm-comma-dee plus kay-sub-ess times the dot product of arr-hat-sub-imm and vee-hat raised to alpha times eye sub imm-comma-ess.")
 
+Here are what the variables mean:
+- #math.equation($I_p$, alt:"eye-sub-pea") the result we want to compute: either the color of a pixel or its brightness. It will be a brightness if we use scalars for all the lowercase variables, it will be a color if we use 3-vectors and pointwise multiplication.
+- The "k" variables are the material properties: ambient, diffuse, and specular respectively.
 
+== The Phong Equation (2)
+
+- The "m" subscript describes which light we're talking about. If there are 8-lights, you will compute their diffuse and specular terms, and add the colors or brightnesses together (the big sigma).
+- The L-hat is a vector from the surface to the light. N-hat is the normal
+- R-hat is the light vector reflected over the normal.
+- Alpha is "shininess".
+- The "i" factors are "illuminance". Either color or brightness. The subscript tells us which light the factor is for, and which intensity#footnote[I left this out of my sample, because it's rather abstract, but Phong is an empirical model, and being able to tune the specular "output" of a light may be useful even if it doesn't make physical sense (specularness is a property of a surface, not a light)]
+
+== Using the Phong Equation (3)
+
+The way we use this equation is by making all those parameters (except "i" if you want) available to the shader as uniforms.
+
+Then we program it into the shader. I'll show you how I did it in a bit.
+
+Artistically: when we're building our scene, not only do we decide how to place our meshes and which textures to use, we also give our 3D models material properties. For each model, we decide how much red, green, and blue its specular highlight reflects, how much diffuse and ambient light it reflects, and how small the highlights are. These are all determined in the model's material, and one material can be shared by many models. It's often combined with a texture, too.
 
 #focus-slide("Questions?")
 
+== What shininess does
+
+One thing you might be wondering is what shininess does:
+
+#stack(dir:ltr, spacing: 3%,
+box(width: 30%, figure(
+  image("screens/bunny_1_25_shininess.png", alt: "the bunny model with low shininess. The surface appears dull, like rough stone."),
+  numbering: none,
+  caption: [Shininess = 1.25 \ (ignore the pinkish light, we'll talk about it later)]
+)),
+box(width:30%, figure(
+  image("screens/bunny_15_shininess.png", alt: "the bunny model with moderate shininess. the size of the specular lights are smaller, giving a more 'metallic' appearance."),
+  numbering: none,
+  caption: [Shininess =15]
+)),
+box(width: 30%, figure(
+  image("screens/bunny_50_shininess.png", alt:"the bunny model with high shininess. The surface has a few small, intense spots."),
+  numbering: none,
+  caption: [Shininess = 50]
+)),
+)
+
+== What shininess does (2)
+
+Higher shininess makes the size of the specular spotlight _smaller_.
+
+The result is usually that the surface looks more metallic.
+
+The lights that we're simulating are infinitely small, so as the surface becomes more shiny, it's like you can see that tiny light in the reflection.
+
+Mathmatically, remember that we're taking the dot-product between the reflected light and the eye. These are both unit vectors: the result will always be between -1 and 1 (and we make sure it's at least 0 to avoid "negative light"). Taking that number to a high power will make it need to be very close to 1 (direct reflection) to avoid falling off.
+
+== What shininess does (3)
+
+Ironically, this means that increasing shininess means our model is less...well...shiny. Because it's dimmer. 
+
+Typically, we can adjust for this by making the highlights more intense, by cranking up the material properties for specular.
+
+One thing that distinguishes Phong from more modern, physically-based illumination models is that it is not actually modelling things like conservation of energy. It is absolutely possible to make the material reflection "reflect" more light than was emitted.#footnote[I didn't do this in the sample, but you can open the page inspector in your browser and force the controls past 1 for the RGB sliders.]
+
+== Where Phong?
+
+Now, we're ready to start using the Phong illumination model.
+
+However, we are immediately faced with a decision: _where_ to start using the Phong illumination model.
+
+You see, there are actually several versions of Phong. Two versions use the same model, but are in different places...
+
+- Using the Phong model in the fragment shader is called, straightforwardly, *Phong Shading*.
+- Using the Phong model in the vertex shader is called *Gouraud Shading*. 
+
+== Gouraud Shading
+
+Named after _another_ University of Utah Ph.D student, #link("https://en.wikipedia.org/wiki/Henri_Gouraud_(computer_scientist)", [Henri Gouraud]). Gouraud is French, but in English, the closest approximation of his last name is probably "goo-roh" (not "guh-rahd").
+
+Gouraud shading in when we do (usually) Phong shading at each vertex, and then, linearly interpolate between pixels.
+
+This might be familiar: it's what the GPU already does for all return values of the fragment shader: it interpolates them over the fragments.
+
+So: we compute the Phong color in the vertex shader and return it as a vertex output. In the fragment shader we use that as our base color (maybe also multiplying it by a texture sample). 
+
+== Gouraud Shading (2)
+
+Phong shading generates smooth lights, whereas Gouraud shading generates 
+
 == Alignment
+
+== Swizzling
+
+== Direcitonal vs Point lights
+
 
 == Homework and Reading
 
