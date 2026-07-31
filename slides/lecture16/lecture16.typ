@@ -865,10 +865,80 @@ Therefore, once we compute our Phong brightness, multiply by:
 
 #math.equation($alpha = (k_c + k_l d + k_q d^2)^(-1)$, alt: "alpha equals kay sub see plus kay sub ell times dee plus kay sub queue times dee squared, all this to the power of minus one.")
 
+This will reduce (or increase in some cases) the color of the light.
+
 This is something we only do for point lights. Directional lights are seen as being infinitely far away, but being so bright that they don't have attenuation.
+
+== Attenuation WGSL
+
+```wgsl
+fn attenuate(
+    input_color: vec3f,
+    distance: f32,
+    factors: vec3f,
+) -> vec3f
+{ // constant in factors.x, linear in factors.y, etc. 
+    return input_color / (
+        factors.x +
+        factors.y * distance +
+        factors.z * distance * distance  
+    );
+}
+```
+
+== Let's look at the code
+
+I've implemented attenuation in the sample. It's the little red light.
+
+Let's play with the sample, and then look at the code to see how it works.
+
+#focus-slide("Questions?")
 
 == Swizzling
 
+One last little thing I haven't covered.
+
+GPUs are designed to work with vectors. The basic registers and opcodes are specifically designed for that kind of data.
+
+Imagine how inconvenient it would be if we needed a special instruction for every channel of the vector. For example, if multiplying by the `.x` component had a different instruction to multiplying by the `.y` component.
+
+We'd need at least 4 versions of every operation, not even accounting for combinations like "multiply x by y"...
+
+== Swizzling (2)
+
+As a result, the low-level assembly languages in GPUs have flexible operand formats: you can specify which components you want an operation to apply to.
+
+This feature is exposed in WGSL (and most other shading languages) through a feature called *swizzling*.
+
+Swizzling is when the fields of vectors are repeated or reordered.
+
+For example, if `v` is a vector, `v.x` is its `x` component. But we can also say `v.xx`, to create a 2-dimensional vector that has `v`'s `x` component as both its `x` and `y`.
+
+== Swizzling (3)
+
+I store my light positions as 4-d vectors, so that if the w component is zero, it's treated as a directional vector.
+
+But, when it's _not_ directional, I don't want to include the w component in the distance calculation. It would be wrong. So I _downcast_ it like this:
+
+`let offset = original.xyz`
+
+That `.xyz` is swizzling. I'm creating a new 3-vector from the `x`, `y`, and `z` components of the original vector.
+
+But I don't even have to keep them in the same order...
+
+== Swizzling (4)
+
+Recall that the cross product is defined like this:
+
+#math.equation($a times b = (a_y b_z - a_z b_y, a_z b_x - a_x b_z, a_x b_y - a_y b_x)$, alt: "ey cross b equals ey-why b-zee minus ey-zee bee-why comma ey-zee bee-ex minus ey-ex bee-zee comma ey-ex bee-why minus ey-why bee-ex")
+
+We can use swizzling to really optimize this:
+
+```wgsl
+let result = a.yzx * b.zxy - a.zxy * b.yzx
+```
+
+Those `*` operations are pairwise multiplications. Multiply a's x by b's x, a's y by b's y, etc.
 
 == Homework and Reading
 
