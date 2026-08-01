@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta lang="en">
+    <title>Notes on Computer Graphics Samples</title>
+</head>
+<body>
+    <h1>Notes on Computer Graphics</h1>
+    <h2>Samples</h2>
+    <p>Samples from <a href="https://github.com/grantwill74/notes-on-computer-graphics">GitHub repo:</a> <code>github.com/grantwill74/notes-on-computer-graphics</code></p>
+    <ul>
+        <li><a href="sample01.html">Sample01: Init WebGPU</a>. A blank screen cleared to a chosen color, which shows
+            that WebGPU is enabled and able to draw to a canvas. 
+        </li>
+        <li><a href="sample02.html">Sample02: Hello Triangle</a>.
+            Just what it says. A single triangle.</li>
+        <li><a href="sample03.html">Sample03: Using vertex buffers</a>. 
+            It doesn't visually look different from the previous sample, 
+            but behind the scenes, it's using a vertex buffer, which is 
+            important for when we want to scale up to large 3D models.
+        </li>
+        <li><a href="sample04.html">Sample04: Interpolation</a>.
+            Demonstrates how data returned from the vertex shader (in 
+            this case the color of the vertex) is automatically interpolated
+            by the fragment shader. It's also gamma correct.
+        </li>
+        <li><a href="sample05.html">Sample05: A textured Quad</a>.
+            Demonstrates using textures and UV coordinates.
+        </li>
+        <li><a href="sample06.html">Sample06: Matrices</a>. Demonstrates
+            the use of matrices to rotate, move, stretch, and squash 3D
+            objects when rendering.
+        </li>
+        <li><a href="sample07.html">Sample07: Animation</a>. Demonstrates
+            how to animate a model. Uses a model matrix to rotate a cube in
+            front of another cube which was translated and scaled. Also shows
+            the importance of winding order and depth-buffers.
+        </li>
+        <li><a href="sample08.html">Sample 08: A simple camera (in perspective)</a>
+            Renders an object in perspective for the first time. The edges of 
+            the cube recede towards the distance, like an object would appear in
+            the real world.
+        </li>
+        <li><a href="sample09.html">Sample 09: Nodes and Cameras</a>. A fully 
+            interactive scene with camera control (WASD + arrows). Demonstrates
+            how cameras can "fly" through a scene, and how the view matrix is 
+            computed from the model matrix of the camera. Demonstrates scene 
+            objects with their own bind groups. Also demonstrates how
+            event listening can enable keyboard controls.
+        </li>
+        <li><a href="sample10.html">Sample 10: Loading Meshes</a>. Demonstrates 
+            both a procedural mesh as well as a mesh loaded from an OBJ file. 
+            Demonstrates the use of index buffers.
+        </li>
+        <li><a href="sample11.html">Sample 11: Hierarchical Scenes</a>. Demonstrates
+            hierarchical scene management. Child objects can be made to rotate around
+            parent objects, bringing their child objects along for the ride.
+        </li>
+        <li><a href="sample12.html">Sample 12: Diffuse Lighting</a>. Introduces a 
+            simple Diffuse (Lambertian) lighting shader, and the ability to visualize
+            it on different meshes.
+        </li>
+        <li><a href="sample13.html">Sample 13: Phong Shading</a>. Extends the previous
+            sample with full Phong/Gouraud-shading support, including the optional Blinn
+            optimization.
+        </li>
+    </ul>
+</body>
+</html>
