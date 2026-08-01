@@ -71,8 +71,6 @@ const shaderCode = /*wgsl*/ `
         eye_dir: vec3f
     )-> vec3f
     {
-        // if we wanted to be efficient, we would pre-compute this
-        // and pass it as a uniform.
         let halfway = normalize(light_dir + eye_dir);
         let brightness = max(0.0, dot(halfway, norm));
         let shine = pow(brightness, mtl.shininess);
