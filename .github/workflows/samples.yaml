@@ -33,5 +33,5 @@ jobs:
         with:
           path: './samples'
       - name: Deploy
-        id: deploy
+        id: deployment
         uses: actions/deploy-pages@v4
