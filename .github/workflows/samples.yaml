@@ -4,10 +4,10 @@ name: Deploy samples
 
 
 on:
-  push:
+  # push:
     # branches: [trunk]
     # path: "./samples/*"
-    workflow_dispatch: # have it be triggered manually
+  workflow_dispatch: # have it be triggered manually
 
 permissions:
   contents: read
