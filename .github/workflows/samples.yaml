@@ -1,0 +1,37 @@
+name: Deploy samples
+# pushes the samples to pages so that they can be hosted 
+# on a webserver (which they require)
+
+
+on:
+  push:
+    # branches: [trunk]
+    # path: "./samples/*"
+    workflow_dispatch: # have it be triggered manually
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # don't let another job run that messes w/ pages
+  group: "pages"
+  cancel-in-progress: false # and let it finish
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest
+        uses: actions/checkout@v7
+      - name: Upload samples
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './samples'
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4
