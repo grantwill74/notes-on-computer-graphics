@@ -940,6 +940,26 @@ let result = a.yzx * b.zxy - a.zxy * b.yzx
 
 Those `*` operations are pairwise multiplications. Multiply a's x by b's x, a's y by b's y, etc.
 
+Pretty cool, huh?
+
 == Homework and Reading
 
+One last thing before we go. Back before shaders, there were three kinds of lights that GPUs had built-in support for:
++ Directional lights
++ Point lights
++ Spotlights
+
+We haven't talked about that third one...
+
+We're going to see it in project 5, but for now, how do you think you would make spotlights work?
+
+Hint: they have a position but also a direction they're pointing...
+
+
+== Homework and Reading (2)
+
 I strongly recommend reading #link("https://webgpufundamentals.org/webgpu/lessons/webgpu-memory-layout.html", "this article") on alignment.
+
+Be sure to read this #link("https://shi-yan.github.io/webgpuunleashed/Basics/lighting.html", "book chapter") if you haven't. 
+
+#focus-slide("Questions?")
