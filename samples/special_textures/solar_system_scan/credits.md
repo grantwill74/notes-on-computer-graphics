@@ -1,0 +1,1 @@
+Texture maps in this sub-directory were generated from NASA data by solarsystemscope.com. License: [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). 

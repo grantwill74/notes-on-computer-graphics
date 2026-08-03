@@ -1,0 +1,2 @@
+* [Earth_cube_map](https://commons.wikimedia.org/wiki/File:Earth_cube_map.png): authors cmglee, Strebe; License: [CC-BY 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.en)
+* [Equirectangular_projection_SW](https://commons.wikimedia.org/wiki/File:Equirectangular_projection_SW.jpg#filelinks): author Strebe; License: [CC-BY 3.0](https://creativecommons.org/licenses/by-sa/3.0/deed.en).
