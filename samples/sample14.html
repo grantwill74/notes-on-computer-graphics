@@ -13,7 +13,7 @@
 
         <script type="module">
             import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
-            import { Sample14 } from
+            import { Sample14, loadCubemapUnfurled } from
                 "./sample14_spheres_and_cubemaps/sample.js"
             import { loadTexture } from
                 "./sample05_textures/sample.js"
@@ -21,14 +21,32 @@
             const [device, context] = await initWebGpu();
             
             const baseUrl = import.meta.url;
-            const earthEquirectUrl = new URL('special_textures/wikimedia/Equirectangular_projection_SW.jpg', baseUrl);
+            const folder = 'special_textures/'
+            const earthEquirectUrl = new URL(folder + 'wikimedia/Equirectangular_projection_SW.jpg', baseUrl);
+            const earthCubemapUrl = new URL(folder + 'wikimedia/Earth_cube_map.png', baseUrl);
 
             const texEarthEquirect = loadTexture(device, earthEquirectUrl);
+            const aThird = 0.3333334;
+            const texEarthCubemap = loadCubemapUnfurled(device,
+                earthCubemapUrl,
+                [
+                    [.5, aThird],   // + x
+                    [0, aThird],    // - x
+                    [.25, 0],       // + y
+                    [.25, aThird * 2], // - y
+                    [.25, aThird],  // + z (AFTER handedness conversion)
+                    [.75, aThird],  // - z (AFTER handedness conversion)
+                ],
+                [.25, aThird]
+            );
             
-            const sample = new Sample14(device, context, await texEarthEquirect);
+            const sample = new Sample14(
+                device, context,
+                await texEarthEquirect,
+                await texEarthCubemap
+            );
 
-            sample.render();
-            //sample.startRendering();
+            sample.startRendering();
         </script>
     </head>
     <body>
