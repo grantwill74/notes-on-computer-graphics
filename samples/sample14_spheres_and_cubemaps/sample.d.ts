@@ -7,6 +7,8 @@ declare class Mesh {
 export declare function genUvSphere(xzSubdivs: number, ySubdivs: number, topo: GPUPrimitiveTopology): Mesh;
 export declare function genCubeSphere(nFaceSubdivs: number, topo: GPUPrimitiveTopology): Mesh;
 export declare function loadCubemapUnfurled(device: GPUDevice, url: URL, uvs: [number, number][], faceDim: [number, number]): Promise<GPUTexture>;
+export declare function genCubeMesh(): Mesh;
+export declare function loadCubemap6Images(device: GPUDevice, dim: number, url: URL[], flips: number[]): Promise<GPUTexture>;
 declare class LoadedMesh {
     verts: GPUBuffer;
     indis: GPUBuffer;
@@ -16,24 +18,27 @@ declare class LoadedMesh {
 export declare class Sample14 {
     device: GPUDevice;
     context: GPUCanvasContext;
-    sphereMap: GPUTexture;
-    cubeMap: GPUTexture;
     uvSphere: LoadedMesh;
     cubeSphere: LoadedMesh;
+    skyCube: LoadedMesh;
     sphereMapPipeline: GPURenderPipeline;
     cubeMapPipeline: GPURenderPipeline;
+    skyPipeline: GPURenderPipeline;
     format: GPUTextureFormat;
     passBg: GPUBindGroup;
     sphereModelBg: GPUBindGroup;
     cubeModelBg: GPUBindGroup;
+    skyModelBg: GPUBindGroup;
     sphereModelMatBuf: GPUBuffer;
+    cubeModelMatBuf: GPUBuffer;
+    skyModelMatBuf: GPUBuffer;
     projBuf: GPUBuffer;
     projMat: mat4;
-    sphereModelMat: mat4;
     sphereSampler: GPUSampler;
     cubeSampler: GPUSampler;
-    constructor(device: GPUDevice, context: GPUCanvasContext, sphereMap: GPUTexture, cubeMap: GPUTexture);
+    constructor(device: GPUDevice, context: GPUCanvasContext, sphereMap: GPUTexture, cubeMap: GPUTexture, skyBox: GPUTexture);
     sphereTurns: number;
+    skyTurns: number;
     update(dt: number): void;
     lastRender: number;
     render(now: number): void;

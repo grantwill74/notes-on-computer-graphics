@@ -55,6 +55,30 @@ const cubeShader = /*wgsl*/`
     }
 `;
 
+const skyShader = /*wgsl*/`
+    @group(1) @binding(0) var<uniform> model: mat4x4<f32>;
+    @group(1) @binding(1) var tex: texture_cube<f32>;
+    @group(1) @binding(2) var samp: sampler;
+    // notice: no group 0 here. that's allowed. we don't want to use 
+    // projection when sampling the skybox because it's "infinitely" far away.
+    
+    struct VertexOutput {
+        @builtin(position) pos: vec4f,
+        @location(0) world_pos: vec3f
+    }
+
+    @vertex fn cube_vs(@location(0) pos: vec3f) -> VertexOutput {
+        var vo: VertexOutput;
+        vo.pos = vec4f(pos, 1.0f);
+        vo.world_pos = (model * vec4f(pos, 0.0)).xyz; // rotation only, no translation
+        return vo;
+    }
+
+    @fragment fn cube_fs(vo: VertexOutput) -> @location(0) vec4f {
+        return textureSample(tex, samp, normalize(vo.world_pos));
+    }
+`;
+
 import { mat4, vec3 } from 'gl-matrix'
 
 class Mesh {
@@ -97,8 +121,8 @@ export function genUvSphere(
 
         for (let xzPoint = 0; xzPoint < pointsPerHorizRing; xzPoint++) {
             let u = xzPoint / xzSubdivs;
-            let angle = u * TAU;
-            console.log(angle);
+            // adding half a turn so that we start with the front faces
+            let angle = u * TAU + PI;
             // the last point must be 2*pi in order for the generate U coordinate
             // to be 1 there instead of wrapping around.
 
@@ -274,8 +298,86 @@ export async function loadCubemapUnfurled(
         );
     } 
 
+    // need to wait for the device to be finished copying
+    await device.queue.onSubmittedWorkDone();
+
     data.close();
 
+    return tex;
+}
+
+
+export function genCubeMesh(): Mesh {
+    const verts: number[] = [
+        -1,  1,  1,   // 0
+        -1, -1,  1,   // 1
+         1,  1,  1,   // 2
+         1, -1,  1,   // 3
+         1,  1, -1,   // 4
+         1, -1, -1,   // 5
+        -1,  1, -1,   // 6
+        -1, -1, -1,   // 7
+    ];
+
+    const indis: number[] = [
+        0, 1, 2, 3,
+        4, 5,
+        6, 7,
+        0, 1, 0xFFFFFFFF,
+        0, 2, 6, 4, 0xFFFFFFFF,
+        3, 1, 5, 7
+    ];
+
+    return new Mesh(verts, indis);
+}
+
+
+export async function loadCubemap6Images(
+    device: GPUDevice,
+    dim: number,
+    url: URL[],
+    flips: number[] // list of faces to flip y on
+): Promise<GPUTexture> {
+    console.assert(url.length == 6, "expected exactly 6 image urls. Got: " + url.length);
+
+    // by doing it this way, we start all the fetch requests in parallel 
+    const requests = url.map((u) => fetch(u));
+    // while we're awaiting the first fetch request, the others can be making progress
+    const blobs = requests.map(async (r) => (await r).blob());
+    // map isn't something all of you have seen yet (it's a functional programming topic)
+    // feel free to ask questions.
+    // basically: it applies the function you give it to every item in the collection, and 
+    // returns a new collection of the results.
+    const dataPromises = blobs.map(async (b) => createImageBitmap(await b, {resizeWidth: dim, resizeHeight: dim}));
+    // Promise.all converts an array of promises into a promise of an array. We use
+    // it to finally combine all the results.
+    const datas = await Promise.all(dataPromises);
+   
+    const tex = device.createTexture({
+        format: 'rgba8unorm-srgb',
+        size: {width: dim, height: dim, depthOrArrayLayers: 6},
+        usage: GPUTextureUsage.TEXTURE_BINDING |
+            GPUTextureUsage.COPY_DST |
+            GPUTextureUsage.RENDER_ATTACHMENT,
+        dimension: '2d',
+        label: url[0]!.toString()
+    });
+
+    for (let face = 0; face < 6; face++) {
+        device.queue.copyExternalImageToTexture(
+            {source: datas[face]!, flipY: flips.includes(face)},
+            {texture: tex, colorSpace: 'srgb', origin: [0, 0, face]},
+            [dim, dim, 1]
+        );
+
+    }
+
+    await device.queue.onSubmittedWorkDone();
+
+    for (const data of datas) {
+        data.close();
+    }
+    
     return tex;
 }
 
@@ -314,7 +416,10 @@ const SPHERE_SUBDIVS = 10;
 const FOVY = TAU / 8;
 const ROT_SPEED_TURNS = 1 / 16;
 const ROT_PERIOD = 1 / ROT_SPEED_TURNS;
-const SPHERE_MODEL_POS = [0, 0, -4];
+const SKY_ROT_SPEED_TURNS = 1 / 64;
+const SKY_ROT_PERIOD = 1 / SKY_ROT_SPEED_TURNS;
+const SPHERE_MODEL_XOFF = -1.5;
+const SPHERE_MODEL_Z = -6;
 const SPHERE_TOPO: GPUPrimitiveTopology = 'triangle-list'
 const CUBE_TOPO: GPUPrimitiveTopology = 'triangle-strip'
 
@@ -322,26 +427,27 @@ export class Sample14 {
     device: GPUDevice;
     context: GPUCanvasContext;
 
-    sphereMap: GPUTexture;
-    cubeMap: GPUTexture;
-
     uvSphere: LoadedMesh;
     cubeSphere: LoadedMesh;
+    skyCube: LoadedMesh;
 
     sphereMapPipeline: GPURenderPipeline;
     cubeMapPipeline: GPURenderPipeline;
+    skyPipeline: GPURenderPipeline;
     
     format: GPUTextureFormat;
 
     passBg: GPUBindGroup;
     sphereModelBg: GPUBindGroup;
     cubeModelBg: GPUBindGroup;
+    skyModelBg: GPUBindGroup;
 
     sphereModelMatBuf: GPUBuffer;
+    cubeModelMatBuf: GPUBuffer;
+    skyModelMatBuf: GPUBuffer;
     projBuf: GPUBuffer;
     
     projMat: mat4 = mat4.create();
-    sphereModelMat = mat4.create();
     sphereSampler: GPUSampler;
     cubeSampler: GPUSampler;
 
@@ -350,22 +456,25 @@ export class Sample14 {
         context: GPUCanvasContext,
         sphereMap: GPUTexture,
         cubeMap: GPUTexture,
+        skyBox: GPUTexture,
     ) {
         this.device = device;
         this.context = context;
-        this.sphereMap = sphereMap;
-        this.cubeMap = cubeMap;
 
         this.format = (context.getCurrentTexture().format as string + '-srgb') as GPUTextureFormat
 
         const uvMesh = genUvSphere(SPHERE_SUBDIVS, SPHERE_SUBDIVS, SPHERE_TOPO);
         this.uvSphere = new LoadedMesh(device, uvMesh);
 
+        const skyMesh = genCubeMesh();
+        this.skyCube = new LoadedMesh(device, skyMesh);
+        
         const cubeMesh = genCubeSphere(SPHERE_SUBDIVS / 2, CUBE_TOPO);
         this.cubeSphere = new LoadedMesh(device, cubeMesh);
 
         const sphereShaderMod = device.createShaderModule({code: sphereShader});
         const cubeShaderMod = device.createShaderModule({code: cubeShader});
+        const skyShaderMod = device.createShaderModule({code: skyShader});
 
         const passBgLayout = device.createBindGroupLayout({
             entries: [{
@@ -419,9 +528,7 @@ export class Sample14 {
             ]
         });
         
-        // TODO
-        // this.cubeModelBgLayout ...
-
+        
         const spherePipelineLayout = device.createPipelineLayout({
             bindGroupLayouts: [passBgLayout, sphereModelBgLayout]
         });
@@ -430,8 +537,12 @@ export class Sample14 {
             bindGroupLayouts: [passBgLayout, cubeModelBgLayout]
         });
 
+        const skyPipelineLayout = device.createPipelineLayout({
+            bindGroupLayouts: [null, cubeModelBgLayout] // no proj matrix: use null
+        });
+
         const aspectr = context.canvas.width / context.canvas.height;
-        mat4.perspectiveZO(this.projMat, FOVY, aspectr, 0.5, 10);
+        mat4.perspectiveZO(this.projMat, FOVY, aspectr, 0.25, 20);
 
         this.projBuf = device.createBuffer({
             size: 16 * 4,
@@ -454,6 +565,18 @@ export class Sample14 {
             size: 16 * 4,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             label: "sphere mapped model buffer",
+            mappedAtCreation: false
+        });
+        this.cubeModelMatBuf = device.createBuffer({
+            size: 16 * 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            label: "cube mapped model buffer",
+            mappedAtCreation: false
+        });
+        this.skyModelMatBuf = device.createBuffer({
+            size: 16 * 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            label: "skybox model buffer",
             mappedAtCreation: false
         });
 
@@ -481,7 +604,7 @@ export class Sample14 {
                 },
                 {
                     binding: 1,
-                    resource: this.sphereMap
+                    resource: sphereMap
                 },
                 {
                     binding: 2,
@@ -495,13 +618,34 @@ export class Sample14 {
             entries: [
                 {
                     binding: 0,
-                    resource: this.sphereModelMatBuf // TODO: change to different model
+                    resource: this.cubeModelMatBuf
                 },
                 {
                     binding: 1,
-                    resource: this.cubeMap.createView({
+                    resource: cubeMap.createView({
                         // we're creating a cubemap "view" of our texture so 
                         // internally, it's ready to be sampled as a cubemap.
+                        dimension: 'cube',
+                        arrayLayerCount: 6,
+                    }),
+                },
+                {
+                    binding: 2,
+                    resource: this.cubeSampler
+                }
+            ]
+        });
+
+        this.skyModelBg = device.createBindGroup({
+            layout: cubeModelBgLayout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: this.skyModelMatBuf
+                },
+                {
+                    binding: 1,
+                    resource: skyBox.createView({
                         dimension: 'cube',
                         arrayLayerCount: 6,
                     }),
@@ -548,6 +692,7 @@ export class Sample14 {
             }
         });
 
+
         this.cubeMapPipeline = device.createRenderPipeline({
             layout: cubePipelineLayout,
             vertex: {
@@ -575,19 +720,60 @@ export class Sample14 {
                 stripIndexFormat: 'uint32'
             }
         });
+
+        this.skyPipeline = device.createRenderPipeline({
+            layout: skyPipelineLayout,
+            vertex: {
+                module: skyShaderMod,
+                buffers: [{
+                    arrayStride: 3 * 4,
+                    attributes: [{
+                        format: 'float32x3',
+                        offset: 0,
+                        shaderLocation: 0,
+                    }]
+                }]
+            },
+            fragment: {
+                module: skyShaderMod,
+                targets: [{ format: this.format }],
+            },
+            primitive: {
+                cullMode: 'none',
+                frontFace: 'cw', // notice: we're inside the cube, so the faces have opposite winding.
+                topology: 'triangle-strip',
+                stripIndexFormat: 'uint32'
+            }
+        });
     }
 
     sphereTurns: number = 0;
+    skyTurns: number = 0;
     update(dt: number) {
         this.sphereTurns += dt * ROT_SPEED_TURNS;
-        this.sphereTurns %= ROT_PERIOD;
+        this.sphereTurns %= 1;
+
+        this.skyTurns += dt * SKY_ROT_SPEED_TURNS;
+        this.skyTurns %= 1;
 
         const sphereModel = mat4.create();
-        mat4.translate(sphereModel, sphereModel, SPHERE_MODEL_POS);
+        mat4.translate(sphereModel, sphereModel, [SPHERE_MODEL_XOFF, 0, SPHERE_MODEL_Z]);
         mat4.rotateY(sphereModel, sphereModel, this.sphereTurns * TAU);
         mat4.rotateX(sphereModel, sphereModel, this.sphereTurns * TAU * 2);
 
         this.device.queue.writeBuffer(this.sphereModelMatBuf, 0, new Float32Array(sphereModel));
+
+        const cubeModel = mat4.create();
+        mat4.translate(cubeModel, cubeModel, [-SPHERE_MODEL_XOFF, 0, SPHERE_MODEL_Z]);
+        mat4.rotateY(cubeModel, cubeModel, this.sphereTurns * TAU);
+        mat4.rotateX(cubeModel, cubeModel, this.sphereTurns * TAU * 2);
+
+        this.device.queue.writeBuffer(this.cubeModelMatBuf, 0, new Float32Array(cubeModel));
+
+        const skyModel = mat4.create();
+        mat4.rotateY(skyModel, skyModel, this.skyTurns * TAU);
+
+        this.device.queue.writeBuffer(this.skyModelMatBuf, 0, new Float32Array(skyModel));
     }
 
     lastRender = performance.now();
@@ -602,27 +788,37 @@ export class Sample14 {
         const encoder = d.createCommandEncoder();
         const pass = encoder.beginRenderPass({
             colorAttachments: [{
-                loadOp: 'clear',
+                loadOp: 'load', // important: the skybox clears everything now
                 storeOp: 'store',
                 view: c.getCurrentTexture().createView({
                     format: this.format,
                 }),
-                clearValue: {r: .7, g: .8, b: .9, a: 1.0},
+                // clearValue: {r: .7, g: .8, b: .9, a: 1.0},
             }]
         });
-        pass.setPipeline(this.cubeMapPipeline);
         pass.setViewport(0, 0, c.canvas.width, c.canvas.height, 0, 1);
         pass.setBindGroup(0, this.passBg);
-        /*
+        
+        // draw the skybox first. we're not using depth buffering, but if we were,
+        // we'd need to disable it for the skybox, since it surrounds the camera closely.
+        pass.setPipeline(this.skyPipeline);
+        pass.setBindGroup(1, this.skyModelBg);
+        pass.setVertexBuffer(0, this.skyCube.verts);
+        pass.setIndexBuffer(this.skyCube.indis, 'uint32');
+        pass.drawIndexed(this.skyCube.nIndis);
+
+        pass.setPipeline(this.sphereMapPipeline);
         pass.setBindGroup(1, this.sphereModelBg);
         pass.setVertexBuffer(0, this.uvSphere.verts);
         pass.setIndexBuffer(this.uvSphere.indis, 'uint32');
         pass.drawIndexed(this.uvSphere.nIndis);
-        */
+        
+        pass.setPipeline(this.cubeMapPipeline);
         pass.setBindGroup(1, this.cubeModelBg);
         pass.setVertexBuffer(0, this.cubeSphere.verts);
         pass.setIndexBuffer(this.cubeSphere.indis, 'uint32');
         pass.drawIndexed(this.cubeSphere.nIndis);
+
         pass.end();
 
         const commands = encoder.finish();

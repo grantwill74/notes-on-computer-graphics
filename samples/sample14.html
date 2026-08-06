@@ -13,7 +13,7 @@
 
         <script type="module">
             import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
-            import { Sample14, loadCubemapUnfurled } from
+            import { Sample14, loadCubemapUnfurled, loadCubemap6Images } from
                 "./sample14_spheres_and_cubemaps/sample.js"
             import { loadTexture } from
                 "./sample05_textures/sample.js"
@@ -39,11 +39,21 @@
                 ],
                 [.25, aThird]
             );
+            const skyboxPrefix = 'special_textures/sky_textures/20250627_213710_0671_';
+            const skyboxSuffixes = ['lf', 'rt', 'up', 'dn', 'ft', 'bk'];
+                // ['rt', 'lf', 'up', 'dn', 'ft', 'bk'];
+            const skyboxURLs = [];
+            for (let suffix of skyboxSuffixes) {
+                skyboxURLs.push(new URL(skyboxPrefix + suffix + '.png', baseUrl));
+            }
+            // reverse the top one
+            const skyCubemap = loadCubemap6Images(device, 1024, skyboxURLs, []);
             
             const sample = new Sample14(
                 device, context,
                 await texEarthEquirect,
-                await texEarthCubemap
+                await texEarthCubemap,
+                await skyCubemap
             );
 
             sample.startRendering();
