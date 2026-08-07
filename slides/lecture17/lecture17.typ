@@ -306,9 +306,7 @@ figure(
 
 That's not ideal. It ends up with the point distribution being uneven, as you can maybe see.
 
-However, it turns out that this is a great way of creating a sphere. Keep it in mind!
-
-Speaking of spheres, let's talk about how to make those!
+However, it turns out that this is a great way of creating a sphere. This is called a cube sphere, and it's the _second_ sphere algorithm we're going to learn today. Keep it in mind!
 
 But first...
 
@@ -332,6 +330,116 @@ UV spheres are built out of rings, like the ones we generated earlier.
 
 Only, we don't fill these rings into circles. We'll see how to tesselate them later.
 
+#let ring0 = circlePoints.map(((x, y)) => (x, 0, y));
+#let ring1_unnormalized = ring0.map(((x, y, z)) => (x, y + .2, z))
+
+#figure(
+  canvas(length: 2cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+    perspective(x: 35deg, z: 0, {
+      line(..ring0, close: true)
+      line(..ring1_unnormalized, close: true)
+    })
+  }),
+  alt: "two rings, generated using the first algorithm we looked at, but without being filled in with triangles. One is stacked on top of the other."
+)
+
+Here are two rings. Assume the bottom is the equator. How do we shrink the top one to make it start to curve like the top of a sphere?
+
+== UV-spheres (2)
+
+Let's imagine a vertical cross section. What we want is the cosine of the angle between two layers in the sphere:
+
+#figure(
+  canvas(length: 1.5cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+    circle((0, 0), radius: 1)
+
+    line((0, 0), (0.8, 0), (0.8, calc.sin(calc.acos(.8))), close: true)
+    content((0.25, -.15), text(20pt)[cos(#math.theta)])
+    content((0.18, 0.06), text(20pt)[#math.theta])
+  }),
+  alt: "A unit circle with a triangle inscribed. Theta is the inner angle of the triangle, and its horizontal leg is labled cos theta."
+)
+
+We can choose the angle of the height of the ring, or generate it. Either way the cosine of that angle is the radius of the ring.
+
+== UV-spheres (3)
+
+And the y value is the sine of the angle.
+
+Let's stack 3 rings for good measure:
+
+#let ring1_theta = calc.tau / 20
+
+#let rings = (ring0,)
+
+#for i in range(1, 6) {
+  let ring_i = ring0.map(
+    ((x, y, z)) => {
+    let r = calc.cos(ring1_theta * i);
+    let y = calc.sin(ring1_theta * i);
+    (x * r, y, z * r)
+  });
+
+  rings.push(ring_i);
+}
+
+#let ring1 = rings.at(1)
+#let ring2 = rings.at(2)
 
 
- 
+#figure(
+  canvas(length: 2cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+    perspective(x: 35deg, z: 0, {
+      line(..ring0, close: true)
+      line(..ring1, close: true)
+      line(..ring2, close: true)
+    })
+  }),
+  alt: "three rings which are starting to form the upper hemisphere of a sphere"
+)
+
+Hopefully we see the upper hemisphere start to form. But how do we form the triangles?
+
+== UV-spheres (4)
+
+We pair adjacent rings together into strips. Then, we can draw a triangle strip all around the sphere. Here are some triangles: this pattern repeats:
+
+#figure(
+  canvas(length: 2cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+    perspective(x: 35deg, z: 0, {
+      line(..ring0, close: true)
+      line(..ring1, close: true)
+      line(..ring2, close: true)
+
+      // upper triangle
+      for i in range(2, 5) {
+        line(ring0.at(i), ring0.at(i + 1), ring1.at(i), close: true, fill:blue)
+      }
+
+      // lower triangle
+      for i in range(2, 5) {
+        line(ring1.at(i), ring0.at(i + 1), ring1.at(i + 1), close: true, fill: blue)
+      }
+    })
+  }),
+  alt: "A partial triangle strip on the bottom ring"
+)
+
+We can draw the strip several ways. For example, if the points go clockwise: [0, pointsPerRing, 1, pointsPerRing + 1, 2, ...]
+
+== UV-spheres (5)
+
+But what happens when we get to the top?
+
