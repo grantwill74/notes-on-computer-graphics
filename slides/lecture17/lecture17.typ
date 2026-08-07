@@ -304,9 +304,11 @@ figure(
 
 == Circles: more ways
 
-That's not ideal. It ends up with the point distribution being uneven, as you can maybe see.
+It works because a circle is a shape were every point on it has the same distance from the center. Assuming the center is 0, if we normalize all the points, the circle will have a radius of 1.
 
-However, it turns out that this is a great way of creating a sphere. This is called a cube sphere, and it's the _second_ sphere algorithm we're going to learn today. Keep it in mind!
+It's also not ideal. It ends up with the point distribution being uneven, as you can maybe see. We'd like the vertices to be spread more evenly.
+
+However, it turns out that this is a great way of creating a sphere. It's called a cube sphere, and it's the _second_ sphere algorithm we're going to learn today. Keep it in mind!
 
 But first...
 
@@ -434,7 +436,7 @@ We pair adjacent rings together into strips. Then, we can draw a triangle strip 
       }
     })
   }),
-  alt: "A partial triangle strip on the bottom ring"
+  alt: "A partial triangle strip made from the bottom ring"
 )
 
 We can draw the strip several ways. For example, if the points go clockwise: [0, pointsPerRing, 1, pointsPerRing + 1, 2, ...]
@@ -443,3 +445,56 @@ We can draw the strip several ways. For example, if the points go clockwise: [0,
 
 But what happens when we get to the top?
 
+That's where it gets gnarly: you might think we'd put a single vertex at the top but we can't. Remember that these vertices need to have not only XYZ coordinates, but also UV.
+
+If the top ring were connected to a single point, they'd all have to share the same UV coordinate, which would warp the texture.
+
+Instead we create an infinitely small ring at the very top. This allows each point in this ring to have a different UV coordinate, but also means that the top of the mesh is sealed (we say it's a #link("https://davidstutz.de/a-formal-definition-of-watertight-meshes/", "watertight") mesh)
+
+== UV-spheres (6)
+
+#figure(
+  canvas(length: 2cm, {
+    import draw: *;
+
+    let pointsInRing = ring0.len();
+
+    set-viewport((-1, -1), (1, 1))
+    perspective(x: 35deg, z: 0, {
+      for ring in rings {
+        line(..ring, close: true);
+      }
+
+      for ring in rings.slice(1) {
+        let mirrored = ring.map(((x, y, z)) => (x, -y, z));
+        line(..mirrored, close: true);
+      }
+
+      let secondTop = rings.at(rings.len() - 2);
+      let top = rings.at(rings.len() - 1);
+      for i in range(pointsInRing) {
+        let j = calc.rem(i + 1, pointsInRing)
+        line(secondTop.at(i), top.at(i), secondTop.at(j), closed: true, fill: green)
+        // line(secondTop.at(j), top.at(i), top.at(j), closed: true, fill: green);
+      }
+      line(top.at(0), secondTop.at(0), top.at(1), fill: green, closed: true);
+    });
+  }),
+  alt: "UV-sphere, where the space between the top two rings is filled in with triangles.",
+  caption: text(22pt)[Following the same triangle strip, half of our triangles are degenerate, because two adjacent points on the top ring are infinitely close together. You can special-case this if you want a slightly more optimized mesh.],
+  numbering: none,
+)
+
+== Finished UV-sphere
+
+#figure(
+  image("screens/uv_sphere_wireframe.png", height: 70%, alt: "UV-sphere screenshot"),
+  caption: [A wireframe UV-sphere generated using the algorithm we've discussed. See `sample14` for code.],
+  numbering: none,
+)
+
+== UV-spheres (7)
+
+So far we've talked about how to generate rings out of vertices with known XYZ coordinates, and how to stitch those rings together into layers using indices. But what about UV coordinates? 
+
+Basically, we want 
