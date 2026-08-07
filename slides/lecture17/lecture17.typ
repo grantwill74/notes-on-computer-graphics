@@ -497,4 +497,83 @@ Instead we create an infinitely small ring at the very top. This allows each poi
 
 So far we've talked about how to generate rings out of vertices with known XYZ coordinates, and how to stitch those rings together into layers using indices. But what about UV coordinates? 
 
-Basically, we want 
+The main point of UV spheres is that we want to wrap a single texture around them. So we want the U coordinate to increase as it goes around a latitude, and we want the V coordinate to increase as it goes toward the bottom pole.
+
+So, [how can we compute UV coordinates?]
+
+== UV-spheres (8)
+
+For a given ring, we can make the U coordinate of the first vertex 0. We want the last vertex to have a U coordinate of 1, and for it _to overlap the first vertex_.
+
+#figure(
+  canvas(length: 2cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+    perspective(x: 35deg, z: 0, {
+      line(..ring0, close: true)
+
+      circle(ring0.at(0), radius: 0.04, fill: black)
+      content(ring0.at(0), anchor: "west", [u = 0, u = 1])
+      circle(ring0.at(10), radius: 0.04, fill: green)
+      content(ring0.at(10), anchor: "east", [u = 0.5])
+      circle(ring0.at(15), radius: 0.04, fill: blue)
+      content(ring0.at(15), anchor: "west", [u = 0.75])
+      circle(ring0.at(5), radius: 0.04, fill: blue)
+      content(ring0.at(5), anchor: "east", [u = 0.25])
+    })
+  }),
+  alt: "A single ring. The first and the last vertex overlap, one has a U of 0, the other a U of 1. The point with U = 0.5 is on the opposite side of the ring. There are two points in between, one on the left side of the sphere with U = 0.25, on directly opposite that point with U = 0.75."
+)
+
+In general, the `i`th point will have a U coordinate of `i / (numberOfPoints - 1)`, where `numberOfPoints` includes the last point that overlaps the first one.
+
+== UV-spheres (9)
+
+But what about the V coordinate. We want the V coordinate to increase as the y value goes _down_ (because remember, a V of 0 means the top of the texture).
+
+[Any ideas?]
+
+== UV-spheres (10)
+
+The simplest approach is, for ring number `i`, to just let `v = i / (num_rings - 1)`. This is assuming you're building the mesh from top to bottom.#footnote[some textures are distorted so that they are "squeezed" around the poles to counteract the fact that the y distance between rings is not constant. You can use the vertical angle of the ring and scale it to the range [0, 1] for these textures.]
+
+If you're going from bottom to top (so `i = numRings - 1` at the top ring), take the complement: `v = 1 - i / (num_rings - 1)`.
+
+Alternatively, you can use an already-computed y component: `v = y * 0.5 + 0.5`. y normally ranges from -1 to 1, so this squeezes it into the range 0 to 1.
+
+#focus-slide("Questions?")
+
+== UV-sphere problems
+
+UV-spheres are a very simple way to draw a sphere with a texture painted over it. `sample14` shows how that can be used to draw a globe (the UV-sphere is on the left).
+
+They aren't an ideal topology, however, and they are typically only used when we want to wrap a cylindrical texture.
+
+[Can anyone think of a problem with them?]
+
+== UV-sphere problems (2)
+
+There are really two issues with UV-spheres:
++ Poor point regularity: there are tons of points at the poles compared to the equator.
++ Texture distortion: as a result, the sphere has the lowest detail at the equator, where detail is often the most important!
+
+To illustrate this, in the next slide, compare the wireframe of the UV-sphere to the wireframe of the next type of sphere we're going to learn...
+
+== UV-sphere vs Cube-sphere
+
+#stack(dir: ltr, spacing: 4%,
+  box(width: 48%, figure(
+      image("screens/uv_sphere_wireframe.png", alt: "wireframe of a UV-sphere"),
+      caption: text(20pt)[A uv-sphere. Notice that the center faces are much larger than the ones near the top.],
+      numbering: none
+    )
+  ),
+  box(width: 48%, figure(
+      image("screens/cube_sphere_wireframe.png", alt: "wireframe of a cube-sphere"),
+      caption: text(20pt)[It's a little hard to tell, but this sphere's faces are much more evenly-sized.],
+      numbering: none,
+    )
+  )
+)  
+
