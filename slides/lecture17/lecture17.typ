@@ -577,3 +577,112 @@ To illustrate this, in the next slide, compare the wireframe of the UV-sphere to
   )
 )  
 
+== Introducing cube-spheres
+
+Let's learn how to make *cube-spheres* next. They have several advantages over UV-spheres:
++ They have better vertex distribution#footnote[although still not perfect: that property belongs to *icospheres*]
++ They can be more evenly textured
+
+First, let's see how to build a cube-sphere. Then, we'll learn a cool new texturing technique that is ideal for them called cube-mapping.#footnote[You can also use this technique on UV-spheres, but the texture will be sampled more unevenly, possibly causing minor distortion.]
+
+== Building a cube sphere
+
+Now it's time to build one. 
+
+Remember earlier in the lecture when we built a circle by starting with a square and then squishing it into a circle.
+
+But this time it will be _good_ instead of _bad_.
+
+Wait...won't there still be distortion? Won't there be more points away from the faces of the cube?
+
+Yes, but we're going to tolerate that, because it won't be as bad as the UV-sphere and it will texture better.
+
+== Building a cube sphere (2)
+
+Let's start with the front face.
+
+We want to, given a number of subdivisions, create a grid of points in a square shape. We can use a basic 2D for loop pair for this.
+
+For each point, we want to normalize it so that we pull it into a sphere.
+
+That's it. If we do that for a whole square, we will have one-sixth of a cube sphere.
+
+== Building a cube sphere (3)
+
+```ts
+const spanVerts = nFaceSubdivs + 1;
+// front face, in the Z+ direction (right-handed)
+for (let row = 0; row < spanVerts; row++) {
+    for (let col = 0; col < spanVerts; col++) {
+        const y = 2 * row / nFaceSubdivs - 1;
+        const x = 2 * col / nFaceSubdivs - 1;
+        const l = Math.sqrt(x * x + y * y + 1); // length
+        // quiz: where does the 1 come from in the sqrt?
+        // push the normalized coordinate:
+        verts.push(x / l, y / l, 1 / l);
+    }
+}
+```
+
+== Building a cube sphere (4)
+
+We do this for all six faces. The only wrinkle is making sure they all face _outward_ (be mindful of winding). 
+
+But what about indices?
+
+Believe it or not, that's actually easier than it was for the UV-sphere. We have a grid of points for each face. We just need to build a triangle strip.
+
+The simplest way to do this is to build a "ribbon" going along each row...
+
+== Building a cube sphere (5)
+
+#let grid = ()
+#let face = ()
+#let cube_dim = 5;
+#{
+  for r in range(cube_dim) {
+    let row = ()
+    let face_row = ()
+    let y = (r / cube_dim) * 2 - 1
+    for c in range(cube_dim) {
+      let x = (c / cube_dim) * 2 - 1
+      row.push((x, y))
+      
+      let l = calc.sqrt(x * x + y * y + 1)
+      face_row.push((x / l, y / l))
+    }
+    grid.push(row)
+    face.push(face_row)
+  }
+}
+
+#figure(
+  canvas(length: 4cm, {
+    import draw: *;
+
+    set-viewport((-1, -1), (1, 1))
+    perspective(x: 25deg, y: 30deg, z: 0, {
+      for row in face {
+        for p in row {
+          circle(p, radius: 0.02)
+        }
+      }
+
+      let row_a = face.at(2)
+      let row_b = face.at(3)
+      for i in range(cube_dim - 1) {
+        line(row_a.at(i), row_b.at(i), row_b.at(i + 1), close: true, fill: blue);
+        line(row_a.at(i), row_a.at(i + 1), row_b.at(i+1), fill: blue, close: true)
+      }
+    })
+  }),
+  alt: "a 5-by-5 grid of points. A single triangle strip has been drawn between the middle row and the row above it.",
+  numbering: none,
+  caption: [Here is one such ribbon. I've rotated the image in 3D slightly so you can see how how it bends inward.]
+)
+
+== Building a cube sphere (6)
+
+So, a triangle strip might look like this:
+
+== Building a cube sphere...UVs?
