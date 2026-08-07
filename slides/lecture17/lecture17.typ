@@ -331,3 +331,7 @@ This kind of sphere is called a *UV-sphere*, because it's easy to compute the UV
 UV spheres are built out of rings, like the ones we generated earlier.
 
 Only, we don't fill these rings into circles. We'll see how to tesselate them later.
+
+
+
+ 
