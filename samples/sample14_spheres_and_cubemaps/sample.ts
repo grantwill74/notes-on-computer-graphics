@@ -671,38 +671,6 @@ export class Sample14 {
         });
 
         this.skyModelBg = this.cubeModelBg;
-        
-        /*
-        this.skyModelBg = device.createBindGroup({
-            layout: cubeModelBgLayout,
-            entries: [
-                {
-                    binding: 0,
-                    resource: this.skyModelMatBuf
-                },
-                {
-                    // we don't use this resource in the skybox, 
-                    // it's just here so that the layout will match.
-                    // I wanted to reuse the layout for the cubesphere
-                    // out of laziness.
-                    binding: 1,
-                    resource: cubeMap.createView(
-                        {dimension: 'cube', arrayLayerCount: 6})
-                },
-                {
-                    binding: 3,
-                    resource: skyBox.createView({
-                        dimension: 'cube',
-                        arrayLayerCount: 6,
-                    }),
-                },
-                {
-                    binding: 2,
-                    resource: this.cubeSampler
-                }
-            ]
-        });
-*/
 
         this.sphereMapPipeline = device.createRenderPipeline({
             layout: spherePipelineLayout,
