@@ -637,7 +637,7 @@ The simplest way to do this is to build a "ribbon" going along each row...
 == Building a cube sphere (5)
 
 #let grid = ()
-#let face = ()
+#let front_face = ()
 #let cube_dim = 5;
 #{
   for r in range(cube_dim) {
@@ -646,13 +646,13 @@ The simplest way to do this is to build a "ribbon" going along each row...
     let y = (r / cube_dim) * 2 - 1
     for c in range(cube_dim) {
       let x = (c / cube_dim) * 2 - 1
-      row.push((x, y))
+      row.push((x, y, 1))
       
       let l = calc.sqrt(x * x + y * y + 1)
-      face_row.push((x / l, y / l))
+      face_row.push((x / l, y / l, 1 / l))
     }
     grid.push(row)
-    face.push(face_row)
+    front_face.push(face_row)
   }
 }
 
@@ -660,16 +660,16 @@ The simplest way to do this is to build a "ribbon" going along each row...
   canvas(length: 4cm, {
     import draw: *;
 
-    set-viewport((-1, -1), (1, 1))
+    set-viewport((-1, -1, -1), (1, 1, 1))
     perspective(x: 25deg, y: 30deg, z: 0, {
-      for row in face {
+      for row in front_face {
         for p in row {
           circle(p, radius: 0.02)
         }
       }
 
-      let row_a = face.at(2)
-      let row_b = face.at(3)
+      let row_a = front_face.at(2)
+      let row_b = front_face.at(3)
       for i in range(cube_dim - 1) {
         line(row_a.at(i), row_b.at(i), row_b.at(i + 1), close: true, fill: blue);
         line(row_a.at(i), row_a.at(i + 1), row_b.at(i+1), fill: blue, close: true)
@@ -685,4 +685,297 @@ The simplest way to do this is to build a "ribbon" going along each row...
 
 So, a triangle strip might look like this:
 
+`[rowStart + vertsPerRow, rowStart, rowStart + vertsPerRow + 1, rowStart + 1, etc.`
+
+And what happens at the end of the row?
+
+..., `0xFFFFFFFF]`
+
+That's the restart index. It tells the GPU to cut the strip.
+
+So, we draw a perfectly normal grid of vertices, stitched into a triangle strip, except we also shrink the points until they are on the surface of a sphere. We do this for each face. That's a cube sphere.
+
 == Building a cube sphere...UVs?
+
+So now you might wonder about UV coordinates.
+
+They're pretty straightforward if we want them to be: we can have each face sample a square in UV space. Let's say we wanted every face to have the same texture.
+
+Then the top left corner of each face would have coordinates (0, 0), and the bottom right would have coordinates (1, 1).
+
+But what if we _don't_ want each face to have the same texture? Well, the techniques we've learned so far are somewhat suboptimal...
+
+== Cube sphere UVs (2)
+
+One option is squeezing all 6 faces into a single texture. This works but it wastes a lot of memory and means we need a much bigger texture total. For example, I did this with the earth cube-sphere in `sample14`, and it required a 2048-by-1536 texture, but the sides were only 512-by-512, and only half of the texture is used:
+
+#place(bottom + center, image("screens/Earth_cube_map.png", height: 40%, alt: "a texture map for a cube, where the six faces are arranged in an unfolded 'cross'. The cross only occupies half the area of the total texture."))
+
+== Cube sphere UVs (3)
+
+Another option is having 6 different textures. This is also unfortunate:
++ We could to treat our cube as 6 different objects. This would be very inefficient, because it requires 6 draw calls and bind group sets.
++ We could have 6 different textures in a bind group. This requires us to store an extra attribute, telling us which texture we want to lookup.
+
+Luckily, there's a third option, that not only is perfectly space and texture efficient, but actually allows us to elemenate UV coordinates entirely! 
+
+It's called a *cube map*.
+
+== Cube maps
+
+Cube maps are a special kind of texture which is indexed by a _position_ instead of a _uv_ coordinate.
+
+Cube maps are built to assume they are being projected onto a cube. You use the _normal_ of the mesh to look up the value.
+
+Think of this as a 6-sided texture that wraps around your object, just like it's inside of a cube.
+
+The normal is the vector pointing away from your object. The place where that vector intersects the cube is where we sample the texture.
+
+== Cube maps (2)
+
+What's interesting is: we can cube map any convex shape, and it doesn't require UV coordinates.
+
+With a unit sphere, the XYZ coordinate is also the normal (i.e., the vector going from the center of the sphere to the surface has the same direction and length as the normal vector at the surface).
+
+As a result, we can delete the UV coordinates and just use the cube-map.
+
+== Cube map illustration
+
+#let cube_points = (
+  (-1, -1, -1),
+  (-1, -1,  1),
+  (-1,  1, -1),
+  (-1,  1,  1),
+  ( 1, -1, -1),
+  ( 1, -1,  1),
+  ( 1,  1, -1),
+  ( 1,  1,  1),
+)
+
+#figure(
+  canvas(length: 1.5cm, {
+    import draw: *;
+
+    set-viewport((-1, -1, -1), (1, 1, 1))
+    perspective(x: 15deg, y:-45deg,  z: 0, {
+      for row in front_face {
+        for p in row {
+          circle(p, radius: 0.02)
+        }
+      }
+      
+      line(cube_points.at(0), cube_points.at(1))
+      line(cube_points.at(0), cube_points.at(2))
+      line(cube_points.at(1), cube_points.at(3))
+      line(cube_points.at(2), cube_points.at(3))
+      line(cube_points.at(4), cube_points.at(5))
+      line(cube_points.at(4), cube_points.at(6))
+      line(cube_points.at(5), cube_points.at(7))
+      line(cube_points.at(6), cube_points.at(7))
+      line(cube_points.at(0), cube_points.at(4))
+      line(cube_points.at(1), cube_points.at(5))
+      line(cube_points.at(2), cube_points.at(6))
+      line(cube_points.at(3), cube_points.at(7))
+      
+      let n = front_face.at(2).at(3)
+      let d = (n.at(0) + n.at(0), n.at(1) + n.at(1), n.at(2) + n.at(2))
+      line(n, d, mark: (end: "straight"))
+
+    })
+  }),
+  alt: "a 5-by-5 grid of points. A single triangle strip has been drawn between the middle row and the row above it.",
+  numbering: none,
+  caption: [One face of the cube-sphere, showing how at the given point, we sample the texture (the cube) at the point where the normal intersects it. The other faces would intersect the other sides of the cubemap.]
+)
+
+== The benefits of cube maps
+
+Cube-maps are very versatile textures. They have a number of benefits:
+- We can finally easily texture a cube without duplicating the vertices so that we can have different UV coordinates.
+- We can use this feature for *skyboxes* (next slide). 
+- We can even use this feature to wrap the skybox _around_ an object, making it so that the object appears to look shiny and reflect the sky. We can take this further and generate a cube map from the non-reflective environment and have it reflect things around it. This is called *environment mapping* (or *reflection mapping*).
+
+== Sky boxes
+
+A *skybox* is a box that surrounds the camera to make it seem that there is a distant sky wrapping around the world.
+
+#place(center, dy: 5%)[
+  #image("screens/kenshi.webp", height: 75%, alt: "a screenshot showing a video game skybox")
+  #place(bottom, dx: 1%, dy: -1%, game-name("Kenshi"))
+]
+
+== Sky boxes (2)
+
+Making a good skybox is challenging: you either need a special set of cameras, or you need a good texture artist who can make a large, seamless texture that can be viewed from any angle.
+
+Luckily, _using_ such a texture in a skybox is much easier.
+
+We create a cube map with 6 different faces, and we create a cube. This cube will have the _opposite_ winding order as a normal cube mesh, because we want to be _inside_ it. It will wrap around the camera.
+
+That is, the faces on the cube will be facing us from the inside. 
+
+== Sky boxes (3)
+
+Then, once we've made this texture and mesh, we make a shader. The shader will sample the skybox. It will use the orientation of the camera to determine what to sample (so as we look around, we will see different parts of the sky: we don't want a flat image).
+
+We will still use the `textureSample` function, but now instead of giving it a UV coordinate to sample, we give it a normal. 
+
+How do we get the normal? When we draw the skybox mesh, it has 8 corners. We take those corners and normalize them. Those are our corner normals. Let's look at the sample to see it in action.
+
+#focus-slide("Questions?")
+
+== Loading a cube-map
+
+Loading a cube-map texture is just like loading a normal texture, except now we use the `depthOrArrayLayers` field:
+
+```ts
+const tex = device.createTexture({
+    format: 'rgba8unorm-srgb',
+    size: {
+      width: faceW, height: faceH,
+      depthOrArrayLayers: 6}, // this is the new part
+    usage: GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    dimension: '2d',
+});
+```
+
+== `depthOrArrayLayers`
+
+This field serves a few purposes:
+- For 3D textures, it's the size of the 3rd dimension. Fully 3D textures are useful for things like smoke, fog, and fluids in general, as well as medical imaging.
+- You can have arrays of 2D textures, which is useful for things like tilesets. This field is the length of the array.
+- Lastly, for cube maps, it's always 6
+
+Once we have the texture created, we copy over all 6 faces...
+
+== Loading the texture data
+
+#[ #set text(20pt)
+```ts
+for (let face = 0; face < 6; face++) {
+    device.queue.copyExternalImageToTexture(
+        {source: datas[face]!, flipY: flips.includes(face)},
+        {texture: tex, colorSpace: 'srgb', origin: [0, 0, face]},
+        [dim, dim, 1]
+    );
+}
+// these are large resources, let's free them properly.
+await device.queue.onSubmittedWorkDone(); // wait until the copying is done
+for (const data of datas) {
+    data.close(); // close all 6 images to free the CPU memory
+} // this *doesn't* delete the texture. the texture is in GPU memory.
+```
+]
+
+(see the function `loadCubemap6images` in the sample to learn how `datas` is loaded efficiently.)
+
+== Creating a bind group layout
+
+The default kind of texture is a basic 2D one. If we want to use a cubemap, we have to declare it as such in the bind group layout.
+
+Here is what the entry in a bindgroup layout looks like for a cubemap:
+#[ #set text(20pt)
+```ts
+  { // a single entry for one texture, see sample for rest.
+      binding: 1,
+      visibility: GPUShaderStage.FRAGMENT,
+      texture: {
+          // important!
+          // this is how we "declare" to the pipeline that 
+          // we're expecting a cubemapped texture
+          viewDimension: 'cube'
+      }
+  }, // samp
+```
+]
+
+== Creating the bind group 
+
+Creating the bind group is similar, only, instead of passing the texture as the resource, we create  a cubemapped view of it:
+
+#[ #set text(20pt)
+```ts
+{
+    binding: 1,
+    resource: cubeMap.createView({
+        // we're creating a cubemap "view" of our texture so 
+        // internally, it's ready to be sampled as a cubemap.
+        dimension: 'cube',
+        arrayLayerCount: 6,
+    }),
+},
+```
+]
+
+A "view" is just a way of accessing a texture or buffer. The view also needs to know that it's a cubemap.
+
+== The skybox shader
+
+#[ #set text(20pt)
+```wgsl
+@vertex fn cube_vs(@location(0) pos: vec3f) -> VertexOutput {
+    var vo: VertexOutput;
+    vo.pos = vec4f(pos, 1.0f);
+    // rotation only, no translation
+    vo.world_pos = (model * vec4f(pos, 0.0)).xyz; 
+    return vo;
+}
+
+@fragment fn cube_fs(vo: VertexOutput) -> @location(0) vec4f {
+    return textureSample(tex, samp, normalize(vo.world_pos));
+}
+```
+]
+
+We have a version of the position where we rotate it according to the "model" (a matrix that I use to orient the skybox). We make sure that only rotation is applied by setting the w component of pos to 0.
+
+== The skybox shader (2)
+
+Once we apply the model transformation, the `world_pos` field represents the rotated vertex. We sample the cubemap using that rotated vertex. The effect is that we end up rotating the points that we're sampling every frame, so the skybox looks like it's spinning.
+
+In general, we rotate the skybox according to the camera's view matrix. Then, we use its rotated corner vertices to sample the texture.
+
+One more shader to cover: environment mapping...
+
+== The reflection on the sphere 
+
+This isn't the fully generalized way of doing environment mapping. It's a way that works in this specific orientation of the sphere. Normally we would need a normal matrix, but this sample was getting complicated enough as it was, and I added environment mapping last minute.
+
+First, we use the rotation of the sphere _and_ the rotation of the skybox to compute where the vertex is pointing in the sky cube:
+
+```wgsl
+    vo.pos = proj * model * vec4f(pos, 1.0);
+    vo.model_pos = pos;
+    vo.sky_model_pos = (sky_model * model *
+      vec4f(vo.model_pos, 0.0)).xyz;  
+```
+
+== The reflection on the sphere (2)
+
+...except, that would give us the same orientation on the sphere as what the camera sees, which would not look realistic (we would see the same sky on the sphere as we see in the sky: it would not reflect the sky behind us).
+
+So I did a janky hack and just inverted the z direction of the resulting vector. This works because in view space we're facing the sphere.
+
+Normally, you would compute the normal in `view` space and use that to index the skybox, but I didn't make a `view` matrix.
+
+== The reflection on the sphere (3)
+
+We give the sphere a reflection by averaging the sample from the skybox texture with the sample from the world map texture:
+
+```wgsl
+let tex_color =
+  textureSample(tex, samp, normalize(vo.model_pos));
+var sky_sample = vo.sky_model_pos;
+sky_sample.z *= -1;
+sky_sample = normalize(sky_sample);
+let sky_color = textureSample(sky, samp, sky_sample);
+return (tex_color + sky_color) / 2.0; // blend colors
+```
+
+You can control the shininess by adding more of the sky_color and less of the texture color or vice versa, but I used the midpoint (even blend).
+
+== The passes
+
+Two more new things 
