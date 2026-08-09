@@ -871,6 +871,18 @@ for (const data of datas) {
 
 (see the function `loadCubemap6images` in the sample to learn how `datas` is loaded efficiently.)
 
+== Loading the texture data
+
+One last, important thing. The six textures in a cubemap have to come in a particular order:
++ +X (right)
++ -X (left)
++ +Y (top)
++ -Y (bottom)
++ +Z (front: right handed)
++ -Z (back: right handed)
+
+That is, image with depth "0" is the right side of the cube. It's what will get sampled if you sample points that have a positive dot product with (1, 0 0).
+
 == Creating a bind group layout
 
 The default kind of texture is a basic 2D one. If we want to use a cubemap, we have to declare it as such in the bind group layout.
@@ -958,7 +970,7 @@ First, we use the rotation of the sphere _and_ the rotation of the skybox to com
 
 So I did a janky hack and just inverted the z direction of the resulting vector. This works because in view space we're facing the sphere.
 
-Normally, you would compute the normal in `view` space and use that to index the skybox, but I didn't make a `view` matrix.
+Normally, you would compute the normal in `view` space and use the reflection of that normal with the camera direction. I just took advantage of the fact that the camera direciton is fixed.
 
 == The reflection on the sphere (3)
 
