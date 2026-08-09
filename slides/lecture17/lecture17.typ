@@ -1050,4 +1050,10 @@ Make sure you can build and understand the sample.
 
 Then, look at project 5!
 
+Lastly, there's one more kind of sphere we didn't cover: the #link("https://en.wikipedia.org/wiki/Geodesic_polyhedron", [*polyhedral sphere*])
+
+Polyhedral spheres are kind of like cube spheres where we don't start with cubes, but with more sphere-like polyhedrons, such as icosahedrons (which create icosphere)
+
+They end up with really good vertex density, but texturing them is a bit harder. Cube maps work fine though, so it's #link("https://web.archive.org/web/20171218054621/http://www.binpress.com/tutorial/creating-an-octahedron-sphere/162", [good further reading]).
+
 #focus-slide("Questions?")
