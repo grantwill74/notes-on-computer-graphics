@@ -978,4 +978,64 @@ You can control the shininess by adding more of the sky_color and less of the te
 
 == The passes
 
-Two more new things 
+Two more new things:
++ We have multiple pipelines now. Because there are 3 different shaders, we need 3 different pipelines.
++ The skybox draws first and overwrites every pixel. Therefore, we no longer need to clear the screen. We disable the depth buffer, because the skybox is infinitely far away.
+
+Let's take a look at the render pass descriptor now that we're using a skybox...
+
+== The render pass descriptor
+
+```ts
+const pass = encoder.beginRenderPass({
+    colorAttachments: [{
+        loadOp: 'load', // the skybox clears everything now
+        storeOp: 'store',
+        view: c.getCurrentTexture().createView({
+            format: this.format,
+        }),
+        // clearValue: {r: .7, g: .8, b: .9, a: 1.0},
+    }]
+});
+```
+
+There are two changes here...
+
+== The render pass descriptor (2)
+
+Formerly, we used `loadOp: 'clear'`, which would result in the screen being filled with the `clearValue`.
+
+However, there is no point in clearing the screen if we have a skybox. The skybox will end up writing over every clear pixel anyway.
+
+You might think "what's wrong with clearing the screen anyway, it can't be too slow". Believe it or not, clearing the screen is rather slow. It requires writing to every pixel.
+
+The speed at which video cards set pixels is called "fill rate". Even modern cards are more limited in fill rate than you would think.
+
+== The render pass descriptor (3)
+
+I don't want to overstate the case: clearing the screen is not a big deal.
+
+...but it's nice to not do it if we don't have to.
+
+You'll find that avoiding filling in large parts of the screen can help performance. For example, you might think it's no big deal to draw 1000 triangles, and that is normally true, but if they fill the screen and you draw them back to front, you are going to feel it.
+
+Anyway, there was one more change in our render pass descriptor: we got rid of the depth attachment. We don't need it here because we're not drawing one sphere in front of the other one, and the skybox is always drawn first, so there's no depth ordering problems.
+
+== Conclusion
+
+In conclusion, we learned about the following:
+- How to generate and texture map a UV sphere
+- How to generate a cube sphere
+- How to load a cube texture
+- How to use the cube texture in several ways:
+  - To texture a cube 
+  - As a skybox
+  - As an environment map 
+
+== Next steps
+
+Make sure you can build and understand the sample.
+
+Then, look at project 5!
+
+#focus-slide("Questions?")
