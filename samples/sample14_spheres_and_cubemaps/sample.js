@@ -30,18 +30,22 @@ const cubeShader = /*wgsl*/ `
     @group(1) @binding(0) var<uniform> model: mat4x4<f32>;
     @group(1) @binding(1) var tex: texture_cube<f32>;
     @group(1) @binding(2) var samp: sampler;
+    @group(1) @binding(3) var sky: texture_cube<f32>;
+    @group(1) @binding(4) var<uniform> sky_model: mat4x4<f32>;
     
     @group(0) @binding(0) var<uniform> proj: mat4x4<f32>;
 
     struct VertexOutput {
         @builtin(position) pos: vec4f,
         @location(0) model_pos: vec3f,
+        @location(1) sky_model_pos: vec3f,
     }
 
     @vertex fn cube_vs(@location(0) pos: vec3f) -> VertexOutput {
         var vo: VertexOutput;
         vo.pos = proj * model * vec4f(pos, 1.0);
         vo.model_pos = pos;
+        vo.sky_model_pos = (sky_model * model * vec4f(vo.model_pos, 0.0)).xyz;
         return vo;
     }
 
@@ -50,13 +54,19 @@ const cubeShader = /*wgsl*/ `
 
         // we're using the position as a UV lookup: the direction it points 
         // will be used to sample the cube-map texture.
-        return textureSample(tex, samp, normalize(vo.model_pos));
+        let tex_color = textureSample(tex, samp, normalize(vo.model_pos));
+        var sky_sample = vo.sky_model_pos;
+        sky_sample.z *= -1;
+        sky_sample = normalize(sky_sample);
+        let sky_color = textureSample(sky, samp, sky_sample);
+        return (tex_color + sky_color) / 2.0;
     }
 `;
 const skyShader = /*wgsl*/ `
-    @group(1) @binding(0) var<uniform> model: mat4x4<f32>;
-    @group(1) @binding(1) var tex: texture_cube<f32>;
+    @group(1) @binding(0) var<uniform> cube_model: mat4x4<f32>;
+    @group(1) @binding(3) var tex: texture_cube<f32>;
     @group(1) @binding(2) var samp: sampler;
+    @group(1) @binding(4) var<uniform> model: mat4x4<f32>;
     // notice: no group 0 here. that's allowed. we don't want to use 
     // projection when sampling the skybox because it's "infinitely" far away.
     
@@ -426,11 +436,24 @@ export class Sample14 {
                         // we're expecting a cubemapped texture
                         viewDimension: 'cube'
                     }
-                }, // samp
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {
+                        viewDimension: 'cube'
+                    }
+                },
+                // samp
                 {
                     binding: 2,
                     visibility: GPUShaderStage.FRAGMENT,
                     sampler: {}
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.VERTEX,
+                    buffer: {}
                 }
             ]
         });
@@ -528,9 +551,22 @@ export class Sample14 {
                 {
                     binding: 2,
                     resource: this.cubeSampler
+                },
+                {
+                    binding: 3,
+                    resource: skyBox.createView({
+                        dimension: 'cube',
+                        arrayLayerCount: 6,
+                    }),
+                },
+                {
+                    binding: 4,
+                    resource: this.skyModelMatBuf
                 }
             ]
         });
+        this.skyModelBg = this.cubeModelBg;
+        /*
         this.skyModelBg = device.createBindGroup({
             layout: cubeModelBgLayout,
             entries: [
@@ -539,7 +575,16 @@ export class Sample14 {
                     resource: this.skyModelMatBuf
                 },
                 {
+                    // we don't use this resource in the skybox,
+                    // it's just here so that the layout will match.
+                    // I wanted to reuse the layout for the cubesphere
+                    // out of laziness.
                     binding: 1,
+                    resource: cubeMap.createView(
+                        {dimension: 'cube', arrayLayerCount: 6})
+                },
+                {
+                    binding: 3,
                     resource: skyBox.createView({
                         dimension: 'cube',
                         arrayLayerCount: 6,
@@ -551,6 +596,7 @@ export class Sample14 {
                 }
             ]
         });
+*/
         this.sphereMapPipeline = device.createRenderPipeline({
             layout: spherePipelineLayout,
             vertex: {
