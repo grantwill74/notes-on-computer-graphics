@@ -33,7 +33,11 @@ From this, you know enough trigonometry to define a spotlight. However, there is
 
 #image("right.png", width: 80%, alt: "a screenshot of the correct scene. See description below.")
 
-Description:
+=== Description:
+- There is a platform floating in space, with a sphere and teapot on it.
+- There is a skybox visible.
+- Lights are visible shining on the platform, the sphere, and the teapot. We can see two spotlights on the sphere (one green, one blue on its top). Both these spotlights also show up on the platform, faintly.
+- There are red, yellow, and cyan point lights visibly reflected on the objects, but most clearly in the teapot. The yellow light is closer to the sphere, the red is in the middle, the cyan is closer to the teapot.
 
 See `right.mp4` to see it in action, with the lights moving.
 
@@ -41,10 +45,16 @@ See `right.mp4` to see it in action, with the lights moving.
 If you decide to complete a bonus objective, _let us know you did so in the comments_. Otherwise, your hard work may go unrewarded!
 
 + If you make the object at the center of the scene a pentagonal prism, your grade for this assignment will replace your grade for project 1, if this assignment's grade is higher.
-+ If you make the object at the center be fully textured with *one texture* and having *a different texture for each side*, this assignment's grade will replace your grade for project 2 if it is higher.
++ If you make the sphere be a cube-sphere and have it be fully textured with *one texture* and having *a different texture for each side*, this assignment's grade will replace your grade for project 2 if it is higher. Have the color you compute in the fragment shader be the texture sample _times_ the final light value.
 + If you add all the same camera controls that you had for project 3 (q and e to rotate, t to look at one of the objects rotating around the cube, r to reset the camera), this assignment's grade will replace your grade for project 3 if it is higher.
-+ If you make it so that the two objects in the scene are rotating around each other mutually (as if they were orbiting a hidden object in between them), and you use a `SceneNode` class with a 
++ If you make it so that the two objects in the scene are rotating around each other mutually (as if they were orbiting a hidden object in between them), and you use a hierarchical scene graph in which anything that happens to a parent also happens to its children, this assignment's grade will replace your grade for project 4 if it is higher.
+
+*For 20% bonus score*: give your scene a skybox and make the objects reflective with environment maps. This will require some figuring out, since we didn't go into detail on how to do this. However, the sample uses environment maps, so you have a starting point. (Note: typically we _add_ a portion the reflection from the skybox to the final color. We don't multiply it with the texture like the lights do).
 
 == Hints
 
-- 
+- You can hard code the material properties. This can really save a lot of code.
+- You can combine all your shaders into one mega shader that shares all the same bind groups. This is useful when, e.g., all 3 models use the same environment map. You can define multiple functions that are `@vertex` and `@fragment`, and in the pipeline, set the entry point for that specific pipeline to the function you want to use as the entry point.
+- Remember that lighting is additive. If there are 4 lights, their contributions all add together after accounting for attenuation.
+- Debugging lighting code in the shader can be brutal. Remember that you have to understand every line of code, but asking an LLM to help you debug can save tons of time and is not considered cheating. Do not ask the LLM to generate the whole shader for you, or it will almost certainly use a feature that you will not understand, putting your grade at risk.
+

@@ -39,6 +39,9 @@ Description:
 - The teapot is attached to the camera. Pretend this is a very bizarre weapon in a first-person action game.
 
 == Bonus objectives
+
+_As always, if you do any of these, leave a Canvas comment on your submission to get credit._
+
 + If you make the object at the center of the scene a pentagonal prism, your grade for this assignment will replace your grade for project 1, if this assignment's grade is higher.
 + If you make the object at the center be fully textured with *one texture* and having *a different texture for each side*, this assignment's grade will replace your grade for project 2 if it is higher.
 + If you add all the same camera controls that you had for project 3 (q and e to rotate, t to look at one of the objects rotating around the cube, r to reset the camera), this assignment's grade will replace your grade for project 3 if it is higher.

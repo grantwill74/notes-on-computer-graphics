@@ -46,6 +46,8 @@ To do this, you will have to "grow" the U/V coordinates a little bit. That is, t
 
 If you accomplish this objective, the grader will replace your score for project 1 with your score for this project (as a percent), leaving a comment with the previous score and the new one. So if you get a 100% on this project and solve the bonus object, you will get a 100% on project 1.
 
+_Please ensure you notify us in a Canvas comment on your submission so we know to give credit for this._
+
 (I recommend doing it even if you have a 100% on project 1: it's good practice, and the Konami code doesn't feel right without "Start" IMO)
 
 == Submission

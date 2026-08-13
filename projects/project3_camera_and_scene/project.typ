@@ -27,6 +27,8 @@ You must implement the same flying camera that was demonstrated in `sample09`, w
 - Define and draw an additional shape which is a pentagonal prism. This will accompany the cubes, and can be located however you want. It must have every side a different color. It does not have to be animated. If you do this, your project 1 score will be replaced with your score for this assignment.
 - Make at least one of the cubes textured. Use a _single texture_ that contains all 6 sides of the cube, and apply them to each side of the cube. If you do this, your grade for this assignment will replace your grade for project 2.
 
+_For both of these, leave a Canvas comment on your submission to ensure that we know to check. If you forget, we might miss your hard work._
+
 == Right
 See the attached "right.mp4" to see the camera in action. Here's a description of what it's doing:
 - The camera starts by moving backwards
