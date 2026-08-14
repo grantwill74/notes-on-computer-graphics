@@ -46,6 +46,15 @@ _As always, if you do any of these, leave a Canvas comment on your submission to
 + If you make the object at the center be fully textured with *one texture* and having *a different texture for each side*, this assignment's grade will replace your grade for project 2 if it is higher.
 + If you add all the same camera controls that you had for project 3 (q and e to rotate, t to look at one of the objects rotating around the cube, r to reset the camera), this assignment's grade will replace your grade for project 3 if it is higher.
 
+== Grading
+
++ (10%) there is a cube and 3 objects in the center of the scene.
++ (10%) the objects are colored such that their contours are visible (random colors are okay, normal-based coloring is okay, full-on texturing is okay, but flat coloring is not)
++ (20%) the 3 objects are child objects of the cube and they are the correct child object described in the Goal section.
++ (25%) the bunny orbits the cow _while the cow orbits the cube_. This requires the scene hierarchy to work correctly at every level.
++ (20%) the camera controls work correctly.
++ (15%) there is a teapot attached to the camera.
+
 == Hints
 
 - You can get away without implementing pitch/yaw/roll for this one (unless you're attempting the camera bonus objective).
@@ -54,3 +63,8 @@ _As always, if you do any of these, leave a Canvas comment on your submission to
 - The camera does not have to be attached to the root...
 - ...but remember that our depth-first algorithm won't find anything that isn't attached to the root. You might need to take special care to draw the teapot attached to the camera.
 - Make sure the teapot doesn't clip into the camera. Your perspective matrix determines how close it can get.
+
+== Alignments
+- MO1: whole assignment
+- MO2: score from grading items 1 and 2 (the meshes being present)
+- MO3: whole assignment

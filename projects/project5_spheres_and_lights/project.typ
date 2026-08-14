@@ -11,7 +11,7 @@ It's time to show you fully understand basic lighting principles. You'll be impl
 You must create a scene with the following objects:
 - A floor platform for the other two objects to rest on.
 - A sphere of some kind (UV, cube, or geodesic).
-- Either another sphere (of any kind) or a teapot.
+- Either another sphere (with a _different_ topology to the first one) or a teapot.
 
 In addition, the scene must be lit as follows:
 - Two spotlights. These will be described in more detail below.
@@ -56,5 +56,17 @@ If you decide to complete a bonus objective, _let us know you did so in the comm
 - You can hard code the material properties. This can really save a lot of code.
 - You can combine all your shaders into one mega shader that shares all the same bind groups. This is useful when, e.g., all 3 models use the same environment map. You can define multiple functions that are `@vertex` and `@fragment`, and in the pipeline, set the entry point for that specific pipeline to the function you want to use as the entry point.
 - Remember that lighting is additive. If there are 4 lights, their contributions all add together after accounting for attenuation.
-- Debugging lighting code in the shader can be brutal. Remember that you have to understand every line of code, but asking an LLM to help you debug can save tons of time and is not considered cheating. Do not ask the LLM to generate the whole shader for you, or it will almost certainly use a feature that you will not understand, putting your grade at risk.
+- Debugging lighting code in the shader can be brutal. Remember that you have to understand every line of code, but asking an LLM to help you debug can save tons of time and is not considered cheating. Do not ask the LLM to generate the whole shader for you, or it will almost certainly use a feature that you will not understand, putting your grade at risk during code review.
 
+== Grading
++ (10%) there's a floor.
++ (20%) there's a sphere with correct topology (either UV, cube, or geodesic, but it needs to be correct)
++ (10%) there's another object. (if it's also a sphere, whichever sphere is more correct counts as the 25% grade item, but they have to be different topologies.)
++ (30%) there are at least two point lights that visibly attenuate and provide light to all the objects in the scene (10% per light).
++ (20%) there are at least two spot lights that provide light to all the objects in the scene. They can move around in order to do so, or they can be pointed in a direction where they illuminate every object without moving. It must be clear that these are spotlights: there must be a visible cutoff between what is being illuminated and what isn't.
+
+== Alignments
+
+- MO1: whole assignment 
+- MO2: grading items 1, 2, and 3.
+- MO3: grading items 4 and 5.
