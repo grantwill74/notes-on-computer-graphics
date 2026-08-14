@@ -59,9 +59,9 @@ If you decide to complete a bonus objective, _let us know you did so in the comm
 - Debugging lighting code in the shader can be brutal. Remember that you have to understand every line of code, but asking an LLM to help you debug can save tons of time and is not considered cheating. Do not ask the LLM to generate the whole shader for you, or it will almost certainly use a feature that you will not understand, putting your grade at risk during code review.
 
 == Grading
-+ (10%) there's a floor.
-+ (20%) there's a sphere with correct topology (either UV, cube, or geodesic, but it needs to be correct)
-+ (10%) there's another object. (if it's also a sphere, whichever sphere is more correct counts as the 25% grade item, but they have to be different topologies.)
++ (10%) there's a floor and it renders correctly.
++ (20%) there's a correctly-rendered sphere with correct topology (either UV, cube, or geodesic, but it needs to be correct)
++ (10%) there's another object, rendered correctly. (if it's also a sphere, whichever sphere is more correct counts as the 25% grade item, but they have to be different topologies.)
 + (30%) there are at least two point lights that visibly attenuate and provide light to all the objects in the scene (10% per light).
 + (20%) there are at least two spot lights that provide light to all the objects in the scene. They can move around in order to do so, or they can be pointed in a direction where they illuminate every object without moving. It must be clear that these are spotlights: there must be a visible cutoff between what is being illuminated and what isn't.
 
