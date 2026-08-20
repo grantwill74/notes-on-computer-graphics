@@ -137,7 +137,6 @@ export function createMipmapPipeline(device: GPUDevice): GPURenderPipeline {
         label: 'mipmap generation pipeline',
         primitive: {
             topology: 'triangle-strip',
-            stripIndexFormat: 'uint16',
         }
     });
 }
@@ -152,8 +151,6 @@ export function genMips(
         minFilter: 'linear',
     });
 
-
-
     const enc = device.createCommandEncoder();
 
     // one render pass per mip layer
@@ -164,26 +161,23 @@ export function genMips(
                 {binding: 0, resource: tex.createView({
                     baseMipLevel: layer - 1,
                     mipLevelCount: 1,
-                    usage: GPUTextureUsage.TEXTURE_BINDING,
                 })},
                 {binding: 1, resource: samp}
             ]
         });
         const pass = enc.beginRenderPass({
             colorAttachments: [{
-                loadOp: 'load',
+                loadOp: 'clear',
                 storeOp: 'store',
                 view: tex.createView({
                     baseMipLevel: layer,
                     mipLevelCount: 1,
-                    usage: GPUTextureUsage.RENDER_ATTACHMENT
                 })
             }],
             label: 'pass for mip layer #' + layer
         });
 
         pass.setPipeline(pipeline);
-        pass.setViewport(0, 0, tex.width >> layer, tex.height >> layer, 0, 1);
         pass.setBindGroup(0, bg);
         pass.draw(4);
         pass.end();
@@ -232,6 +226,10 @@ export class Sample15 {
 
     bgMatrices: GPUBindGroup;
     bgTexes: GPUBindGroup;
+    bgTexesMip: GPUBindGroup;
+    bgTexesNoMip: GPUBindGroup;
+
+    mipMap = false;
 
     constructor(
         public device: GPUDevice,
@@ -368,10 +366,10 @@ export class Sample15 {
             minFilter: 'linear',
             mipmapFilter: 'linear',
             label: "texture sampler",
-            maxAnisotropy: 16,
+            maxAnisotropy: 1,
         });
 
-        this.bgTexes = device.createBindGroup({
+        this.bgTexesMip = device.createBindGroup({
             layout: bgTexesLayout,
             entries: [
                 {
@@ -382,7 +380,24 @@ export class Sample15 {
                     binding: 1,
                     resource: sampler
                 }
-            ]
+            ],
+            label: 'bg mipmapping'
+        });
+        this.bgTexes = this.bgTexesMip;
+
+        this.bgTexesNoMip = device.createBindGroup({
+            layout: bgTexesLayout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: this.texChecker
+                },
+                {
+                    binding: 1,
+                    resource: sampler
+                }
+            ],
+            label: 'bg no mip'
         });
 
         const pipelineLayout = device.createPipelineLayout({
@@ -452,6 +467,46 @@ export class Sample15 {
         this.camYaw += yaw;
         this.camPitch += pitch;
         this.camRoll += roll;
+    }
+
+    setMipMapping(on: boolean): void {
+        this.mipMap = on;
+        this.bgTexes = on ? this.bgTexesMip : this.bgTexesNoMip;
+    }
+
+    setAniso(maxAnisotropy: number): void {
+        // optimization: we could put the sampler in its own bind group, since
+        // the texture doesn't change. Given how rarely we change the 
+        // level of anisotropic filtering I don't bother, but we could
+        // just make all the sampler bind groups at once.
+        const sampler = this.device.createSampler({
+            addressModeU: 'repeat',
+            addressModeV: 'repeat',
+            magFilter: 'linear',
+            minFilter: 'linear',
+            mipmapFilter: 'linear',
+            label: "texture sampler",
+            maxAnisotropy,
+        }); 
+
+        this.bgTexesMip = this.device.createBindGroup({
+            entries: [
+                {
+                    binding: 0,
+                    resource: this.texCheckerMip.createView(),
+                },
+                {
+                    binding: 1,
+                    resource: sampler
+                }
+            ],
+            layout: this.pipeline.getBindGroupLayout(1),
+            label: 'mip layout'
+        });
+
+        if (this.mipMap) {
+            this.bgTexes = this.bgTexesMip;
+        }
     }
 
     update(): void {

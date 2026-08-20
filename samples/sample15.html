@@ -11,6 +11,12 @@
             }
         </script>
 
+        <style>
+            #AnisoText {
+                width: 24px;
+            }
+        </style>
+
         <script type="module">
             import { alertFail, initWebGpu } from "./sample01_init_webgpu/sample.js"
             import { Sample15, genCheckerboardTex, genMips, createMipmapPipeline } from
@@ -21,10 +27,11 @@
             const [device, context] = await initWebGpu();
 
             const texDim = 32;
-            const texLayers = Math.log2(32);
+            const texLayers = Math.log2(32) + 1;
             const unmippedTex = genCheckerboardTex(device, texDim / 2, 1);
+            const mippedTex = genCheckerboardTex(device, texDim / 2, texLayers);
+            
             const mipPipe = createMipmapPipeline(device);
-            const mippedTex = genCheckerboardTex(device, texDim / 2, texLayers, mipPipe);
             genMips(device, await mippedTex, texLayers, mipPipe);
 
             const sample = new Sample15(
@@ -36,10 +43,38 @@
 
             sample.startUpdating();
             sample.startRendering();
+            
+            const checkbox = document.querySelector('#MIPcheck');
+            const anisoText = document.querySelector('#AnisoText');
+            const aniso = document.querySelector('#Aniso');
+            
+            sample.setMipMapping(checkbox.checked);
 
+            checkbox.addEventListener('change', (ev) => {
+                sample.setMipMapping(checkbox.checked);
+                if (!checkbox.checked) {
+                    aniso.disabled = true;
+                } else {
+                    aniso.disabled = false;
+                }
+            });
+            aniso.addEventListener('input', (ev) => {
+                anisoText.value = aniso.value;
+            });
+            aniso.addEventListener('change', (ev) => {
+                const level = parseInt(aniso.value);
+                sample.setAniso(level);
+            });
         </script>
     </head>
     <body>
         <canvas width="800" height="600"></canvas>
+        <br>
+        <input type="checkbox" id="MIPcheck" value="0">
+        <label for="MIPcheck">Floor MIP mapping enabled</label>
+        <br>
+        <input type="range" id="Aniso" max="16" min="1" value="1" disabled="true">
+        <input type="text" id="AnisoText" max="16" min="1" value="1" disabled="true">
+        <label for="Aniso">Anisotropic Filtering</label>
     </body>
 </html>

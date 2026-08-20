@@ -25,8 +25,13 @@ export declare class Sample15 {
     pipeline: GPURenderPipeline;
     bgMatrices: GPUBindGroup;
     bgTexes: GPUBindGroup;
+    bgTexesMip: GPUBindGroup;
+    bgTexesNoMip: GPUBindGroup;
+    mipMap: boolean;
     constructor(device: GPUDevice, context: GPUCanvasContext, texChecker: GPUTexture, texCheckerMip: GPUTexture);
     camAddAngles(yaw: number, pitch: number, roll: number): void;
+    setMipMapping(on: boolean): void;
+    setAniso(maxAnisotropy: number): void;
     update(): void;
     forward(): vec3;
     up(): vec3;
