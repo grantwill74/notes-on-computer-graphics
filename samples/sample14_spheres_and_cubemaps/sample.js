@@ -87,7 +87,7 @@ const skyShader = /*wgsl*/ `
     }
 `;
 import { mat4, vec3 } from 'gl-matrix';
-class Mesh {
+export class Mesh {
     vertData;
     indices;
     // feel free to look into a feature called "parameter properties"

@@ -91,7 +91,7 @@ const skyShader = /*wgsl*/`
 
 import { mat4, vec3 } from 'gl-matrix'
 
-class Mesh {
+export class Mesh {
     vertData: number[];
     indices: number[];
 

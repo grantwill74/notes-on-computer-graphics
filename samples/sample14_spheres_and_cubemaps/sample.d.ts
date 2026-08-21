@@ -1,5 +1,5 @@
 import { mat4 } from 'gl-matrix';
-declare class Mesh {
+export declare class Mesh {
     vertData: number[];
     indices: number[];
     constructor(vertData: number[], indices: number[]);

@@ -1,10 +1,11 @@
-const shaderCode = /*wgsl*/ `
+const floorShaderCode = /*wgsl*/ `
 @group(0) @binding(0) var<uniform> mModel: mat4x4<f32>;
-@group(0) @binding(1) var<uniform> mView: mat4x4<f32>;
-@group(0) @binding(2) var<uniform> mProj: mat4x4<f32>;
 
 @group(1) @binding(0) var tex: texture_2d<f32>;
 @group(1) @binding(1) var samp: sampler;
+
+@group(2) @binding(0) var<uniform> mView: mat4x4<f32>;
+@group(2) @binding(1) var<uniform> mProj: mat4x4<f32>;
 
 struct VertexOutput {
     @builtin(position) pos: vec4f,
@@ -63,7 +64,50 @@ struct VertexOutput {
 }
 `;
 
+const sphereCode = /*wgsl*/`
+@group(0) @binding(0) var<uniform> mModel: mat4x4<f32>;
+@group(2) @binding(0) var<uniform> mView: mat4x4<f32>;
+@group(2) @binding(1) var<uniform> mProj: mat4x4<f32>;
+
+@group(1) @binding(0) var samp: sampler;
+@group(1) @binding(1) var basetex: texture_2d<f32>;
+@group(1) @binding(2) var clouds: texture_2d<f32>;
+@group(1) @binding(3) var normalmap: texture_2d<f32>;
+@group(1) @binding(4) var specmap: texture_2d<f32>;
+
+@group(3) @binding(0) var<uniform> eye: vec3f;
+
+// hardcoded light values
+const light_dir = normalize(vec3f(1, 1, 0));
+const ambient = vec3f(0.1, 0.1, 0.1);
+
+struct VertexOutput {
+    @builtin(position) pos: vec4f,
+    @location(0) uv: vec2f,
+    @location(1) eye_off: vec3f,
+    @location(2) world_pos: vec3f,
+};
+
+@vertex fn vs(
+    @location(0) pos: vec3f,
+    @location(1) uv: vec2f,
+) -> VertexOutput 
+{
+    var vo: VertexOutput;
+    vo.world_pos = (mModel * vec4f(pos, 1.0)).xyz;
+    vo.pos = mProj * mView * vec4f(vo.world_pos, 1.0);
+    vo.eye_off = eye - vo.world_pos;
+    vo.uv = uv;
+    return vo;
+}
+
+@fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
+    return vec4f(1, 0, 0, 1);
+}
+`;
+
 import { vec3, mat3, mat4 } from 'gl-matrix'
+import { Mesh, genUvSphere } from '../sample14_spheres_and_cubemaps/sample.js'
 
 
 export async function genCheckerboardTex(
@@ -207,8 +251,10 @@ export class Sample15 {
 
     texDepth: GPUTexture;
 
-    bufVerts: GPUBuffer;
+    floorVerts: GPUBuffer;
+    sphereMesh: Mesh;
     bufMatrices: GPUBuffer;
+    bufEye: GPUBuffer;
 
     mCam: mat4; // camera model matrix
     camPos: vec3;
@@ -222,12 +268,17 @@ export class Sample15 {
     camRollAmnt: number;
     camMoveAmnt: vec3;
 
-    pipeline: GPURenderPipeline;
+    floorPipeline: GPURenderPipeline;
+    spherePipeline: GPURenderPipeline;
 
-    bgMatrices: GPUBindGroup;
-    bgTexes: GPUBindGroup;
-    bgTexesMip: GPUBindGroup;
-    bgTexesNoMip: GPUBindGroup;
+    bgFloorModel: GPUBindGroup;
+    bgViewProj: GPUBindGroup;
+    bgSphereModel: GPUBindGroup;
+    bgFloorTexes: GPUBindGroup;
+    bgFloorTexesMip: GPUBindGroup;
+    bgFloorTexesNoMip: GPUBindGroup;
+    bgSphereTexes: GPUBindGroup;
+    bgEye: GPUBindGroup;
 
     mipMap = false;
 
@@ -238,7 +289,7 @@ export class Sample15 {
         public texCheckerMip: GPUTexture,
     ) {
         const shaderMod = device.createShaderModule({
-            code: shaderCode,
+            code: floorShaderCode,
             label: "textured shader"
         });
 
@@ -252,16 +303,16 @@ export class Sample15 {
         const stride = 3 * 4 + 2 * 4;
         const uvOffset = 3 * 4;
 
-        this.bufVerts = device.createBuffer({
+        this.floorVerts = device.createBuffer({
             size: verts.byteLength,
             usage: GPUBufferUsage.VERTEX,
             label: "vertex buffer",
             mappedAtCreation: true,
         });
-        (new Float32Array(this.bufVerts.getMappedRange())).set(verts);
-        this.bufVerts.unmap();
+        (new Float32Array(this.floorVerts.getMappedRange())).set(verts);
+        this.floorVerts.unmap();
 
-        
+        this.sphereMesh = genUvSphere(10, 10, 'triangle-list');
         
         this.texDepth = device.createTexture({
             format: 'depth24plus-stencil8',
@@ -277,46 +328,95 @@ export class Sample15 {
         this.mModel = mat4.create();
         this.mView = mat4.create();
 
+        const V = GPUShaderStage.VERTEX;
+        const F = GPUShaderStage.FRAGMENT;
 
-        const bgMatricesLayoutDesc: GPUBindGroupLayoutDescriptor = {
+        const bgModelLayoutDesc: GPUBindGroupLayoutDescriptor = {
             entries: [
                 {
                     binding: 0,
-                    visibility: GPUShaderStage.VERTEX,
+                    visibility: V,
                     buffer: {}
                 },
-                {
-                    binding: 1,
-                    visibility: GPUShaderStage.VERTEX,
-                    buffer: {}
-                },
-                {
-                    binding: 2,
-                    visibility: GPUShaderStage.VERTEX,
-                    buffer: {}
-                }
+                
             ],
             label: "matrix bg layout"
         };
 
-        const bgTexesLayoutDesc: GPUBindGroupLayoutDescriptor = {
+        const bgViewProjLayoutDesc: GPUBindGroupLayoutDescriptor = {
             entries: [
                 {
                     binding: 0,
-                    visibility: GPUShaderStage.FRAGMENT,
+                    visibility: V,
+                    buffer: {}
+                },
+                {
+                    binding: 1,
+                    visibility: V,
+                    buffer: {}
+                }
+            ]
+        }
+
+        const bgFloorTexesLayoutDesc: GPUBindGroupLayoutDescriptor = {
+            entries: [
+                {
+                    binding: 0,
+                    visibility: F,
                     texture: {}
                 },
                 {
                     binding: 1,
-                    visibility: GPUShaderStage.FRAGMENT,
+                    visibility: F,
                     sampler: {}
                 }
             ],
             label: "texture bg layout"
         };
 
-        const bgMatricesLayout = device.createBindGroupLayout(bgMatricesLayoutDesc);
-        const bgTexesLayout = device.createBindGroupLayout(bgTexesLayoutDesc);
+        const bgSphereTexesLayoutDesc: GPUBindGroupLayoutDescriptor = {
+            entries: [
+                {
+                    binding: 0,
+                    visibility: F,
+                    sampler: {}
+                },
+                {
+                    binding: 1,
+                    visibility: F,
+                    texture: {},
+                },
+                { 
+                    binding: 2,
+                    visibility: F,
+                    texture: {}
+                },
+                {
+                    binding: 3,
+                    visibility: F,
+                    texture: {},
+                },
+                {
+                    binding: 4,
+                    visibility: F,
+                    texture: {},
+                }
+            ]
+        };
+
+        const bgEyeLayoutDesc: GPUBindGroupLayoutDescriptor = {
+            entries: [{
+                binding: 0,
+                visibility: V,
+                buffer: {}
+            }]
+        }
+
+        const bgModelLayout = device.createBindGroupLayout(bgModelLayoutDesc);
+        const bgViewProjLayout = device.createBindGroupLayout(bgViewProjLayoutDesc);
+        const bgFloorTexesLayout = device.createBindGroupLayout(bgFloorTexesLayoutDesc);
+        const bgSphereTexesLayout = device.createBindGroupLayout(bgSphereTexesLayoutDesc);
+        const bgEyeLayout = device.createBindGroupLayout(bgEyeLayoutDesc);
 
         this.bufMatrices = device.createBuffer({
             size: 1024,
@@ -327,9 +427,26 @@ export class Sample15 {
             mappedAtCreation: false,
         });
 
+        this.bufEye = device.createBuffer({
+            size: 4 * 4,
+            usage:
+                GPUBufferUsage.UNIFORM |
+                GPUBufferUsage.COPY_DST,
+            label: "eye buffer",
+            mappedAtCreation: false,
+        });
 
-        this.bgMatrices = device.createBindGroup({
-            layout: bgMatricesLayout,
+        this.bgEye = device.createBindGroup({
+             entries: [{
+                binding: 0,
+                resource: this.bufEye
+             }],
+             layout: bgEyeLayout
+        });
+
+
+        this.bgFloorModel = device.createBindGroup({
+            layout: bgModelLayout,
             entries: [
                 {
                     binding: 0,
@@ -339,8 +456,15 @@ export class Sample15 {
                         size: 4 * 4 * 4
                     },
                 },
+                
+            ],
+            label: "matrix bind group"
+        });
+
+        this.bgViewProj = device.createBindGroup({
+            entries:[
                 {
-                    binding: 1,
+                    binding: 0,
                     resource: {
                         buffer: this.bufMatrices,
                         offset: 256,
@@ -348,7 +472,7 @@ export class Sample15 {
                     }
                 },
                 {
-                    binding: 2,
+                    binding: 1,
                     resource: {
                         buffer: this.bufMatrices,
                         offset: 512,
@@ -356,8 +480,22 @@ export class Sample15 {
                     },
                 },
             ],
-            label: "matrix bind group"
+            layout: bgViewProjLayout
         });
+
+        this.bgSphereModel = device.createBindGroup({
+            entries: [{
+                binding: 0,
+                resource: {
+                    buffer: this.bufMatrices,
+                    offset: 256 * 3,
+                    size: 4 * 4 * 4
+                }
+            }],
+            layout: bgModelLayout
+        });
+
+        
 
         const sampler = device.createSampler({
             addressModeU: 'repeat',
@@ -369,8 +507,8 @@ export class Sample15 {
             maxAnisotropy: 1,
         });
 
-        this.bgTexesMip = device.createBindGroup({
-            layout: bgTexesLayout,
+        this.bgFloorTexesMip = device.createBindGroup({
+            layout: bgFloorTexesLayout,
             entries: [
                 {
                     binding: 0,
@@ -383,10 +521,10 @@ export class Sample15 {
             ],
             label: 'bg mipmapping'
         });
-        this.bgTexes = this.bgTexesMip;
+        this.bgFloorTexes = this.bgFloorTexesMip;
 
-        this.bgTexesNoMip = device.createBindGroup({
-            layout: bgTexesLayout,
+        this.bgFloorTexesNoMip = device.createBindGroup({
+            layout: bgFloorTexesLayout,
             entries: [
                 {
                     binding: 0,
@@ -400,15 +538,51 @@ export class Sample15 {
             label: 'bg no mip'
         });
 
-        const pipelineLayout = device.createPipelineLayout({
-            bindGroupLayouts: [
-                bgMatricesLayout,
-                bgTexesLayout
+        this.bgSphereTexes = device.createBindGroup({
+            layout: bgSphereTexesLayout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: sampler,
+                },
+                {
+                    binding: 1,
+                    resource: this.texChecker // for now
+                },
+                {
+                    binding: 2,
+                    resource: this.texChecker
+                },
+                {
+                    binding: 3,
+                    resource: this.texChecker
+                },
+                {
+                    binding: 4,
+                    resource: this.texChecker
+                }
             ]
         });
 
-        this.pipeline = device.createRenderPipeline({
-            layout: pipelineLayout,
+        const floorPipelineLayout = device.createPipelineLayout({
+            bindGroupLayouts: [
+                bgModelLayout,
+                bgFloorTexesLayout,
+                bgViewProjLayout,
+            ]
+        });
+        
+        const spherePipelineLayout = device.createPipelineLayout({
+            bindGroupLayouts: [
+                bgModelLayout,
+                bgSphereTexesLayout,
+                bgViewProjLayout,
+                bgEyeLayout
+            ],
+        });
+
+        this.floorPipeline = device.createRenderPipeline({
+            layout: floorPipelineLayout,
             vertex: {
                 module: shaderMod,
                 buffers: [
@@ -453,7 +627,30 @@ export class Sample15 {
             label: "tex quad pipeline"
         });
 
-        this.camPos = vec3.fromValues(0, 10, 0);
+        const sphereShaderMod = device.createShaderModule({code: sphereCode});
+        this.spherePipeline = device.createRenderPipeline({
+            layout: spherePipelineLayout,
+            vertex: {
+                module: sphereShaderMod,
+                buffers: [{
+                    arrayStride: 3 * 4 + 2 * 4,
+                    attributes: [
+                        { // xyz
+                            format: 'float32x3',
+                            offset: 0,
+                            shaderLocation: 0,
+                        },
+                        { // uv
+                            format: 'float32x2',
+                            offset: 3 * 4,
+                            shaderLocation: 1,
+                        }
+                    ]
+                }]
+            }
+        });
+
+        this.camPos = vec3.fromValues(0, 10, -10);
         this.camPitch = 0;
         this.camRoll = 0;
         this.camYaw = 0.0;
@@ -471,7 +668,7 @@ export class Sample15 {
 
     setMipMapping(on: boolean): void {
         this.mipMap = on;
-        this.bgTexes = on ? this.bgTexesMip : this.bgTexesNoMip;
+        this.bgFloorTexes = on ? this.bgFloorTexesMip : this.bgFloorTexesNoMip;
     }
 
     setAniso(maxAnisotropy: number): void {
@@ -489,7 +686,7 @@ export class Sample15 {
             maxAnisotropy,
         }); 
 
-        this.bgTexesMip = this.device.createBindGroup({
+        this.bgFloorTexesMip = this.device.createBindGroup({
             entries: [
                 {
                     binding: 0,
@@ -500,12 +697,12 @@ export class Sample15 {
                     resource: sampler
                 }
             ],
-            layout: this.pipeline.getBindGroupLayout(1),
+            layout: this.floorPipeline.getBindGroupLayout(1),
             label: 'mip layout'
         });
 
         if (this.mipMap) {
-            this.bgTexes = this.bgTexesMip;
+            this.bgFloorTexes = this.bgFloorTexesMip;
         }
     }
 
@@ -664,10 +861,11 @@ export class Sample15 {
             }
         });
         pass.setViewport(0, 0, this.context.canvas.width, this.context.canvas.height, 0, 1);
-        pass.setPipeline(this.pipeline);
-        pass.setVertexBuffer(0, this.bufVerts);
-        pass.setBindGroup(0, this.bgMatrices);
-        pass.setBindGroup(1, this.bgTexes);
+        pass.setPipeline(this.floorPipeline);
+        pass.setVertexBuffer(0, this.floorVerts);
+        pass.setBindGroup(0, this.bgFloorModel);
+        pass.setBindGroup(1, this.bgFloorTexes);
+        pass.setBindGroup(2, this.bgViewProj);
         pass.draw(4);
         pass.end();
 
