@@ -115,9 +115,26 @@ This might seem strange: why bother? There are some interesting reasons...
 
 Of course, I need to manage your expectations...
 
-// TODO
+#stack(dir: ltr,
+  box(width: 50%)[
+    #figure(
+        image("screens/expectations.jpg", alt: "a screenshot of Cyberpunk 2077 with RTX on"),
+        caption: [Expectations],
+        numbering: none,
+    )
+    #place(top + right, dx: -1%, game-name([Cyberpunk 2077]))
+  ],
+  box(width:50%, height: 56%)[
+    #figure(
+      image("screens/reality.png", alt: "a screenshot of a demo for this class where a cow is rotating."),
+      caption: [Reality],
+      numbering: none,
+    )
+    #place(bottom + right, dx: -15%, dy: -2%, game-name([Dr. Grant's Cow simulator 2077], text-color: black))
+  ]
+)
 
-[This big limiting factor for the left screenshot is artistic skill and time]
+[The big limiting factor for the left screenshot is artistic skill and time]
 
 == I hope you will get a lot out of this class
 
@@ -283,7 +300,7 @@ Therefore, I am permitted to ask you for a code review: a small in person meetin
 
 I am looking for evidence that you do understand, not evidence that you don't, so these aren't designed to be scary/strenuous. 
 
-However, my experience is that people who overuse AI almost never cite it. Please make that mistake. Uncited code is more likely to result in a code review than cited code. 
+However, my experience is that people who overuse AI almost never cite it. Please don't make that mistake. Uncited code is more likely to result in a code review than cited code. 
 
 == Citations
 
