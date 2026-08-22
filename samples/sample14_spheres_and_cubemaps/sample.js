@@ -326,7 +326,7 @@ export async function loadCubemap6Images(device, dim, url, flips // list of face
     }
     return tex;
 }
-class LoadedMesh {
+export class LoadedMesh {
     verts;
     indis;
     nIndis;

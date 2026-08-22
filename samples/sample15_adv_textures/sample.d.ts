@@ -1,5 +1,5 @@
 import { vec3, mat4 } from 'gl-matrix';
-import { Mesh } from '../sample14_spheres_and_cubemaps/sample.js';
+import { LoadedMesh } from '../sample14_spheres_and_cubemaps/sample.js';
 export declare function genCheckerboardTex(device: GPUDevice, tileDim: number, nMipLevels: number): Promise<GPUTexture>;
 export declare function createMipmapPipeline(device: GPUDevice): GPURenderPipeline;
 export declare function genMips(device: GPUDevice, tex: GPUTexture, nLayers: number, pipeline: GPURenderPipeline): void;
@@ -8,12 +8,14 @@ export declare class Sample15 {
     context: GPUCanvasContext;
     texChecker: GPUTexture;
     texCheckerMip: GPUTexture;
-    mModel: mat4;
+    texEarth: GPUTexture;
+    texClouds: GPUTexture;
+    mFloorModel: mat4;
     mView: mat4;
     mProj: mat4;
     texDepth: GPUTexture;
     floorVerts: GPUBuffer;
-    sphereMesh: Mesh;
+    sphereMesh: LoadedMesh;
     bufMatrices: GPUBuffer;
     bufEye: GPUBuffer;
     mCam: mat4;
@@ -21,6 +23,7 @@ export declare class Sample15 {
     camPitch: number;
     camYaw: number;
     camRoll: number;
+    sphereRot: number;
     camPitchAmnt: number;
     camYawAmnt: number;
     camRollAmnt: number;
@@ -36,7 +39,8 @@ export declare class Sample15 {
     bgSphereTexes: GPUBindGroup;
     bgEye: GPUBindGroup;
     mipMap: boolean;
-    constructor(device: GPUDevice, context: GPUCanvasContext, texChecker: GPUTexture, texCheckerMip: GPUTexture);
+    format: GPUTextureFormat;
+    constructor(device: GPUDevice, context: GPUCanvasContext, texChecker: GPUTexture, texCheckerMip: GPUTexture, texEarth: GPUTexture, texClouds: GPUTexture);
     camAddAngles(yaw: number, pitch: number, roll: number): void;
     setMipMapping(on: boolean): void;
     setAniso(maxAnisotropy: number): void;

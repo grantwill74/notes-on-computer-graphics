@@ -30,15 +30,20 @@
             const texLayers = Math.log2(32) + 1;
             const unmippedTex = genCheckerboardTex(device, texDim / 2, 1);
             const mippedTex = genCheckerboardTex(device, texDim / 2, texLayers);
+            const worldTex = loadTexture(device, new URL("special_textures/solar_system_scan/2k_earth_daymap.jpg", import.meta.url));
+            const cloudsTex = loadTexture(device, new URL("special_textures/solar_system_scan/2k_earth_clouds.jpg", import.meta.url));
             
             const mipPipe = createMipmapPipeline(device);
             genMips(device, await mippedTex, texLayers, mipPipe);
+
 
             const sample = new Sample15(
                 device,
                 context,
                 await unmippedTex,
                 await mippedTex,
+                await worldTex,
+                await cloudsTex
             );
 
             sample.startUpdating();

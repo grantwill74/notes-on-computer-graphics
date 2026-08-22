@@ -84,6 +84,7 @@ struct VertexOutput {
     @location(0) uv: vec2f,
     @location(1) eye_off: vec3f,
     @location(2) world_pos: vec3f,
+    @location(3) normal: vec3f,
 };
 
 @vertex fn vs(
@@ -92,6 +93,9 @@ struct VertexOutput {
 ) -> VertexOutput 
 {
     var vo: VertexOutput;
+    // this is allowed because we only rotate + translate
+    vo.normal = (mModel * vec4f(normalize(pos), 0.0)).xyz;
+
     vo.world_pos = (mModel * vec4f(pos, 1.0)).xyz;
     vo.pos = mProj * mView * vec4f(vo.world_pos, 1.0);
     vo.eye_off = eye - vo.world_pos;
@@ -99,12 +103,38 @@ struct VertexOutput {
     return vo;
 }
 
+const PI = acos(-1);
+const TAU = 2 * PI;
+
 @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
-    return vec4f(1, 0, 0, 1);
+    let earth_uv = vo.uv;
+
+    // got this idea from Claude, so citing and explaining it here:
+    // the basic gist is to compute the model coordinate angle using the uv-sphere's
+    // UV values (UV * tau). then compute the rotation using atan2.
+    // the midway point between is half-rotated: use this for the cloud sample
+    // so the cloud texture appears to rotate at half speed.
+    let local_ang = (earth_uv.x - 0.5) * TAU;
+    let norm = normalize(vo.normal);
+    let world_ang = atan2(norm.z, norm.x);
+    let cloud_ang = (local_ang - world_ang) * 0.5;
+
+    var cloud_uv = earth_uv;
+    cloud_uv.x = fract(cloud_ang / TAU + 0.5);
+
+    let tex =
+        textureSample(basetex, samp, earth_uv) * 0.5 +
+        textureSample(clouds, samp, cloud_uv) * 0.5;
+
+    let diffuse = max(dot(light_dir, norm), 0.0);
+    let light_color = vec4f(ambient + diffuse, 1.0);
+
+    return tex * light_color;
+    //return vec4f(1, 0, 0, 1);
 }
 `;
 import { vec3, mat3, mat4 } from 'gl-matrix';
-import { Mesh, genUvSphere } from '../sample14_spheres_and_cubemaps/sample.js';
+import { LoadedMesh, genUvSphere } from '../sample14_spheres_and_cubemaps/sample.js';
 export async function genCheckerboardTex(device, tileDim, nMipLevels) {
     const dim = tileDim * 2;
     const tex = device.createTexture({
@@ -204,6 +234,7 @@ const CAM_ROLL_PER_SECOND = 0.125;
 const CAM_YAW_PER_SECOND = 0.33;
 // units per second
 const CAM_MOVE_SPEED = 10;
+const SPHERE_ROT_SPEED = TAU / 16;
 // janky hack to avoid handling keyrepeat properly. I will fix this in 
 // the future by tracking the individual keystates
 let lastKeyDown;
@@ -212,7 +243,9 @@ export class Sample15 {
     context;
     texChecker;
     texCheckerMip;
-    mModel;
+    texEarth;
+    texClouds;
+    mFloorModel;
     mView;
     mProj;
     texDepth;
@@ -225,6 +258,7 @@ export class Sample15 {
     camPitch;
     camYaw;
     camRoll;
+    sphereRot = 0;
     //vv how much to change cam angle per frame vv
     camPitchAmnt;
     camYawAmnt;
@@ -241,11 +275,15 @@ export class Sample15 {
     bgSphereTexes;
     bgEye;
     mipMap = false;
-    constructor(device, context, texChecker, texCheckerMip) {
+    format;
+    constructor(device, context, texChecker, texCheckerMip, texEarth, texClouds) {
         this.device = device;
         this.context = context;
         this.texChecker = texChecker;
         this.texCheckerMip = texCheckerMip;
+        this.texEarth = texEarth;
+        this.texClouds = texClouds;
+        this.format = (context.getCurrentTexture().format + '-srgb');
         const shaderMod = device.createShaderModule({
             code: floorShaderCode,
             label: "textured shader"
@@ -267,7 +305,8 @@ export class Sample15 {
         });
         (new Float32Array(this.floorVerts.getMappedRange())).set(verts);
         this.floorVerts.unmap();
-        this.sphereMesh = genUvSphere(10, 10, 'triangle-list');
+        const sphereMesh = genUvSphere(10, 10, 'triangle-list');
+        this.sphereMesh = new LoadedMesh(device, sphereMesh);
         this.texDepth = device.createTexture({
             format: 'depth24plus-stencil8',
             size: { width: context.canvas.width, height: context.canvas.height },
@@ -276,7 +315,7 @@ export class Sample15 {
         });
         this.mProj = mat4.create();
         mat4.perspectiveZO(this.mProj, TAU / 8, context.canvas.width / context.canvas.height, 1, 128);
-        this.mModel = mat4.create();
+        this.mFloorModel = mat4.create();
         this.mView = mat4.create();
         const V = GPUShaderStage.VERTEX;
         const F = GPUShaderStage.FRAGMENT;
@@ -474,15 +513,15 @@ export class Sample15 {
                 },
                 {
                     binding: 1,
-                    resource: this.texChecker // for now
+                    resource: this.texEarth
                 },
                 {
                     binding: 2,
-                    resource: this.texChecker
+                    resource: this.texClouds
                 },
                 {
                     binding: 3,
-                    resource: this.texChecker
+                    resource: this.texChecker // for now
                 },
                 {
                     binding: 4,
@@ -534,7 +573,7 @@ export class Sample15 {
                 module: shaderMod,
                 targets: [
                     {
-                        format: context.getCurrentTexture().format,
+                        format: this.format,
                     }
                 ],
             },
@@ -570,9 +609,26 @@ export class Sample15 {
                             }
                         ]
                     }]
-            }
+            },
+            fragment: {
+                module: sphereShaderMod,
+                targets: [{
+                        format: this.format,
+                    }]
+            },
+            depthStencil: {
+                format: 'depth24plus-stencil8',
+                depthWriteEnabled: true,
+                depthCompare: 'less-equal',
+            },
+            primitive: {
+                cullMode: 'none',
+                frontFace: 'ccw',
+                topology: 'triangle-list',
+            },
+            label: "sphere pipeline"
         });
-        this.camPos = vec3.fromValues(0, 10, -10);
+        this.camPos = vec3.fromValues(0, 10, 5);
         this.camPitch = 0;
         this.camRoll = 0;
         this.camYaw = 0.0;
@@ -625,6 +681,7 @@ export class Sample15 {
         this.camPitch += this.camPitchAmnt / 60;
         this.camRoll += this.camRollAmnt / 60;
         this.camYaw += this.camYawAmnt / 60;
+        this.sphereRot += SPHERE_ROT_SPEED / 60;
         vec3.scaleAndAdd(this.camPos, this.camPos, this.camMoveAmnt, CAM_MOVE_SPEED / 60.0);
         mat4.identity(this.mCam);
         mat4.translate(this.mCam, this.mCam, this.camPos);
@@ -635,10 +692,14 @@ export class Sample15 {
         // build the matrix array. total size: 1024 bytes
         // 64 floats is 256, which is the alignment
         const matArray = new Float32Array(64 * 4);
-        matArray.set(this.mModel);
+        matArray.set(this.mFloorModel);
         matArray.set(this.mView, 64);
         matArray.set(this.mProj, 64 * 2);
         // not using normal matrix
+        const sphereMat = mat4.create();
+        mat4.translate(sphereMat, sphereMat, [0, 10, 0]);
+        mat4.rotateY(sphereMat, sphereMat, SPHERE_ROT_SPEED * this.sphereRot);
+        matArray.set(sphereMat, 64 * 3);
         this.device.queue.writeBuffer(this.bufMatrices, 0, matArray);
     }
     forward() {
@@ -747,7 +808,9 @@ export class Sample15 {
                 {
                     loadOp: 'clear',
                     storeOp: 'store',
-                    view: this.context.getCurrentTexture(),
+                    view: this.context.getCurrentTexture().createView({
+                        format: this.format
+                    }),
                     clearValue: { r: 0.7, g: 0.8, b: 0.9, a: 1.0 },
                     // resolveTarget: this.context.getCurrentTexture(),
                 },
@@ -769,6 +832,13 @@ export class Sample15 {
         pass.setBindGroup(1, this.bgFloorTexes);
         pass.setBindGroup(2, this.bgViewProj);
         pass.draw(4);
+        pass.setPipeline(this.spherePipeline);
+        pass.setVertexBuffer(0, this.sphereMesh.verts);
+        pass.setIndexBuffer(this.sphereMesh.indis, 'uint32');
+        pass.setBindGroup(0, this.bgSphereModel);
+        pass.setBindGroup(1, this.bgSphereTexes);
+        pass.setBindGroup(3, this.bgEye);
+        pass.drawIndexed(this.sphereMesh.nIndis);
         pass.end();
         this.device.queue.submit([encoder.finish()]);
     }

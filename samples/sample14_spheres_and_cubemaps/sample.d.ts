@@ -9,7 +9,7 @@ export declare function genCubeSphere(nFaceSubdivs: number, topo: GPUPrimitiveTo
 export declare function loadCubemapUnfurled(device: GPUDevice, url: URL, uvs: [number, number][], faceDim: [number, number]): Promise<GPUTexture>;
 export declare function genCubeMesh(): Mesh;
 export declare function loadCubemap6Images(device: GPUDevice, dim: number, url: URL[], flips: number[]): Promise<GPUTexture>;
-declare class LoadedMesh {
+export declare class LoadedMesh {
     verts: GPUBuffer;
     indis: GPUBuffer;
     nIndis: number;
@@ -44,5 +44,4 @@ export declare class Sample14 {
     render(now: number): void;
     startRendering(): void;
 }
-export {};
 //# sourceMappingURL=sample.d.ts.map

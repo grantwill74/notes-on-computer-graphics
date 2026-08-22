@@ -391,7 +391,7 @@ export async function loadCubemap6Images(
     return tex;
 }
 
-class LoadedMesh {
+export class LoadedMesh {
     verts: GPUBuffer;
     indis: GPUBuffer;
 
