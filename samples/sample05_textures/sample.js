@@ -239,12 +239,12 @@ export function renderSample05(device, context, pipeline, vertBuf, texBg, offset
     const commands = encoder.finish();
     device.queue.submit([commands]);
 }
-export async function loadTexture(device, url) {
+export async function loadTexture(device, url, format) {
     const response = await fetch(url);
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
     const tex = device.createTexture({
-        format: "rgba8unorm-srgb",
+        format: format ?? "rgba8unorm-srgb",
         size: { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 },
         usage: GPUTextureUsage.RENDER_ATTACHMENT |
             GPUTextureUsage.COPY_DST |
@@ -253,6 +253,8 @@ export async function loadTexture(device, url) {
         label: url.toString(),
     });
     device.queue.copyExternalImageToTexture({ source: bitmap }, { texture: tex, colorSpace: "srgb" }, { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 });
+    await device.queue.onSubmittedWorkDone();
+    bitmap.close();
     return tex;
 }
 //# sourceMappingURL=sample.js.map

@@ -305,6 +305,7 @@ export function renderSample05(
 export async function loadTexture(
     device: GPUDevice,
     url: URL,
+    format?: GPUTextureFormat
 ): Promise<GPUTexture>
 {
     const response = await fetch(url);    
@@ -312,7 +313,7 @@ export async function loadTexture(
     const bitmap = await createImageBitmap(blob);
     
     const tex = device.createTexture({
-        format: "rgba8unorm-srgb",
+        format: format ?? "rgba8unorm-srgb",
         size: {width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1},
         usage: 
             GPUTextureUsage.RENDER_ATTACHMENT |
@@ -327,6 +328,10 @@ export async function loadTexture(
         {texture: tex, colorSpace: "srgb"},
         {width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1}
     );
+
+    await device.queue.onSubmittedWorkDone();
+
+    bitmap.close();
 
     return tex
 }
