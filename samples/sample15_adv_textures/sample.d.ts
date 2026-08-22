@@ -11,6 +11,7 @@ export declare class Sample15 {
     texEarth: GPUTexture;
     texClouds: GPUTexture;
     texNormalMap: GPUTexture;
+    texSpecMap: GPUTexture;
     mFloorModel: mat4;
     mView: mat4;
     mProj: mat4;
@@ -41,7 +42,7 @@ export declare class Sample15 {
     bgEye: GPUBindGroup;
     mipMap: boolean;
     format: GPUTextureFormat;
-    constructor(device: GPUDevice, context: GPUCanvasContext, texChecker: GPUTexture, texCheckerMip: GPUTexture, texEarth: GPUTexture, texClouds: GPUTexture, texNormalMap: GPUTexture);
+    constructor(device: GPUDevice, context: GPUCanvasContext, texChecker: GPUTexture, texCheckerMip: GPUTexture, texEarth: GPUTexture, texClouds: GPUTexture, texNormalMap: GPUTexture, texSpecMap: GPUTexture);
     camAddAngles(yaw: number, pitch: number, roll: number): void;
     setMipMapping(on: boolean): void;
     setAniso(maxAnisotropy: number): void;

@@ -37,6 +37,7 @@
 
             // image is actually rgba16unorm, but I don't want to enable tier 1 texure support.
             const normalMap = loadTexture(device, new URL(prefix + "normal_map.png", import.meta.url), 'rgba8unorm');
+            const specMap = loadTexture(device, new URL(prefix + "specular_map.png", import.meta.url), 'r8unorm');
 
             const mipPipe = createMipmapPipeline(device);
             genMips(device, await mippedTex, texLayers, mipPipe);
@@ -49,6 +50,7 @@
                 await worldTex,
                 await cloudsTex,
                 await normalMap,
+                await specMap,
             );
 
             sample.startUpdating();

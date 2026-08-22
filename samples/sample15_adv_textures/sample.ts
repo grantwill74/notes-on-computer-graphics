@@ -84,9 +84,8 @@ const ambient = vec3f(0.1, 0.1, 0.1);
 struct VertexOutput {
     @builtin(position) pos: vec4f,
     @location(0) uv: vec2f,
-    @location(1) eye_off: vec3f,
-    @location(2) world_pos: vec3f,
-    @location(3) normal: vec3f,
+    @location(1) world_pos: vec3f,
+    @location(2) normal: vec3f,
 };
 
 @vertex fn vs(
@@ -100,13 +99,13 @@ struct VertexOutput {
 
     vo.world_pos = (mModel * vec4f(pos, 1.0)).xyz;
     vo.pos = mProj * mView * vec4f(vo.world_pos, 1.0);
-    vo.eye_off = eye - vo.world_pos;
     vo.uv = uv;
     return vo;
 }
 
 const PI = acos(-1);
 const TAU = 2 * PI;
+const SHININESS: f32 = 10.0;
 
 @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
     let earth_uv = vo.uv;
@@ -145,7 +144,7 @@ const TAU = 2 * PI;
 
     // now we map the sampled normal to the -1 to 1 range.
     var samp_norm = textureSample(normalmap, samp, earth_uv).rgb * 2.0 - 1.0;
-    samp_norm.y = -samp_norm.y; // if normal map uses direct X convension
+    samp_norm.y = -samp_norm.y; // if normal map uses direct X convension (this one does)
     // the -1.0 is interpreted as vec3f(-1.0, -1.0, -1.0)
 
     // we sample the texture even if we won't need it (because it's in shadow).
@@ -160,9 +159,16 @@ const TAU = 2 * PI;
     // see here: https://learnopengl.com/Advanced-Lighting/Normal-Mapping 
     // for another explanation of the transformation we did.
 
+    let diff_amp = 5.0;
+    let diffuse = diff_amp * max(dot(light_dir, light_norm), 0.0);
 
-    let diffuse = max(dot(light_dir * 10.0, light_norm), 0.0);
-    let light_color = vec4f(ambient + diffuse, 1.0);
+    let spec_amp = 10.0;
+    let eye_dir = normalize(eye - vo.world_pos);
+    let r = reflect(-light_dir, light_norm);
+    let spec_sample = textureSample(specmap, samp, earth_uv).r;
+    let specular = spec_amp * spec_sample * pow(max(dot(r, eye_dir), 0.0), SHININESS);    
+
+    let light_color = vec4f(ambient + diffuse + specular, 1.0);
 
     return tex * light_color;
     //return vec4f(1, 0, 0, 1);
@@ -300,7 +306,7 @@ const CAM_PITCH_PER_SECOND = 0.25;
 const CAM_ROLL_PER_SECOND = 0.125;
 const CAM_YAW_PER_SECOND = 0.33;
 // units per second
-const CAM_MOVE_SPEED = 10;
+const CAM_MOVE_SPEED = 2;
 const SPHERE_ROT_SPEED = TAU / 16;
 
 // janky hack to avoid handling keyrepeat properly. I will fix this in 
@@ -357,6 +363,7 @@ export class Sample15 {
         public texEarth: GPUTexture,
         public texClouds: GPUTexture,
         public texNormalMap: GPUTexture,
+        public texSpecMap: GPUTexture,
     ) {
         this.format = (context.getCurrentTexture().format + '-srgb') as GPUTextureFormat;
         const shaderMod = device.createShaderModule({
@@ -479,7 +486,7 @@ export class Sample15 {
         const bgEyeLayoutDesc: GPUBindGroupLayoutDescriptor = {
             entries: [{
                 binding: 0,
-                visibility: V,
+                visibility: F,
                 buffer: {}
             }]
         }
@@ -631,7 +638,7 @@ export class Sample15 {
                 },
                 {
                     binding: 4,
-                    resource: this.texChecker // for now
+                    resource: this.texSpecMap
                 }
             ]
         });
@@ -809,6 +816,9 @@ export class Sample15 {
         mat4.rotateY(this.mCam, this.mCam, this.camYaw * TAU);
         mat4.rotateX(this.mCam, this.mCam, this.camPitch * TAU);
         mat4.rotateZ(this.mCam, this.mCam, this.camRoll * TAU);
+
+        let eye: vec3 = [this.mCam[12], this.mCam[13], this.mCam[14]]; 
+        this.device.queue.writeBuffer(this.bufEye, 0, new Float32Array(eye));
 
         mat4.invert(this.mView, this.mCam);
 
