@@ -109,7 +109,7 @@ const TAU = 2 * PI;
 @fragment fn fs(vo: VertexOutput) -> @location(0) vec4f {
     let earth_uv = vo.uv;
 
-    // got this idea from Claude, so citing and explaining it here:
+    // got the ideas for this fragment shader from Claude, so citing and explaining it here:
     // the basic gist is to compute the model coordinate angle using the uv-sphere's
     // UV values (UV * tau). then compute the rotation using atan2.
     // the midway point between is half-rotated: use this for the cloud sample
@@ -126,7 +126,40 @@ const TAU = 2 * PI;
         textureSample(basetex, samp, earth_uv) * 0.5 +
         textureSample(clouds, samp, cloud_uv) * 0.5;
 
-    let diffuse = max(dot(light_dir, norm), 0.0);
+    // now we do normal mapping.
+    // normal mapped images are usually stored in tangent space, meaning that 
+    // the x and y axes are considered touching ("tangere", where the word tangent
+    // comes from) the underlying model at the sample point. The Z axis is pointing
+    // away from the model. The normalmap will therefore be (0, 0, 1) if the normal
+    // is pointing perfectly *outward* from the mesh.
+    // x and y are the tangent and bitangent respectively
+    let up = vec3f(0.0, 1.0, 0.0);
+    let norm_tan = normalize(cross(up, norm)); // by right hand rule: points right
+    let norm_bit = cross(norm, norm_tan); // by same: points up
+
+    // this matrix has our 3 axes as its basis vectors. it will take a tangent space-
+    // encoded vector and move it into the proper normal space.
+    let tbn = mat3x3f(norm_tan, norm_bit, norm); // tbn stands for "tangent bitangent normal"
+
+    // now we map the sampled normal to the -1 to 1 range.
+    var samp_norm = textureSample(normalmap, samp, earth_uv).rgb * 2.0 - 1.0;
+    samp_norm.y = -samp_norm.y; // if normal map uses direct X convension
+    // the -1.0 is interpreted as vec3f(-1.0, -1.0, -1.0)
+
+    // we sample the texture even if we won't need it (because it's in shadow).
+    // we're required to do this: textureSample is subject to "uniform control flow"
+    // requirements, which we'll talk about in class. Suffice to say: if you call
+    // textureSample in one branch, you have to call it the same way in all branches.
+    
+    
+    // finally, this is the transformed normal
+    let light_norm = normalize(tbn * samp_norm);
+
+    // see here: https://learnopengl.com/Advanced-Lighting/Normal-Mapping 
+    // for another explanation of the transformation we did.
+
+
+    let diffuse = max(dot(light_dir * 10.0, light_norm), 0.0);
     let light_color = vec4f(ambient + diffuse, 1.0);
 
     return tex * light_color;
@@ -245,6 +278,7 @@ export class Sample15 {
     texCheckerMip;
     texEarth;
     texClouds;
+    texNormalMap;
     mFloorModel;
     mView;
     mProj;
@@ -276,13 +310,14 @@ export class Sample15 {
     bgEye;
     mipMap = false;
     format;
-    constructor(device, context, texChecker, texCheckerMip, texEarth, texClouds) {
+    constructor(device, context, texChecker, texCheckerMip, texEarth, texClouds, texNormalMap) {
         this.device = device;
         this.context = context;
         this.texChecker = texChecker;
         this.texCheckerMip = texCheckerMip;
         this.texEarth = texEarth;
         this.texClouds = texClouds;
+        this.texNormalMap = texNormalMap;
         this.format = (context.getCurrentTexture().format + '-srgb');
         const shaderMod = device.createShaderModule({
             code: floorShaderCode,
@@ -314,7 +349,7 @@ export class Sample15 {
             label: "depth texture",
         });
         this.mProj = mat4.create();
-        mat4.perspectiveZO(this.mProj, TAU / 8, context.canvas.width / context.canvas.height, 1, 128);
+        mat4.perspectiveZO(this.mProj, TAU / 8, context.canvas.width / context.canvas.height, 0.125, 128);
         this.mFloorModel = mat4.create();
         this.mView = mat4.create();
         const V = GPUShaderStage.VERTEX;
@@ -521,11 +556,11 @@ export class Sample15 {
                 },
                 {
                     binding: 3,
-                    resource: this.texChecker // for now
+                    resource: this.texNormalMap
                 },
                 {
                     binding: 4,
-                    resource: this.texChecker
+                    resource: this.texChecker // for now
                 }
             ]
         });
