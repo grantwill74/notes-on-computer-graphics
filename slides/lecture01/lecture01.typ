@@ -130,7 +130,7 @@ Of course, I need to manage your expectations...
       caption: [Reality],
       numbering: none,
     )
-    #place(bottom + right, dx: -15%, dy: -2%, game-name([Dr. Grant's Cow simulator 2077], text-color: black))
+    #place(bottom + right, dx: -15%, dy: -2%, game-name([Cow simulator 2077], text-color: black))
   ]
 )
 
