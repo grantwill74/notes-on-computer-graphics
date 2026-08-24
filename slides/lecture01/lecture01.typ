@@ -4,7 +4,7 @@
 #import themes.simple: *
 #import "@preview/shadowed:0.3.0": shadow
 #import "../util.typ": *
-
+ 
 #show link: set text(blue)
 
 #show: slide-theme
