@@ -48,3 +48,168 @@ Cube-maps basically remove the need to duplicate vertices of cubes so the top ca
 But they can also unlock two very cool techniques:
 + Sky boxes. Very important to 3D games in particular.
 + Environment maps: cool reflections which are cheap to compute.
+
+== This time
+
+So what's up with the title of this lecture, _Advanced Texturing_? Those cube maps seemed pretty advanced to me!
+
+Well, there have been a lot of important aspects of tetures we've been ignoring so far namely:
+- How they even work. Like, how does the GPU does sampling?
+- And how does that sampling work with perspective?
+- And what happens if the texture is too far or too close?
+- And what happens if the texture is at an angle?
+
+It might not have occurred to you that these would be problems, but...
+
+== How do textures even work?
+
+Let's start by reminding ourselves how textures work.
+
+For now, we're going to restrict our discussion to 2D flat textures.
+
+2D (non-cube) textures are sampled with 2-D coordinates in UV space.
+
+That means, `0, 0` is the top left corner of the texture, and `1, 1` is the bottom right corner.
+
+Let's make a really simple texture so we can plot the UVs...
+
+== A very simple tile texture
+
+
+#let tiles = canvas(length: 9cm, {
+  import draw: *;
+
+  set-viewport((0, 0), (1, -1))
+
+  let rows = 4;
+  let cols = 4;
+  let tile_w = 1 / rows;
+  let tile_h = 1 / cols;
+
+  for row in range(rows) {
+    for col in range(cols) {
+      let u = col * tile_w;
+      let v = row * tile_h;
+      let quad1 = u < 0.5 and v < 0.5;
+      let quad4 = u >= 0.5 and v >= 0.5;
+      let color = if quad1 or quad4 { white } else { black }
+
+      rect((u, v), (u + tile_w, v + tile_h), fill: color)
+      circle((u + tile_w / 2, v + tile_h / 2), fill: red, radius: 0.01)
+    }
+  }
+
+  grid((0, 0), (1, 1), stroke: blue, step: (tile_w, tile_h))
+  content((-.01, 0), anchor: "east", [(0, 0)])
+  content((1.01, 0), anchor: "west", [(1, 0)])
+  content((-.01, 1), anchor: "east", [(0, 1)])
+  content((1.01, 1), anchor: "west", [(1, 1)])
+  circle((0.5, 0.5), radius: 0.02, fill: blue)
+  content((.51, .55), anchor: "west", text(fill: blue)[(0.5, 0.5)])
+  content((0.15, 0.14), anchor: "west", text(fill: red, size: 13pt)[(.125, \ .125)])
+  content((0.4, 0.14), anchor: "west", text(fill: red, size: 13pt)[(.375, \ .125)])
+  circle((0.25, 0.25), radius: 0.01, fill: blue)
+  content((.26, .28), anchor: "west", text(fill: blue, size: 13pt)[.25, .25])
+  
+})
+
+#figure(
+  tiles,
+  alt: "a 4-by-4 grid showing a tile texture. the top left and bottom 4 right tiles are black. The others are white. The center of each tile is represented by a dot. The first tile's center is labeled as (.125,.125), and each tile right or down adds .25 to the appropriate dimension.",
+  numbering: none,
+  caption: [A 4-by-4 texel texture. Notice that the centers of the texels are offset by half a texel in UV space.]
+)
+
+== Mapping that texture
+
+We've already seen how to map textures that aren't distorted. E.g.,:
+
+#let drawTilesMapped = {
+  import draw: *;
+
+  let rows = 3;
+  let cols = 3;
+  let tile_w = 1 / rows;
+  let tile_h = 1 / cols;
+
+  for row in range(rows) {
+    for col in range(cols) {
+      let u = col * tile_w;
+      let v = row * tile_h;
+      let quad1 = u < 0.5 and v < 0.5;
+      let quad4 = u >= 0.5 and v >= 0.5;
+      let color = if quad1 or quad4 { white } else { black }
+
+      rect((u, v), (u + tile_w, v + tile_h), fill: color)
+    }
+  }
+
+  grid((0, 0, 0), (1, 1, 0), stroke: blue, step: (tile_w, tile_h))
+  content((-.01, 0), anchor: "east", [(0, 0)])
+  content((1.01, 0), anchor: "west", [(0.75, 0)])
+  content((-.01, 1), anchor: "east", [(0, .75)])
+  content((1.01, 1), anchor: "west", [(.75, .75)])
+
+}
+
+#let tilesMapped = canvas(length: 7cm, {
+  import draw: *;
+
+  set-viewport((0, 0), (1, -1))
+  drawTilesMapped
+})
+
+#figure(
+  tilesMapped,
+  alt: "The first 3 rows and columns of the previous 4-by-4 grid. From top-left clockwise, the UV coordinaes are (0, 0), (.75, 0), (0, .75), and (.75, .75).",
+  numbering: none,
+  caption: [This is what we get if we use different UV coordinates.]
+)
+
+== Rotating the texture 
+
+But what if we want to rotate the polygon it's mapped onto?
+
+#let tilesRotated = canvas(length: 7cm, {
+  import draw: *; 
+  set-viewport((0, 0, 0), (1, -1, 0))
+  perspective(drawTilesMapped, distance: 1)
+})
+
+#figure(
+  tilesRotated,
+  alt: "The previous texture rotated by about 45 degrees in the y axis and 30 degrees in the x axis."
+)
+
+
+== Rotating the texture (2)
+
+Remember that every pixel in that quad is going to have its fragment shader be executed.
+
+The fragment shader will call `textureSample(tex, samp, uv)`.
+
+`tex` and `samp` are constants. But `uv` is an attribute, which means that it is interpolated.
+
+There are actually 3 different ways that it can be interpolated:
+- `flat`: the values of the attribute for the first vertex are copied for all the fragments of that triangle.
+- `linear`: linear interpolation
+- `perspective` (default): perspective-correct interpolation
+
+== Linear interpolation:
+
+Flat interpolation is fairly boring, but linear interpolation isn't. It's *almost* what we want, but there's a reason it's not the default.
+
+Suppose we want to draw this texture to a quad:
+
+#let xTexture = {
+  import draw: *;
+
+
+}
+/*
+#figure(
+  canvas({
+
+  })
+)
+*/
