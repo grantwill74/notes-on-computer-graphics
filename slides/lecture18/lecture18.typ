@@ -199,17 +199,130 @@ There are actually 3 different ways that it can be interpolated:
 
 Flat interpolation is fairly boring, but linear interpolation isn't. It's *almost* what we want, but there's a reason it's not the default.
 
-Suppose we want to draw this texture to a quad:
+Suppose we want to draw this X-texture to a quad:
 
-#let xTexture = {
+
+#let tl1 = (-1, 1, 0);
+#let tr1 = (1, 1, 0);
+#let br = (1, -1, 0);
+#let bl = (-1, -1, 0);
+#let c1 = (0, 0, 0);
+
+#let xTexture(tl, tr, br, bl, c) = {
   import draw: *;
 
-
+  set-viewport((0, 0), (1, 1))
+  
+  line(tl, tr, br, bl, close: true)
+  line(bl, tr, stroke: (thickness: 0.04))
+  line(tl, br, stroke: (thickness: 0.04))
+  line(bl, tr, stroke: (paint: red, thickness: 0.02))
 }
-/*
-#figure(
-  canvas({
 
-  })
+
+#figure(
+  canvas(length: 3cm, {
+    xTexture(tl1, tr1, br, bl, c1)
+  }),
+  alt: "a texture of a cross",
+  caption: [The red line is the edge between 2 triangles.],
+  numbering: none,
 )
-*/
+
+== Linear interpolation (2):
+
+Now, suppose we want to rotate it a bit:
+
+#let d = 2
+#let tl2 = (tl1.at(0) / d, tl1.at(1) / d, 0)
+#let tr2 = (tr1.at(0) / d, tr1.at(1) / d, 0)
+#let c2 = (
+  ((bl.at(0) + br.at(0)) / 2) - .15,
+  -.2
+)
+
+#let xTextureLinear(tl, tr, br, bl, c) = {
+  import draw: *;
+
+  set-viewport((0, 0), (1, 1))
+  
+  line(tl, tr, br, bl, close: true)
+  line(bl, tr, stroke: (thickness: 0.04))
+  line(br, c, stroke: (thickness: 0.04))
+  line(tl, c, stroke: (thickness: 0.04))
+
+  line(bl, tr, stroke: (paint: red, thickness: 0.02))
+}
+
+#figure(
+  canvas(length: 3cm, {
+    xTextureLinear(tl2, tr2, br, bl, c2)
+  }),
+  alt: "the texture layed down flat. The 'bars' of the X are no longer straight. One is V-shaped.",
+  caption: [Notice that the X is now warped.],
+  numbering: none,
+)
+
+For each pixel, we sample a UV coordinate by linearly interpolating between the XYZ coordiantes of each vertex.
+
+Imagine the top edge of the quad is 2 distance units away...
+
+== Linear interpolation (3):
+
+For each pixel, we perform the barycentric calculation we talked about waaay earlier in the semester.
+
+We determine how close we are to the three points of its triangle, and we average the UV coordinates for that fragment.
+
+Notice that this _does not give a correct result_ with textures.
+
+[Why?]
+
+== Linear interpolation (4)
+
+Fundamentally the issue is that correcting for distance puts us in a reciprocal coordinate space.
+
+Remember the w-divide: we put the distance from the camera of each point in the w coordinate.
+
+This makes it so that _the center of the line between two points is not actually where the midpoint would be_.
+
+That's why the perpendicular line stops being perpendicular. The further away we get from the edges of the triangle, the more difference there is between the perspective-correct point and the linearly interpolated texture sample.
+
+== Linear interpolation (5)
+
+Of course, an X shape is a worst-case scenario for linear interpolation, and it's actually cheaper than the perspective correct option.
+
+In fact, this was the way some early realtime 3D hardware handled textures. It was famously how the Playstation interpolated textures.
+
+Linear interpolation is also called "affine texture mapping".
+
+It led to the famous "PS1 texture warping" ...
+
+== Linear interpolation example
+
+#figure(
+  image("screens/affine_textures.jpg", alt:"an image of the game Metal Gear Solid on the Playstation in which this kind of affine texture warping is visible.", width: 70%),
+  caption: [Title image from #link("https://danielilett.com/2021-11-06-tut5-21-ps1-affine-textures/", "a blog article") about recreating the PS1 warping effect using OpenGL],
+  numbering: none,
+)
+
+== Linear interpolation fixes
+
+It's possible to mitigate the issue with linear interpolation. Notice that only the line that was _not on_ the triangle edge was wrong. If you split quads into smaller quads, more of the texture coordinates are close to an edge, making the problem less noticeable.
+
+In fact, this is exactly what Sony recommended developers do, according to #link("https://pikuma.com/blog/how-to-make-ps1-graphics", "this excellent article on making PS1-style graphics").
+
+However, a better solution is to properly account for perspective when _sampling_ the texture.
+
+== Fun fact
+
+The Nintendo 64 did perspective-correct rendering, allowing level designers to use giant polygons without subdividing them if they wanted.
+
+This would typically result in blurry textures, but they would be perspective-correct blurry textures.
+
+This is one reason why textures often look completely broken with N64 games are ported to the PS1 without adjusting the meshes.
+
+#focus-slide("Questions?")
+
+== Fixing It
+
+Okay, I have a question.
