@@ -43,9 +43,9 @@ We saw that there exists a special kind of texture that is designed to be sample
 
 It's called a *cube-map*, and we learned how to load and to use them.
 
-Cube-maps basically remove the need to duplicate vertices of cubes so the top can have different UV coordinates from the sides.
+Cube-maps allow textures to be sampled with a _direction_ instead of a point. 
 
-But they can also unlock two very cool techniques:
+They can also unlock two very cool techniques:
 + Sky boxes. Very important to 3D games in particular.
 + Environment maps: cool reflections which are cheap to compute.
 
@@ -237,7 +237,7 @@ Now, suppose we want to rotate it a bit:
 #let tl2 = (tl1.at(0) / d, tl1.at(1) / d, 0)
 #let tr2 = (tr1.at(0) / d, tr1.at(1) / d, 0)
 #let c2 = (
-  ((bl.at(0) + br.at(0)) / 2) - .15,
+  ((bl.at(0) + br.at(0)) / 2) - .2,
   -.2
 )
 
@@ -271,9 +271,9 @@ Imagine the top edge of the quad is 2 distance units away...
 
 For each pixel, we perform the barycentric calculation we talked about waaay earlier in the semester.
 
-We determine how close we are to the three points of its triangle, and we average the UV coordinates for that fragment.
+Suppose we determine how close we are to the three points of its triangle, and we compute the weighted mean of the UV coordinates for that fragment.
 
-Notice that this _does not give a correct result_ with textures.
+This _does not give a correct result_ with textures (or colors, or anything on the surface of the triangle and not at the points).
 
 [Why?]
 
@@ -325,4 +325,119 @@ This is one reason why textures often look completely broken with N64 games are 
 
 == Fixing It
 
-Okay, I have a question.
+Okay, I have a question: how do we fix this? If we can't linearly interpolate over the triangle, then what does the GPU actually do, and why have we never seen that PS1 texture warping (unless some of you deliberately enabled `'linear'` mode to experiment)?
+
+The GPU does *perspective-correct* interpolation, but how?
+
+Well, it has to do with that tricky w-divide again...
+
+== Perspective-correct interpolation
+
+The fundamental problem with linear interpolation is that the "depth" dimension does not scale linearly with respect to the X and Y dimensions.
+
+Remember the relationship: `x' = x / d`, `y' = y / d`.
+
+That's a reciprocal function, not a linear one.
+
+When the pixel in question is on a vertex, it ends up getting the correct value (because there is no interpolation), but otherwise, it's wrong.
+
+Therefore, we need a different coordinate space in order to interpolate.
+
+== Perspective-correct interpolation (2)
+
+Let's say our goal is to compute the correct UV values for each pixel.
+
+Instead of just interpolating U and V directly, we first interpolate `u / w` and `v / w`...
+
+So suppose we have two vertices in which the close one is `w = 1`, and the far one is `w = 10`. And suppose the `u` coordinate of the close one is `u = 0.5`, and the `u` coordinate of the far one is `u = 0.75`. 
+
+Instead of linearly interpolating between `0.5` and `0.75` as we go along the triangle, we linearly interpolate between `0.5 / 1` and `0.75 / 10`...
+
+== Perspective-correct interpolation (3)
+
+Of course, `0.75 / 10 == 0.075`, which is not the correct U coordinate, so we also have to undo this transformation.
+
+We do that by dividing by `w` each time we need to sample the interpolated attribute (i.e., at each fragment).
+
+So let's say we're halfway between the first vertex and the second one:
+- Linearly interpolate between `0.5` and `0.075`: `50% * 0.5 + 50% * 0.075 = 0.2875`
+- Linearly interpolate between `1 / 1` and `1 / 10` (i.e., the reciprocal of w): `50% * 1 + 50% * 1/10 == .55`
+- [Then what?]
+
+== Perspective-correct interpolation (4)
+
+Once we have both the interpolated `u/w` and `1/w` values, we divide `u/w` by the interpolated `1/w`.
+
+In our case: `0.2875 / .55 =~ .523`
+
+Note: that _is_ between `0.5` and `0.75`, but it's much closer to `0.5`. 
+
+Let's gain more confidence that it will interpolate by picking a value closer to the distant vertex: `w = 9.9`:
+- `1% * 0.5 + 99% * 0.075 == 0.07925 `
+- `1% * 1 + 99% * 1/10 == 0.109`
+- `0.07925 / 0.109 =~ 0.727`  . Very close!
+
+== What it does
+
+Fundamentally, when we do this kind of interpolation, we place the "center" of the texture appropriately farther away than just the "center" of the x.
+
+#figure(
+  canvas(length: 7cm, {
+    xTexture((-0.4, 0.4), (0.4, 0.4), (1, 0), (-1, 0), (0.5, 0.5))
+  }),
+  alt: "the x texture from earlier, but perspective-correct. the middle of the x is closer to the distant edge of the quad.",
+  caption: [Notice how the "center" of the X is proportionately closer to the top edge. That means we interpolate the closer part of the texture much more slowly (causing it to cover more area). This is what we observed with the `w = 5` being much closer to the close value.],
+  numbering: none
+)
+
+== Summary of perspective correct sampling:
+
+So, when you use the default `perspective` mode for attribute interpolation in the fragment shader, here is what you're actually doing:
+- After the vertex shader produces the `position` value, we use the `w` coordinate to divide _all_ the attributes we selected `perspective` for (potentially including UV, normal, and color)
+- For each attribute `a`, interpolate `a / w` instead of `a` by itself.
+- In addition, interpolate `1 / w`, which has the same nonlinear relationship with the screen-space fragments.
+- Finally, divide `a / w` by `1 / w` to get the final attribute.
+- If this is a UV coordinate, we can use this new interpolated value to lookup the correct sample of the texture.
+
+#focus-slide("Questions?")
+
+== What even _is_ a texture?
+
+#stack(dir: ltr, spacing: 10%, 
+box(width: 50%)[If the transformation stuff wasn't weird enough, this is really going to be uncomfortable.
+
+Make sure you're sitting down, this is a lot to take in...
+
+What if I told you... a 2D texture is not actually just a 2D image...
+],
+box(width: 40%)[
+  #image("screens/morpheus.webp", alt: "morpheus from the matrix")
+]
+)
+
+== What even _is_ a texture? (2)
+
+It's usually a _pyramid_ of 2D images, each one a quarter the size (i.e., half the side lengths) of the one before:
+
+#figure(
+  canvas(length: 6cm, {
+    import draw: *;
+    set-viewport((0, 0), (1, 1))
+    perspective(distance: 0.5,
+    {
+      rect((0, 0, 0), (1, 1, 0))
+      content((0.3, 0.4, -0.3), [layer 0])
+      rect((0.25, 0.25, 0.5), (0.75, 0.75, 0.5))
+      content((0.35, 0.4, 0.5), [1])
+      rect((0.375, 0.375, 1), (0.625, 0.625, 1))
+      content((0.5, 0.5, 1), [2])
+    })
+  }),
+  alt: "a texture pyramid with 3 layers. Each layer has half the side length of the layer before.",
+  numbering: none,
+  caption: [This pattern usually continues until the last layer has a single pixel.]
+)
+
+== What even _is_ a texture? (3)
+
+The base layer of the texture, layer 0, is the original image. Typically an uncompressed version of whatever was stored in the texture file.
