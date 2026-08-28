@@ -110,7 +110,6 @@ Let's make a really simple texture so we can plot the UVs...
   content((0.4, 0.14), anchor: "west", text(fill: red, size: 13pt)[(.375, \ .125)])
   circle((0.25, 0.25), radius: 0.01, fill: blue)
   content((.26, .28), anchor: "west", text(fill: blue, size: 13pt)[.25, .25])
-  
 })
 
 #figure(
@@ -119,6 +118,116 @@ Let's make a really simple texture so we can plot the UVs...
   numbering: none,
   caption: [A 4-by-4 texel texture. Notice that the centers of the texels are offset by half a texel in UV space.]
 )
+
+== Bilinear filtering
+
+We've seen that we sample textures using fractions. What happens when one of them doesn't correspond to the center of the pixel?
+
+For example, what if we sample (0.5, 0.5) in the previous image?
+
+We can see that it's in the center, which means it's actually between 4 texels. But two of those texels are black, and two are white. What is the color that we get back?
+
+Answer: it depends on our sampling mode.
+
+== Bilinear filtering (2)
+
+In `'nearest'` mode, we perform nearest neighbor sampling. If we were closer to a black texel we would get black, and if we were closer to a white texel we would get white.
+
+In this case, we are equally close to either color, so it's up to the implementation which one we get.
+
+But in `'linear'` mode, we perform linear filtering in two dimensions. This is called *bilinear filtering*...
+
+== Bilinear filtering (3)
+
+#figure(
+  stack(dir: ltr, spacing: 4%,
+    box(width: 48%, image("screens/tiny_checker.png", scaling: "pixelated", height: 70%, alt: "a 2-by-2 tile board with perfect fidelity")),
+    box(width: 48%, image("screens/tiny_checker.png", height: 70%, alt: "the same image, but blurry due to being bilinear filtered to an extreme degree")),
+  ) ,
+  numbering: none,
+  caption: [Left: a 2-by-2 image with perfect fidelity, blown up. \ Right: a 2-by-2 image smoothly filtered bilinearly]
+)
+
+== But that looks horrible!
+
+In this case, the texture happens to be perfect for nearest filtering, which is why it's an option.
+
+However, keep in mind that most textures are meant to be in the background, and having sharply defined pixels makes them stand out...
+
+== It looks better in practice
+
+Sometimes we like the light blurring, especially for background elements and natural textures. Example: #link("https://learnopengl.com/Getting-started/Textures", "this image") from #link("https://learnopengl.com", "learnopengl.com").
+
+Also keep in mind that stretching a 2-by-2 pixel texture over half the screen is a pretty extreme case. It's usually not as noticeable.
+
+So how does the math behind this work?
+
+== Bilinear filtering (4)
+
+When we sample a texture, we also look up the values of the 4 closest texels that surround the point we sampled.
+
+We compute two mean U values: one between the top two points and one between the bottom two points.
+
+Those means are weighted by how close we are to each point. If we are 30% from the right side, we compute `(30% * left_side + 70% * right_side)`. We do this _twice_, once for the two texels above our sample, and once for the two texels below our sample.
+
+== Bilinear filtering (5)
+
+Then, we average those two averages based on how close the V coordinate is from them.
+
+So if we're 10% away from the top two texels in the V dimension, we would compute `(100% - 10%) * top + 10% * bottom`.
+
+This final average would be our result.
+
+Here's an illustration...
+
+== Bilinear filtering in grayscale
+
+#figure(
+  image("screens/Bilin3.png", height: 70%, alt: "illustration of bilinear filtering. The 4 nearest texels are, clockwise from top-left, 91, 210, 95, and 162."),
+  numbering: none,
+  caption: text(18pt)[
+    Suppose we sample `(14.5, 20.2)`. First, this is halfway between `91` and `210` on top, so the top average is `150.5`. Likewise, the bottom average is exactly between `162` and `95`, resulting in `128.5`. We are 20% away from the top sample, so we get `150.5 * 80% + 128.5 * 20% = 146.1`
+    \
+    #link("https://en.wikipedia.org/wiki/File:Bilin3.png", "Image") by Jayson Kostelyk, Vizerai; Public Domain
+  ]
+)
+
+== Bilinear filtering in color
+
+To do this in RGB space, we just apply the same technique to the R, G, and B channels separately.
+
+Either way, we get the ability to smoothly sample the texture.
+
+In the early days, the Nintendo 64 supported this kind of texture filtering, while the Playstation didn't. It led to the distinct difference between the two consoles' visual appearance...
+
+== PS1 vs. N64 comparison
+
+#figure(
+  [
+  #image("screens/n64_v_ps1.jpg", height: 75%, alt: "side by side comparison showing the effects of the two approaches to texture mapping")
+  #place(bottom + left, game-name("Mega Man Legends"))
+  #place(bottom + right, game-name("Mega Man 64"))
+  ],
+  numbering: none,
+  caption: text(18pt)[Title card for #link("https://www.youtube.com/watch?v=39jnFUNiCME", "this comparison video") by #link("https://www.youtube.com/@vcdecide", "VCDECIDE") between a Playstation and Nintendo 64 version of a game, showing how texture filtering choice can significantly affect the overall image.]
+)
+
+== PS1 vs. N64 comparison
+
+Okay, that one was pretty bad for the N64. Here's a more favorable one:
+
+#figure(
+  [
+  #image("screens/n64_v_ps1_2.png", height: 70%, alt: "another side by side comparison showing the effects of the two approaches to texture mapping")
+  #place(bottom + left, game-name("Quake II (N64)"))
+  #place(bottom + right, game-name("Quake II (PS1)"))
+  ],
+  numbering: none,
+  caption: text(18pt)[Screenshot from #link("https://www.youtube.com/watch?v=UtVC0xJm_3o", "this comparison video") by #link("https://www.youtube.com/@GroupMPro", "Group M Pro"), which also shows how colored lighting has a major effect on graphics.]
+)
+
+
+#focus-slide("Questions?")
 
 == Mapping that texture
 
@@ -440,4 +549,29 @@ It's usually a _pyramid_ of 2D images, each one a quarter the size (i.e., half t
 
 == What even _is_ a texture? (3)
 
-The base layer of the texture, layer 0, is the original image. Typically an uncompressed version of whatever was stored in the texture file.
+The base layer of the texture, layer 0, is the original image. Typically an uncompressed version of whatever was stored in the texture file. Pretend it's a 1024-by-1024 texture.
+
+Layer 1 is a 512-by-512 version of the same texture. It's just lower resolution. Each pixel is the average between 4 pixels in the larger layer.
+
+Layer 2 is 256-by-256.
+
+And so on...
+
+[For an `n-by-n` texture, how do we calculate how many layers we need to get to 1 pixel?]
+
+== But _why_?
+
+Why on earth would we do that?
+
+Well, we didn't always. Before the Nintendo 64, a lot of consumer 3D hardware did not work this way.
+
+Let's look at why that was a problem...
+
+== A simple scene
+
+Let's look at `sample15` together. Ignore the sphere for now.
+
+Instead, focus on the horrible shimmering.
+
+This is called *texture aliasing*.
+
