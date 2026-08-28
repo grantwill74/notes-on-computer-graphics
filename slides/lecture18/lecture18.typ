@@ -345,10 +345,7 @@ Now, suppose we want to rotate it a bit:
 #let d = 2
 #let tl2 = (tl1.at(0) / d, tl1.at(1) / d, 0)
 #let tr2 = (tr1.at(0) / d, tr1.at(1) / d, 0)
-#let c2 = (
-  ((bl.at(0) + br.at(0)) / 2) - .2,
-  -.2
-)
+#let c2 = (-0.25, -.25)
 
 #let xTextureLinear(tl, tr, br, bl, c) = {
   import draw: *;
@@ -356,7 +353,8 @@ Now, suppose we want to rotate it a bit:
   set-viewport((0, 0), (1, 1))
   
   line(tl, tr, br, bl, close: true)
-  line(bl, tr, stroke: (thickness: 0.04))
+  line(bl, c, stroke: (thickness: 0.04))
+  line(c, tr, stroke: (thickness: 0.04))
   line(br, c, stroke: (thickness: 0.04))
   line(tl, c, stroke: (thickness: 0.04))
 
@@ -368,15 +366,17 @@ Now, suppose we want to rotate it a bit:
     xTextureLinear(tl2, tr2, br, bl, c2)
   }),
   alt: "the texture layed down flat. The 'bars' of the X are no longer straight. One is V-shaped.",
-  caption: [Notice that the X is now warped.],
+  caption: text(18pt)[Notice that the X is now warped.],
   numbering: none,
 )
 
 For each pixel, we sample a UV coordinate by linearly interpolating between the XYZ coordiantes of each vertex.
 
-Imagine the top edge of the quad is 2 distance units away...
+Notice that the off-edge lines still touch at the "center" of the edge, but the two triangles don't agree about how they got there.
 
 == Linear interpolation (3):
+
+Imagine the top edge of the quad is 2 distance units away...
 
 For each pixel, we perform the barycentric calculation we talked about waaay earlier in the semester.
 
@@ -631,7 +631,7 @@ The same approach, a 2-way average, ends up being useful, but we average the tex
 
 == Results of using MIP mapping
 
-Anyway, we no longer have the shimmering and moiré pattern...
+Anyway, we no longer have the shimmering and extreme waviness...
 
 #figure(
   image("screens/checkers_mip_bilinear.png", alt: "screenshot of the tiled floor but with basic bilinear filtering and mip mapping smoothing out the weird patterns.", height: 75%)
@@ -639,4 +639,268 @@ Anyway, we no longer have the shimmering and moiré pattern...
 
 == Results of using MIP mapping
 
-Something still isn't right, however...
+Unfortunately, we now have two, different negative things:
++ It's basically a gray blob towards the horizon.
++ You can see the precise moment it becomes a gray blob.
+
+In fact, there are lots of "boundary lines" visible in the checkered floor.
+
+Those are the different *MIP levels*. We can actually see the point where we cross over from one to the other.
+
+== Trilinear filtering
+
+You might think this is something we could subdivide our way out of, like, just make more mip levels?
+
+In theory we could, but there's a way better solution that doesn't require more texture memory. It's called *trilinear filtering*.
+
+Recall that bilinear filtering meant averaging the four texels around a point to smoothly interpolate its color.
+
+Trilinear filtering is where we also do that _between the two closest MIP levels_.
+
+== Trilinear filtering (2)
+
+So now we're doing this:
+#text(22pt)[
+- Sample the two closest MIP levels (so if our "step" is 2.5 texels per pixel, that puts us between MIP level 1 and 2 (and closer to 1)
+- Sample _eight_ texels instead of four. The four we would have sampled from MIP level 1, and the corresponding 4 in MIP level 2.
+- Perform bilinear filtering for both of these MIP levels individually.
+- Compute the weighted mean, but with the weight being the fractional part of the base-2 logarithm of the step: `lg(2.5) =~ 1.32`#footnote[in computer science we often like to use `lg` to mean base-2 logarithm because we use it more than base-10 or e], so 1 - 32% = 68% is the weight we use for the MIP level 1 bilinear sample, and 32% is the weight we use for MIP level 2.
+]
+
+== Basic mip level selection
+
+The reason we use the fractional part of the base-2 logarithm is that the logarithm tells us which MIP level to use.
+
+For example, if we have a step of 1 texel per fragment, great, that's what the texture was designed for. Use MIP level `lg(1) = 0`.
+
+If we have a step of 2 texels per pixel, use MIP level `lg(2) = 1`.
+
+If we have a step of 4 texels per pixel, use MIP level `lg(4) = 2`.
+
+But what if we have 2.5? Then we weighted mean the mip levels, not the number of texels. We want to select an imaginary MIP level between 1 and 2 based on the step size we're given.
+
+== Basic mip level selection
+
+So if our texels per fragment is 2.5, we want level `lg(2.5) =~ 1.32 `.
+
+That's what trilinear filtering amounts to: it allows us to select "fractional" MIP levels.
+
+As a result, we no longer have those horizontal bars as we sample textures that recede into the distance.
+
+Let's see how it looks...
+
+== Trilinearly filtered sample
+
+#figure(
+  image("screens/checkers_mip.png", height: 75%, alt: "the checkerboard-tiled floor, extending to the horizon."),
+  numbering: none,
+  caption: [Ah, no obvious horizontal lines showing where one MIP-level begins and the other ends!]
+)
+
+#focus-slide("questions?")
+
+
+== Generating MIP levels
+
+Okay, but how do we do this for real?
+
+First of all, we create textures the same way as before:
+
+Only this time, when creating the texture, we specify more MIP levels:
+
+```
+const tex = device.createTexture({
+    format: 'rgba8unorm-srgb',
+    size: [dim, dim, 1],
+    usage: GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    mipLevelCount: nMipLevels, // use a positive integer here
+});
+```
+
+== Reminder about MIP mapping as a technique
+Remember that the issue that MIP mapping is supposed to solve is oversampling: we're using a large texture but sampling points very far apart on the texture, but close together on the screen.
+
+So once we start skipping texels, we want to create new, bigger texels that average groups of texels in the original image. This way, instead of randomly selecting a black or a white texel, we always select a gray one.
+
+The easiest way to do this is to make a new texture that is half as wide and half as tall. So every texel in the new, smaller texture averages together 4 texels in the original image.
+
+== How many MIP levels?
+
+Okay but we had to put an actual number on how many MIP levels we wanted as soon as we create the texture. How many do we use?
+
+Let's see if we can figure out the relationship for a 128-by-128 texture:
+#text(22pt)[
++ If we're stepping by 1 texel per fragment, we use the base texture.
++ At 2 texels per fragment, we use MIP level 1, which averages together every cluster of 4 texels. Therefore, it is 64-by-64
++ At 4 texels per fragment, we use MIP level 2 which is 32-by-32.
++ At 8 texels per fragment: MIP level 3, 16-by-16
++ At 16 texels per fragment: MIP level 4, 8-by-8
++ At 32: MIP level 5, 4-by-4
++ At 64: MIP level 6, 2-by-2
++ At 128: MIP level 7, 1-by-1
+]
+
+== How many MIP levels? (2)
+
+Once we hit a 1-by-1 texture, there's no point in adding more MIP levels because we always sample a constant color anyway. That's the point where our chess-board tile turns permanently gray.
+
+But what's the relationship? Every time we go up a MIP level, the dimensions of our texture half, so [how many MIP levels do we need?]
+
+== How many MIP levels? (3)
+
+Answer: it's logarithmic.
+
+The number of MIP levels is `lg(side_length) + 1`
+
+I'm assuming that the texture is square, so `side_length` is either width or height, and they're both the same.
+
+We almost always use square textures (it was required way back in the day), but we don't have to. If you use a non-square texture, just pick the larger dimension to determine how many mip-maps you need.#footnote[We also almost always use power-of-2 textures, but if you don't, just round the number of MIP levels down. (The last level will still be 1-by-1, no need for another "fractional" level after it).]
+
+== Generating MIP maps
+
+Okay, so we've determined _how many_ MIP levels we need. But, how do we actually create them. Do we call a `generateMipMaps` function or something?
+
+Sadly, that function used to exist (in OpenGL), but in WebGPU it no longer does. Maybe to keep the driver small or something.
+
+So now we have to make the MIP maps ourselves. This isn't hard, but it's pretty much always done the same way so it's surprising to me that they got rid of the convenient function. 
+
+It probably causes a lot of duplicated code.
+
+== Generating MIP maps (2)
+
+To generate MIP maps, we basically need to do this:
+- Start by loading the full-size texture as MIP level 0
+- Then, we chunk MIP level 0 into groups of 2-by-2 texels, and compute their average, to produce MIP level 1
+- Then we do the same thing to MIP level 1 to produce MIP level 2
+- etc.
+
+We could manually use for-loops to average the texels together. That works and you're allowed to do it. But this is a trivially parallelizable operation that is kind of perfect for the GPU to do.
+
+== Generating MIP maps (3)
+
+Here's the typical way to do it:
+- Create a sampler that uses bilinear filtering.
+- Create a shader that has pre-programmed XY and UV coordinates to draw a quad.
+- Texture the quad with the base MIP level.
+- Have the destination surface be the _next_ MIP level.
+- Draw the quad
+- Repeat, but the base MIP level will be the one you just rendered, and the destination surface will be the level after that.
+- Repeat until every MIP level is filled.
+
+== Why does this generate a MIP map?
+
+It seems like all we're doing is drawing a quad over and over again...
+
+The reason it works is that each time we draw a quad, it's smaller.
+
+We use a 64-by-64 texture to draw to the 32-by-32 MIP level.
+
+As a result, the center of the top left texel in the 32-by-32 texture is in between the top left 4 texels in the 64-by-64 texture. 
+
+Bilinear filtering averages them together. So the top left texel in the small level is the average of the top left four texels in the bigger level, and so on for each distinct chunk of 4 texels in the base image.
+
+== MIP generation shader
+
+See `sample15` for the following:
+- A shader to generate MIP levels (it's just drawing a textured quad with hardcoded XY and UV coordinates)
+- A function, `createMipmapPipeline`, that generates the pipeline that uses this shader. 
+- A function, `genMips`, which creates and executes the command encoder that actually binds each MIP level and draws the quads.
+
+== MIP generation shader (2)
+
+We select a specific MIP level by creating a texture view:
+
+```ts
+{binding: 0, resource: tex.createView({
+    baseMipLevel: layer - 1,
+    mipLevelCount: 1,
+})},
+```
+
+`mipLevelCount` means "only use 1 MIP level, don't try to go to a higher level when you see that we're drawing to a smaller quad".
+
+```ts
+view: tex.createView({
+    baseMipLevel: layer, // this is where we draw to
+    mipLevelCount: 1,
+})
+```
+
+== Overhead
+
+Those MIP levels are stored inside the texture, in the different layers of the "pyramid".
+
+This makes the texture bigger, but you probably don't want to skip on mipmapping to save texture memory. 
+
+Remember that each level is a quarter the size of the previous one. Total overhead will be below 50%.
+
+== Driver behavior
+
+Once there are more than 1 mipmap level, the driver will automatically use them.
+
+It will assume that level 1 is to be used when stepping 2 texels per fragment, level 2 is to be used when stepping 4 texels per fragment, etc.
+
+If there aren't enough levels, it will use the highest one. 
+
+So, to "turn off" MIP mapping, just use a texture with only level 0 (which is what we were doing so far). 
+
+MIP mapping is not all or nothing. You can freely mix MIPped textures and non-MIPped textures (as `sample15` does with the earth model).
+
+== Sampling
+
+We enable bilinear filtering like this when creating a sampler:
+```ts
+const sampler = device.createSampler({
+    magFilter: 'linear',
+    minFilter: 'linear',
+    mipmapFilter: 'nearest', // don't blend between levels
+})
+```
+
+`magFilter` is used when the texels per fragment is less than 1, `maxFilter` is used when it is greater than one. We typically use bilinear filtering for both to avoid pixellation.
+
+== Sampling (2)
+
+To enable trilinear filtering, we also want to use linear filtering between MIP levels:
+
+```ts
+magFilter: 'linear',
+minFilter: 'linear',
+mipmapFilter: 'linear', // blend between levels
+```
+
+That's it. Swapping out a sampler that has `linear` as the mipmap filter will eleminate the horizontal bands between MIP levels.
+
+#focus-slide("Questions?")
+
+== But I have glossed over something
+
+Remember how I've been talking about the "texels per fragment" rate?
+
+As in, once the texture is farther away, moving one fragment over causes a jump of 2 texels, or 3, or 4, etc.
+
+But there are two bits that I've glossed over:
++ How does the GPU know how many texels we're sampling per fragment? What if the shader is sampling random fragments? 
++ Why are we assuming the step rate is the same in both dimensions? What if texels per fragment is 1 in the X direction, but 10 in the Y direction (maybe the quad is rotated to be nearly horizontal)
+
+Let's start with 1
+
+== How does the GPU know the texel rate?
+
+
+
+== Summary so far
+
+We started with the observation that just sampling textures led to a really annoying shimmering that we wanted to get rid of.
+
+We solved this by storing "pre-averaged" versions of textures which allowed sampling to be more predictable. Instead of wildly different colors, we would sample a blended color.
+
+However, this led to obvious banding where we went from one texture to another 
+
+We solved this by averaging between the textures, the same way we average between texels 
+
+== I skipped over something important
+
+How does the video card know how quickly the texture sample is changing?
