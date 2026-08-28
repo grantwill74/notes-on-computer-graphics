@@ -41,11 +41,15 @@ export declare class Sample15 {
     bgSphereTexes: GPUBindGroup;
     bgEye: GPUBindGroup;
     mipMap: boolean;
+    trilinear: boolean;
+    maxAnisotropy: number;
     format: GPUTextureFormat;
     constructor(device: GPUDevice, context: GPUCanvasContext, texChecker: GPUTexture, texCheckerMip: GPUTexture, texEarth: GPUTexture, texClouds: GPUTexture, texNormalMap: GPUTexture, texSpecMap: GPUTexture);
     camAddAngles(yaw: number, pitch: number, roll: number): void;
     setMipMapping(on: boolean): void;
+    refreshMipBg(): void;
     setAniso(maxAnisotropy: number): void;
+    setTrilinear(trilinear: boolean): void;
     update(): void;
     forward(): vec3;
     up(): vec3;

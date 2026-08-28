@@ -575,3 +575,68 @@ Instead, focus on the horrible shimmering.
 
 This is called *texture aliasing*.
 
+#figure(
+  image("screens/checkers_no_mip.png", height: 50%, alt: "screenshot of a plane of checkered tiles, in which the distant ones have a distracting moiré pattern"
+  )
+)
+
+== What causes that?
+
+That looks nothing like a checkerboard in the distance, why?
+
+The issue is that when we get far enough away, and when the surface is parallel to the look direction, we end up sampling the texture _very far apart_.
+
+That is, from one pixel to another, in the vertical direction, we end up sampling a pixel that is very far away from the previous pixel.
+
+As a result, the samples end up being practically random. And as we move, they shimmer and make weird wave patterns.
+
+== Texture aliasing
+
+This is actually the same phenomenon as when we see a video of a car's wheel rotating at too low a frame rate and it looks like it's rotating backwards.
+
+It's a term from signal processing called *aliasing*.
+
+When we sample a texture at too low a rate, we end up losing the detail the image was intended to convey, and we get a spurious signal instead.
+
+Ideally, we could just have so many pixels that we could sample it as finely as our eyes do. Unfortunately this is impracticle.
+
+== How do we fix it?
+
+If you've been playing around with the sample, you've probably seen some of those checkboxes. The first one holds the solution.
+
+It's a technique called *MIP Mapping*.
+
+MIP is an acronym for _multum in parvo_, a Latin acronym that the creator, Lance Williams, intended to mean "many things in a small space"#footnote[According to Kagi's online translator, a closer translation is "much in little"]. It was named and described in #link("https://web.archive.org/web/20150525042526/http://staff.cs.psu.ac.th/iew/cs344-481/p1-williams.pdf", "this paper").
+
+MIP mapping is an approach to texture sampling that partially solves the "oversampling" problem.
+
+== MIP mapping
+
+MIP mapping works like this:
+- We pre-average together the pixels in the image to create a lower-resolution, bilinear-filtered image in which each texel is perfectly in the middle of the texels of the parent image.
+- We compute how much a change in _pixel_ results in a change in _texel_.
+- That is, if going one pixel right or down results in jumping 2 texels, we use the second mip level.
+- If we're jumping 4 texels, we use the third, and so on.
+- This averages out the samples, and prevents flickering. Instead of a bunch of wildly different colors, we end up sampling a stretched, blended, texel.
+
+== Min filters versus mag filters
+
+Why doesn't bilinear filtering help with this?
+
+Because bilinear filtering only helps when the image is _blown up_. When there are multiple pixels for every texel, we can smoothly average between texels. That is what bilinear filtering is for.
+
+But MIP mapping is for when the image is _too small_. When we jump too many texels for every pixel, that's when we get the shimmering. 
+
+The same approach, a 2-way average, ends up being useful, but we average the texels together to make fewer texels rather than averaging a point between texels.
+
+== Results of using MIP mapping
+
+Anyway, we no longer have the shimmering and moiré pattern...
+
+#figure(
+  image("screens/checkers_mip_bilinear.png", alt: "screenshot of the tiled floor but with basic bilinear filtering and mip mapping smoothing out the weird patterns.", height: 75%)
+)
+
+== Results of using MIP mapping
+
+Something still isn't right, however...

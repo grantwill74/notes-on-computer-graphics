@@ -316,6 +316,8 @@ export class Sample15 {
     bgSphereTexes;
     bgEye;
     mipMap = false;
+    trilinear = false;
+    maxAnisotropy = 1;
     format;
     constructor(device, context, texChecker, texCheckerMip, texEarth, texClouds, texNormalMap, texSpecMap) {
         this.device = device;
@@ -514,7 +516,7 @@ export class Sample15 {
             addressModeV: 'repeat',
             magFilter: 'linear',
             minFilter: 'linear',
-            mipmapFilter: 'linear',
+            mipmapFilter: 'nearest',
             label: "texture sampler",
             maxAnisotropy: 1,
         });
@@ -688,19 +690,15 @@ export class Sample15 {
         this.mipMap = on;
         this.bgFloorTexes = on ? this.bgFloorTexesMip : this.bgFloorTexesNoMip;
     }
-    setAniso(maxAnisotropy) {
-        // optimization: we could put the sampler in its own bind group, since
-        // the texture doesn't change. Given how rarely we change the 
-        // level of anisotropic filtering I don't bother, but we could
-        // just make all the sampler bind groups at once.
+    refreshMipBg() {
         const sampler = this.device.createSampler({
             addressModeU: 'repeat',
             addressModeV: 'repeat',
             magFilter: 'linear',
             minFilter: 'linear',
-            mipmapFilter: 'linear',
+            mipmapFilter: this.trilinear ? 'linear' : 'nearest',
             label: "texture sampler",
-            maxAnisotropy,
+            maxAnisotropy: this.maxAnisotropy,
         });
         this.bgFloorTexesMip = this.device.createBindGroup({
             entries: [
@@ -719,6 +717,18 @@ export class Sample15 {
         if (this.mipMap) {
             this.bgFloorTexes = this.bgFloorTexesMip;
         }
+    }
+    setAniso(maxAnisotropy) {
+        // optimization: we could put the sampler in its own bind group, since
+        // the texture doesn't change. Given how rarely we change the 
+        // level of anisotropic filtering I don't bother, but we could
+        // just make all the sampler bind groups at once.
+        this.maxAnisotropy = maxAnisotropy;
+        this.refreshMipBg();
+    }
+    setTrilinear(trilinear) {
+        this.trilinear = trilinear;
+        this.refreshMipBg();
     }
     update() {
         this.camPitch += this.camPitchAmnt / 60;

@@ -352,6 +352,8 @@ export class Sample15 {
     bgEye: GPUBindGroup;
 
     mipMap = false;
+    trilinear = false;
+    maxAnisotropy = 1;
     
     format: GPUTextureFormat;
 
@@ -581,7 +583,7 @@ export class Sample15 {
             addressModeV: 'repeat',
             magFilter: 'linear',
             minFilter: 'linear',
-            mipmapFilter: 'linear',
+            mipmapFilter: 'nearest',
             label: "texture sampler",
             maxAnisotropy: 1,
         });
@@ -768,19 +770,15 @@ export class Sample15 {
         this.bgFloorTexes = on ? this.bgFloorTexesMip : this.bgFloorTexesNoMip;
     }
 
-    setAniso(maxAnisotropy: number): void {
-        // optimization: we could put the sampler in its own bind group, since
-        // the texture doesn't change. Given how rarely we change the 
-        // level of anisotropic filtering I don't bother, but we could
-        // just make all the sampler bind groups at once.
+    refreshMipBg(): void {
         const sampler = this.device.createSampler({
             addressModeU: 'repeat',
             addressModeV: 'repeat',
             magFilter: 'linear',
             minFilter: 'linear',
-            mipmapFilter: 'linear',
+            mipmapFilter: this.trilinear ? 'linear' : 'nearest',
             label: "texture sampler",
-            maxAnisotropy,
+            maxAnisotropy: this.maxAnisotropy,
         }); 
 
         this.bgFloorTexesMip = this.device.createBindGroup({
@@ -801,6 +799,20 @@ export class Sample15 {
         if (this.mipMap) {
             this.bgFloorTexes = this.bgFloorTexesMip;
         }
+    }
+
+    setAniso(maxAnisotropy: number): void {
+        // optimization: we could put the sampler in its own bind group, since
+        // the texture doesn't change. Given how rarely we change the 
+        // level of anisotropic filtering I don't bother, but we could
+        // just make all the sampler bind groups at once.
+        this.maxAnisotropy = maxAnisotropy;
+        this.refreshMipBg();
+    }
+
+    setTrilinear(trilinear: boolean): void {
+        this.trilinear = trilinear;
+        this.refreshMipBg();
     }
 
     update(): void {

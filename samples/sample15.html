@@ -56,15 +56,24 @@
             sample.startUpdating();
             sample.startRendering();
             
-            const checkbox = document.querySelector('#MIPcheck');
+            const mipcheck = document.querySelector('#MIPcheck');
+            const trilinear = document.querySelector('#Trilinear');
             const anisoText = document.querySelector('#AnisoText');
             const aniso = document.querySelector('#Aniso');
             
-            sample.setMipMapping(checkbox.checked);
+            sample.setMipMapping(mipcheck.checked);
 
-            checkbox.addEventListener('change', (ev) => {
-                sample.setMipMapping(checkbox.checked);
-                if (!checkbox.checked) {
+            mipcheck.addEventListener('change', (ev) => {
+                sample.setMipMapping(mipcheck.checked);
+                if (mipcheck.checked) {
+                    trilinear.disabled = false;
+                } else {
+                    trilinear.disabled = true;
+                }
+            });
+            trilinear.addEventListener('change', (ev) => {
+                sample.setTrilinear(trilinear.checked);
+                if (!trilinear.checked) {
                     aniso.disabled = true;
                 } else {
                     aniso.disabled = false;
@@ -84,6 +93,9 @@
         <br>
         <input type="checkbox" id="MIPcheck" value="0">
         <label for="MIPcheck">Floor MIP mapping enabled</label>
+        <br>
+        <input type="checkbox" id="Trilinear" value="0" disabled="true">
+        <label for="Trilinear">Trilinear filtering</label>
         <br>
         <input type="range" id="Aniso" max="16" min="1" value="1" disabled="true">
         <input type="text" id="AnisoText" max="16" min="1" value="1" disabled="true">
