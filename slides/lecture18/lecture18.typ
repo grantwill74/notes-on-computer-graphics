@@ -694,7 +694,7 @@ Let's see how it looks...
 #figure(
   image("screens/checkers_mip.png", height: 75%, alt: "the checkerboard-tiled floor, extending to the horizon."),
   numbering: none,
-  caption: [Ah, no obvious horizontal lines showing where one MIP-level begins and the other ends!]
+  caption: [Ah, no obvious horizontal lines showing where one MIP-level begins and the other ends! (still a gray blob though)]
 )
 
 #focus-slide("questions?")
@@ -838,7 +838,7 @@ Remember that each level is a quarter the size of the previous one. Total overhe
 
 == Driver behavior
 
-Once there are more than 1 mipmap level, the driver will automatically use them.
+Once there are more than 1 mipmap level available in the texture view we've bound, the driver will automatically use them.
 
 It will assume that level 1 is to be used when stepping 2 texels per fragment, level 2 is to be used when stepping 4 texels per fragment, etc.
 
@@ -889,7 +889,104 @@ Let's start with 1
 
 == How does the GPU know the texel rate?
 
+In the shader, we use `textureSample` to sample the texture (straightforwardly)
 
+`textureSample` takes a texture, a sampler, and some coordinates.
+
+Normally those coordinates are interpolated UV coordinates which come from the vertex shader.
+
+However, they don't have to. They can literally be anything at all. You can compute the coordinates however you want.
+
+So how does the GPU estimate how many texels are being skipped when it could be different for every fragment?
+
+== The GPU does something weird
+
+So far, I have given you a mental model of how the fragment shader works that is reasonable, but not detailed enough to understand MIP selection.
+
+Basically, I've said that first, the rasterizer computes which fragments are part of a triangle, and then the fragment shader runs on each one.
+
+There's actually one more step that happens before the fragment shader: the fragments are _chunked_ into 2-by-2 fragment squares.
+
+That is, fragments never run bythemselves. They always run alongside 3 other fragments that are adjacent to them.
+
+== The GPU does something weird (2)
+
+Okay...why? Why would the fragments all be grouped into squares?
+
+Because we can use the other fragments in the same square to determine attributes' rate of change along both dimensions.
+
+#figure(
+  canvas(length: 4cm, {
+    import draw: *;
+
+    set-viewport((0, 0), (1, 1))
+    grid((0, 0), (1, 1), step: .5)
+    content((0.25, 0.75), text(12pt)[xy=12, 2 \ uv=.4,.05 ])
+    content((0.75, 0.75), text(12pt)[xy=13, 2 \ uv=.5,.05 ])
+    content((0.25, 0.25), text(12pt)[xy=12, 3 \ uv=.4,.1 ])
+    content((0.75, 0.25), text(12pt)[xy=13, 3 \ uv=.5,.15 ])
+  }),
+  alt: "a 2-by-2 square with XY = 12, 2 and UV = 0.4, 0.05 in the top left corner. The top right corner has XY = 13, 2 and UV = 0.5, 0.05. The bottom left corner has XY = 12, 3 and UV = 0. The bottom right corner has XY = 13, 3 and UV = 0.5, 0.15",
+  numbering: none,
+  caption: [Here's a 2-by-2 square of fragments. We've computed their screen X and Y coordinates, as well as the final interpolated attributes (after the reciprocals are interpolated)]
+)
+
+== The Jacobian
+
+This matrix allows us to compute a _Jacobian_, which is a matrix of partial derivatives. If you haven't had multivariate calculus, we can compute a rate of change in only one dimension: this is a partial derivative.
+
+We can compute `du/dx` to determine how much the `u` coordinate changes for one fragment to the right.
+
+In this case, a `1` increase in x results in a `.1` increase in `u`, so `du/dx = 0.1`for the top row.
+
+How many texels is that? It depends on the texture. If the texture is 128-by-128, that would be 12.8 texels per pixel horizontally, which would be between levels 3 and 4
+
+
+== The Jacobian (2)
+
+We were able to compute this because for each fragment in the square, there is a fragment vertically adjacent and horizontally adjacent.
+
+These might not perfectly agree: you might get a different value for the bottom row than the top row, or the left column vs. the right column.
+
+Your driver can decide what to do here (and some APIs expose this choice). For example, it can average the values together in the 2-by-2 block, or simply allow them to differ.
+
+The point is, because we group fragments with their neighbors, we can estimate derivatives now, and use those derivatives to select MIP levels.
+
+== What if the dimensions don't agree?
+
+So, here's a problem: sometimes our dimensions don't agree.
+
+In this previous example, the top left had `du/dx = 12.8` and `dv/dx = 0` texels per pixel in X, for a total magnitude 12.8 texels per pixel of UV.#footnote[The change in V doesn't have to be zero, both U and V can change with X, I'm just keeping the math simple.]
+
+But in Y, in the top left, we had `dv/dy=0.05` and `dv/dx=0`, which is half that rate: `6.4` texels per pixel.
+
+So which one does the video card use?
+
+== What if the dimensions don't agree? (2)
+
+By default, when ordinary mip-mapping is used, the video card has to use the _larger_ of the two rates of change to avoid shimmering. 
+
+That is, it computes this maximum:
+
+#math.equation(
+  $
+    rho = max(sqrt(((partial u)/(partial x))^2 + ((partial v)/(partial x))^2), sqrt(((partial u)/(partial y))^2 + ((partial v)/(partial y))^2))
+  $, alt: "rho equals the maximum of two magnitudes. the first is the square root of quantity partial you with respect to x end quantity squared plus partial vee with respect to x end quantity squared, the second magnitude is the same but with respect to why."
+)
+
+Then, #sym.rho (pronounced "rho") is used to select the MIP level.
+
+Basically, those two square roots compute the total texel-per-fragment magnitude for both X and Y. The larger of the two is used.
+
+== That's why it turns gray
+
+So, this explains why, in the distance, our checkerboard turns into a gray blob, even with Trilinear filtering.
+
+When the surface is very parallel to the camera, these two rates of change will be very different. For every change in X, we might only be advancing by 1 texel, but for a change in Y, we might be advancing by 16.
+
+As a result, we select a much higher MIP level than we need. This causes the texture to become "gray" much sooner and more noticeably.
+
+#focus-slide("Questions?")
 
 == Summary so far
 
@@ -897,10 +994,23 @@ We started with the observation that just sampling textures led to a really anno
 
 We solved this by storing "pre-averaged" versions of textures which allowed sampling to be more predictable. Instead of wildly different colors, we would sample a blended color.
 
+However, it wasn't obvious how to know _which_ pre-averaged version to sample...
+
+== Summary so far (2)
+
+Therefore, we broke fragments into 2-by-2 squares and used them to compute the rates of change 
+
 However, this led to obvious banding where we went from one texture to another 
 
 We solved this by averaging between the textures, the same way we average between texels 
 
-== I skipped over something important
 
-How does the video card know how quickly the texture sample is changing?
+
+== What if there aren't even 4 fragments?
+
+Okay, so to  
+
+
+== Is ray tracing looking more appealing?
+
+Same problem.
