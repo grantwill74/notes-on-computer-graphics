@@ -1002,15 +1002,88 @@ Therefore, we broke fragments into 2-by-2 squares and used them to compute the r
 
 However, this led to obvious banding where we went from one texture to another 
 
-We solved this by averaging between the textures, the same way we average between texels 
+We solved this by averaging between the textures, the same way we average between texels. This was *trilinear filtering*.
 
+But because we selected the MIP level based on highest rate of change, it still turned gray toward the horizon.
 
+== Fixing the premature MIP selection
+
+Trilinear filtering was the best we could do on a lot of 90's hardware. The Nintendo 64 had it built-in. However, shortly after, video cards started to support a technique that improved it further.
+
+The key is to recognize that standard MIP mapping techniques assume a property called *isotropy*, which comes from Greek for "equal turning".
+
+That is, these techniques assume that we perform the same sampling regardless of which way the texture if facing.
+
+This is not actually true, however, and is the reason why we're sometimes too aggressive in choosing a MIP level.
+
+== Anisotropic filtering
+
+There is a special texture filtering mode we can enable in our samplers by setting the `maxAnisotropy` field.
+
+This is an integer, usually in the range `1` to `16`.
+
+Anisotropic sampling is when we recognize that our texels-per-fragment rate can be different for changes in x versus y.
+
+We treat our partial derivatives as the axes of an ellipse. The smaller change is the minor axis, and the bigger change is the major axis.
+
+== Anisotropic filtering (2)
+
+We use the minor axis to select the MIP level. If the smaller rate of change is, say, 5 texels per pixel, then we're going to assume a MIP level of about 2.32.
+
+However, the major axis tells us what direction most of the change is happening in. We will sample the MIP level multiple times along a line centered at the actual computed texture coordinate.
+
+The number of samples is determined by the ratio between the major axis and the minor axis.
+
+Specifically: `min(ceil(MajorLength/MinorLength), maxAnisotropy)`
+
+== Anistropic filtering (3)
+
+So if the minor axis is 5 texels per pixel, and the major axis is 25 texels per pixel, we will sample the texture along 5 points of a line that cuts through the texture through the interpolated UV in the direction of the major axis.
+
+The specific points are implementation dependent: the simplest thing to do is choose 5 equally spaced points.
+
+Then, we average the samples together.
+
+`maxAnisotropy` ensures that we don't get stuck needing to sample hundreds of points. The most common maximum is 16.
+
+== What does this do?
+
+This change allows us to use a lower MIP level: the minimum instead of the maximum.
+
+We still end up sampling multiple times, which can have the effect of averaging together colors, but because we're sampling in a line, if the texels agree along that line, we won't end up with a gray blob.
+
+This technique substantially improves the appearance of textures on triangles that are parallel to the viewing direction (i.e., not head on).
+
+Those are the triangles where we would be sampling too high of a MIP level.
+
+== Anistropic filtering improvement
+
+#stack(dir: ltr, spacing: 2%,
+  figure(image("screens/checkers_mip.png", alt: "tiles with trilinear filtering but no anisotropy.", width: 23%), numbering: none, caption: "Trilinear only"),
+  figure(image("screens/checkers_mip_aniso4.png", alt: "tiles with a little anisotropic filtering", width: 23%), numbering: none, caption: [4x anisotropic]),
+  figure(image("screens/checkers_mip_aniso8.png", alt: "tiles with a moderate amount of anisotropic filtering", width: 23%), numbering: none, caption: [8x anisotropic]),
+  figure(image("screens/checkers_mip_aniso16.png", alt: "tiles with the maximum amount of anisotropic filtering.", width: 23%), numbering: none, caption: [16x anisotropic]),
+)
+
+Notice that you can see further tiles with more anisotropic filtering.
+
+Without it, the horizon appears entirely gray.
+
+#focus-slide("Questions?")
 
 == What if there aren't even 4 fragments?
 
 Okay, so to  
 
+== What if we don't sample the texture?
+
 
 == Is ray tracing looking more appealing?
 
 Same problem.
+
+== More techniques
+
+- Multi-texturing
+- Normal mapping
+- Specular mapping
