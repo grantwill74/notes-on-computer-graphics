@@ -38,7 +38,7 @@ But first, let's talk about how 3D graphics applications run.
 
 == 3D hardware and software
 
-Any modern computer has GPU support. There are two forms that can take: 
+Any modern computer for consumers has GPU support. There are two forms that can take: 
 
 + Integrated graphics: your CPU is on the same chip as a GPU.
 + Discrete graphics: you have a separate GPU device (e.g., a graphics card)
@@ -865,8 +865,8 @@ Then, update our imports:
 And lastly, call the function after initializing:
 #text(size: 20pt, [
   ```ts
-  const [device, context, canvas] = await initWebGpu();
-  renderSample01(device, context, canvas);
+  const [device, context] = await initWebGpu();
+  renderSample01(device, context);
   ```
 ])
 
