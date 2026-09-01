@@ -928,7 +928,7 @@ Because we can use the other fragments in the same square to determine attribute
   }),
   alt: "a 2-by-2 square with XY = 12, 2 and UV = 0.4, 0.05 in the top left corner. The top right corner has XY = 13, 2 and UV = 0.5, 0.05. The bottom left corner has XY = 12, 3 and UV = 0. The bottom right corner has XY = 13, 3 and UV = 0.5, 0.15",
   numbering: none,
-  caption: [Here's a 2-by-2 square of fragments. We've computed their screen X and Y coordinates, as well as the final interpolated attributes (after the reciprocals are interpolated)]
+  caption: [Here's a 2-by-2 quad of fragments. We've computed their screen X and Y coordinates, as well as the final interpolated attributes (after the reciprocals are interpolated)]
 )
 
 == The Jacobian
@@ -944,7 +944,7 @@ How many texels is that? It depends on the texture. If the texture is 128-by-128
 
 == The Jacobian (2)
 
-We were able to compute this because for each fragment in the square, there is a fragment vertically adjacent and horizontally adjacent.
+We were able to compute this because for each fragment in the quad, there is a fragment vertically adjacent and horizontally adjacent.
 
 These might not perfectly agree: you might get a different value for the bottom row than the top row, or the left column vs. the right column.
 
@@ -1073,17 +1073,226 @@ Without it, the horizon appears entirely gray.
 
 == What if there aren't even 4 fragments?
 
-Okay, so to  
+Okay, so we're using the rate of change texels-per-fragment to determine which mip level(s) and how many samples to use.
+
+Problem: what if it's undefined? Like, the triangle is so small there's only one fragment.
+
+There's a solution, but again, it's weird. We create fake fragments.
+
+The GPU will extend the triangle until it has at least a 2-by-2 quad.
+
+== Helper invocations
+
+The fragment executions are called *helper invokations*.
+
+These fragments will be off the face. The fragment shader will still run, but only so that it can compute the texel rate using whatever interpolated data is there. Then it throws the result away.
+
+It also happens when the triangle is large, but one of the 2-by-2 quads happens to fall partially outside of it.
+
+If you have loads of tiny triangles, this could be a significant cost, so it's worth knowing about. In practice, it's not too much overhead.
+
+== What if we change the UVs?
+
+What if we do this?
+
+`textureSample(tex, samp, 2 * uv);`
+
+With that, we're doubling the sample rate. It's 2-times the texels per fragment.
+
+It turns out, it still works. The GPU will select the correct MIP level.
+
+The reason: it's actually not using the UV coordinate passed to the fragment shader. It's using the UV coordinates passed to `textureSample`. Which raises more questions...
 
 == What if we don't sample the texture?
 
+This is a weird one, but it happens. What if our sampling is conditional?
+
+Like this:
+
+```wgsl
+var color: vec4f;
+if something {
+  color = textureSample(tex, samp, uv);
+} else {
+  color = vec4f(1.0, 0.0, 0.0, 1.0);
+}
+```
+
+What does the GPU use for the UV coordinates when computing the rates of change if you don't call `textureSample`?
+
+== You have to sample the texture
+
+It turns out, that code is an error. It won't compile. WGSL requires that `textureSample` be called in *uniform control flow*. That means, if you call it conditionally, it has to be able to prove that the same `textureSample` is called for each fragment in the same draw call.
+
+The #link("https://www.w3.org/TR/WGSL/#uniform-control-flow", "actual rules") for proving this are complicated. Typically, the best idea is to just always call `textureSample` and refactor. The previous code could be written like this:
+
+```wgsl
+var color = textureSample(tex, samp, uv);
+if something { color = vec4f(1.0, 0.0, 0.0, 1.0); }
+```
+
+== You have to sample the texture (2)
+
+To be clear, this requirement is per _call site_. Basically, every time you call `textureSample`, it must be from a branch that is uniform. A branch is uniform if:
+- it's the main brainch
+- it's predicated on a uniform expression (i.e., a boolean that depends only on values that are themselves uniform)
+
+There are more rules for dealing with early returns.
+
+Since this is kind of complicated, it's probably better if you just put your texture samples in the main flow of control.
+
+== Ways around it
+
+The issue is that `textureSample` requires the GPU to estimate the texel-fragment derivatives.
+
+However, if you happen to know what the derivative is, either because it's constant or because you have some lookup table, you can manually pass it.
+
+`textureSampleGrad` allows you to provide your own gradient, and `textureSampleLevel` allows you to choose the MIP level. These functions do not have the uniformity requirement.
+
+Here is a #link("https://webgpu.rocks/wgsl/functions/texture/", "list of texture functions") for more information.
 
 == Is ray tracing looking more appealing?
 
-Same problem.
+Man, drawing textured triangles is really hard. Maybe it's not worth it...
+
+Hey what about that ray tracing stuff? Where we simulate light bouncing around. I wonder if that will be practical soon with cheaper cards...
+
+== Is ray tracing looking more appealing? (2)
+
+Guess what: you would (practically) still need mipmapping#footnote[technicaly you can also just sample tons of times, which many offline raytracers do, but it's not practical for real time.].
+
+The fundamental problem is oversampling rather than rasterization.
+
+The techniques are different: we might need to use the chain rule to calculate the change in UV coordinates per XY, or to calculate the "width" of a ray to estimate it.
+
+However, the fundamental calculations in computer graphics: texture sampling, lighting, view transformation, etc., are not that different between rasterization and raytracing.
+
+#focus-slide("Questions?")
 
 == More techniques
+
+Since this lecture isn't already long enough, let's learn a few more techniques.
 
 - Multi-texturing
 - Normal mapping
 - Specular mapping
+
+The first is easy...
+
+== Multi-texturing
+
+So far, we've mainly had only one texture.
+
+Technically, if you did the environment mapping bonus challenge, you've already seen that you can use more than one.
+
+Remember that the fragment shader's main purpose is to return a color.
+
+We can get that from a texture, we can compute it some other way, or we can average a bunch of textures together.
+
+== Why multi-texturing?
+
+The first consumer GPU to support multi-texturing was the Nintendo 64's display processor (the _reality display processor_ or _RDP_)#footnote[My source is that I made an LLM try to find counter examples. Apparently it took 2 more years for this technology to be found in consumer GPUs like the Voodoo2.]
+
+It's kind of surprising to me that it was so rare. It allows a bunch of very straightforwardly useful artistic choices, like the ability to paint roads or dirt on things.
+
+See this #link("https://alfredbaudisch.com/experiment-logs/banjo-kazooie-n64-environments-and-levels-texture-blending-and-vertex-color-usage/", [deep dive]) for some examples from the game Banjo Kazooie. Look at the farm screenshot for an example of texture blending.
+
+== Multi-texturing (2)
+
+Multi-texturing can be used for *detail textures*. 
+
+The idea was, you'd have one base texture that's intended to be spread out over a wide area (like grass), and then you'd have a repeating texture with really big UVs.
+
+For example, suppose we have a large quad with a UV range of 0 to 1.
+
+However, we also have a detail texture with a UV range of 0 to 10.
+
+The detail texture will repeat 10 times as it is drawn over the quad.
+
+Here's an example...
+
+
+== Multi-texturing (3)
+
+#figure(
+  [
+    #image("screens/banjo_kazooie_detail_textures.jpeg", height: 70%, alt: "a screenshot of a gravel path")
+    #place(top + left, game-name([Banjo \ Kazooie]))
+  ],
+  numbering: none,
+  caption: text(20pt)[The pathway is a gray blobby texture. However, there is random noise used as a detail texture to give it a gravelly appearance. The noise texture can have bigger UVs to repeat for more detail.]
+)
+
+== Multi-texturing (4)
+
+The easiest way to get started is just to use two textures with the same UVs. You can blend between textures this way.
+
+However, you can also bind a separate set of UV coordinates as another attribute. So in the same way that position, normal, uv, and color can be attributes, you can also have multiple sets of UV coordinates.
+
+This lets you, e.g., have one texture repeat more quickly than another.
+
+`sample15` shows an example where the clouds are a separate texture that are blended with the earth. I computed the cloud UVs from the normal. 
+
+#focus-slide("Questions?")
+
+== Textures that aren't textures
+
+So far, we've been using textures in the way they were intended. As images that get mapped onto triangle faces.
+
+Here's the thing though: textures are just arrays that can be sampled.
+
+So we can actually use them for all kinds of things. Basically anything that an interpolated array is useful for!
+
+Here's a cool example...
+
+== Normal mapping
+
+Remember how normals were computed per-vertex?
+
+That was a little weird. We typically associate a normal with a face, rather than a vertex, but we needed them to be accessible to the vertex shader.
+
+Well, it turns out we can store normals in a texture instead. This way they are accessible to the _fragment shader_.
+
+Why is that useful? Because it lets us perform lighting correctly on surfaces that are smaller than a face. Like cracks or small changes in elevation...
+
+== Normal mapping example
+
+#figure(
+  image("screens/normal_ridges.png", height: 75%, alt: "a screenshot of part of a globe, zoomed in on mountains."),
+  numbering: none,
+  caption: text(20pt)[Notice the shadows cast by the Himalayas and the mountains around Iran. `sample15` uses normal mapping for the globe texture. This lighting changes at the globe rotates.]
+)
+
+== How normal mapping works
+
+So how can we store normals in a texture? Aren't they vectors?
+
+Yes, and textures store vectors! Specifically, an RGB texture stores texel of 3 dimensions.
+
+We can interpret RGB as XYZ, and pretend that each texel describes a direction rather than a color.
+
+Of course, normal images only give us 8 bits per channel, which is kind of rough for storing a direction. However, many popular image formats such as PNG support 16 bits per channel, which is enough given that small bits of imprecision for a single fragment won't be noticeable.
+
+== Normal mapping (2)
+
+However, we don't just want to store the exact direction of the normal. If we did that, our normal map would only be useful for one model.
+
+Typically, we distribute normal maps alongside textures, rather than models. They can be made to be flexible for multiple underlying models.
+
+Instead, we typically use a different coordinate system for normal maps called *tangent space*.
+
+== Tangent space
+
+The idea is that we store normals such that they are relative to any surface we want.
+
+Typically this means we interpret the normal (0, 1, 0) (i.e., straight up) as being "outward from the surface"
+
+#figure(
+  image("screens/Surface_normal_illustration.svg.webp", height: 40%, alt: "a flat plane (tangent plant) touching a curved surface. The normal vector is perpendicular to both."),
+  numbering: none,
+  caption: text(18pt)[
+    By #link("//commons.wikimedia.org/wiki/User:Patrick87", "Patrick87") - Own work based on: #link("//commons.wikimedia.org/wiki/File:Surface_normal_illustration.png","Surface normal illustration.png"), redone using Matlab R2012a and optimized in Inkscape., Public Domain, #link("https://commons.wikimedia.org/w/index.php?curid=22612216", "Link")]
+)
+
+== Tangent space (2)
+
