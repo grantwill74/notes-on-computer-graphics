@@ -1296,3 +1296,15 @@ Typically this means we interpret the normal (0, 1, 0) (i.e., straight up) as be
 
 == Tangent space (2)
 
+That tangent plane in the previous image can be described with two basis vectors. We call them the *tangent vector* and the *bitangent vector*.
+
+Typically, the tangent vector is derived from the cross product of "up" (the 0, 1, 0 vector we treat as coming "out" of the model) and the actual normal coming out of the surface.
+
+This a way of having it be perpendicular to "up" and also perpendicular to the actual normal. So it's embedded in that tangent plane.
+
+== Tangent space (3)
+
+But, we need another basis vector too. So we take another cross product. This one between the normal and the tangent vector. This gives us the counterpart vector to the tangent which is also embedded in the plane.
+
+We call this the *bitangent vector*.
+
