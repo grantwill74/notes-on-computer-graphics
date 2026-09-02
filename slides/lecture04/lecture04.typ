@@ -322,7 +322,7 @@ Every time we want to draw a vertex, the vertex shader is called on it, like a f
 ```
 ]
 
-WGLS must know where every variable comes from. Saying `@builtin(vertex_index)` means that the parameter will come from the built-in index value of the vertex.
+WGSL must know where every variable comes from. Saying `@builtin(vertex_index)` means that the parameter will come from the built-in index value of the vertex.
 
 We are basically renaming this special variable to `index`, and saying that we want it to be a `u32` (an unsigned 32-bit integer). We could have made it a `u16` since we don't have very many points.
 
