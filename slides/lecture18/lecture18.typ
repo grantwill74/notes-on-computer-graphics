@@ -1308,3 +1308,80 @@ But, we need another basis vector too. So we take another cross product. This on
 
 We call this the *bitangent vector*.
 
+Finally, the third vector we need is one pointing in the same direction as the normal itself....which...is just the normal.
+
+These three vectors will serve as the basis vectors for a new coordinate space, which we'll just call `tbn` for "tangent bitangent normal".
+
+== Decoding the normal map
+
+Now that we know what our basis vectors are, we actually know everything we need about how to decode the normals in a normal map.
+
+We want to interpret a pixel in the normal map as a vector, where its `r` component is how much to angle in the tangent direction, its g vector is how much to angle in the bitangent direction, and its b vector is how much to point straight out.
+
+...except for one more wrinkle. RGB images can't have negative color. So we instead treat `0` as `-1`, `128` as `0`, and `255` as `1` and interpolate that way.
+
+== Decoding the normal map (2)
+
+So,  #math.equation($"color" = ("normal" + mat(1, 1, 1)) / 2$, alt: "color equals quantity normal plus a vector of all ones end quantity over two."). This converts the components of the normal from the range [-1, 1] to [0, 1]. 
+
+We undo this transformation when we sample the texture:
+#[
+```wgsl
+var n = textureSample(normalmap, samp, uv).rgb * 2.0 - 1.0;
+```
+]
+
+So `n` has our normal as a vector now, taken from the color of the texture.
+
+Our next step is to build that `tbn` matrix...
+
+== Decoding the normal map (3)
+
+```wgsl
+let up = vec3f(0.0, 1.0, 0.0);
+let norm_tan = normalize(cross(up, norm));
+let norm_bit = cross(norm, norm_tan);
+let norm = the actual normal from the vertex shader;
+```
+
+Normally, the tangent vector would be stored in the mesh itself, alongside the UV and normal. There is an algorithm for computing it when exporting normal maps called #link("http://www.mikktspace.com/", [MikkTSpace]).
+
+In our case, I'm drawing a sphere, so I know how to compute them: take the cross product with the north pole. But typically `norm_tan` would come interpolated from the vertex shader (and you would normalize).
+
+== Decoding the normal map (4)
+
+The purpose of the tangent and bitangent vectors is to serve as basis vectors, along with the normal itself.
+
+This allows us to take the RGB value from the normal map and interpret it as "how much of the tangent to take, how much of the bi-tangent to take, and how much of the original normal to take".
+
+We want a matrix that takes the shifted color and converts it into the final normal (the one we will use for lighting calculations)...
+
+== Decoding the normal map (5)
+
+```wgsl
+let tbn = mat3x3f(norm_tan, norm_bit, norm);
+```
+
+Here, we use the `mat3x3f` constructor to build a 3-by-3 matrix from 3 basis vectors.
+
+One more thing: DirectX and Unreal engine store the Y component upside down. I don't know why. Maybe it's a handedness thing. In my case, the normal map was assuming this convenion:
+```wgsl
+n.y = -n.y; // if normal map uses direct X convension
+```
+
+(Unity stores it without flipping `y`, you just have to know)
+
+== Decoding the normal map (6)
+
+Finally, we can use the `tbn` matrix and our sampled unencoded `n` normal from the normal map in order to compute the actual normal we will use for lighting purposes:
+
+```wgsl
+let light_norm = normalize(tbn * samp_norm);
+```
+
+From this point on, we just use ordinary Phong lighting with that value as our normal (for the diffuse and specular). 
+
+#focus-slide("Questions?")
+
+== Specular mapping
+
