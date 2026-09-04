@@ -1381,7 +1381,59 @@ let light_norm = normalize(tbn * samp_norm);
 
 From this point on, we just use ordinary Phong lighting with that value as our normal (for the diffuse and specular). 
 
+== A typical normal map
+
+This is what a typical normal map looks like:
+
+#figure(
+  image("screens/2k_earth_normal_map.png", height: 70%, alt: "an image of a normal map. It's hard to see anything at all."),
+  numbering: none,
+  caption: [Majestic.]
+)
+
+== A typical normal map (2)
+
+Actually, if you zoom way in, and you have good color sensitivity, you can kind of make out the oceans and mountain ranges of planet Earth.
+
+Remember that the way our normal maps are packed, the R channel is the amount the normal is bent left or right away from the mesh normal. The G channel is the amount it's bent up or down. The B channel is the amount that it matches the normal you would expect.
+
+These channels store 0 as 50%. So 0 is -1, and 100% is 1.
+
+Therefore, most of the normal map is going to be very close to 50% R, 50% G, and 100%B. Most normal maps are mostly this shade of Blue.
+
 #focus-slide("Questions?")
 
 == Specular mapping
 
+Remember the Phong model?
+
+Every material had these properties:
+- Ambient response
+- Diffuse response
+- Specular response
+- Shininess
+
+Previously, we applied the material to the whole model. So if a sphere were supposed to be made of metal, we could use a metal texture with high specular response and high shininess. If it were meant to be made of wood, we would use high diffuse and low specular and shininess.
+
+== Specular mapping (2)
+
+The problem with that approach was that it meant the whole model we drew would have the same material properties.
+
+Now, I'm trying to draw the Earth. 
+
+Pop quiz: what is shinier and more specular-y: a lake or a bunch of dirt?
+
+== Specular mapping (3)
+
+That's right, the lake is shinier.
+
+Unfortunately, using the Phong code from before, if we make the whole earth as shiny as the water, then the land will be shiny too. Or vice versa if we make the land dull.
+
+Advanced textures to the rescue: we can just store the "specular amount" in a texture as a percentage for each texel.
+
+Then, the water 
+
+== Even more maps
+
+- What if you used a texture where each texel was a height? You could store a whole complex terrain mesh as a single image.
+- What if you used a 3D texture as a different color space, so that every time you computed 
