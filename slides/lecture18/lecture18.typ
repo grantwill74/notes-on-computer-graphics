@@ -1431,9 +1431,52 @@ Unfortunately, using the Phong code from before, if we make the whole earth as s
 
 Advanced textures to the rescue: we can just store the "specular amount" in a texture as a percentage for each texel.
 
-Then, the water 
+Then, when we compute the brightness in the fragment shater, we can use the correct level of specular for each fragment, after sampling that texture.
+
+== Example specular map
+
+#figure(
+  image("screens/2k_earth_specular_map.png", height: 70%, alt: "a specular map of the Earth. It's basically a world map where the water is white and the land is black."),
+  caption: text(22pt)[The light areas have full specular. The dark areas have limited or no specular component This particular specular map is not very detailed and effectively only has no specular or max specular.],
+  numbering: none,
+)
 
 == Even more maps
 
 - What if you used a texture where each texel was a height? You could store a whole complex terrain mesh as a single image.
-- What if you used a 3D texture as a different color space, so that every time you computed 
+- What if you used a 3D texture as a different color space, so that every time you computed a color in the fragment shader, you looked that color up in the texture to map it to a different color?
+- What if you used each channel of the RGBA image as a different material property? So, not just specular, but ambient, diffuse, specular, and shininess?
+- What if you want to blend two textures dynamically and unevenly. Like, apply a mud texture to a car paint texture according to a certain pattern, so a 3rd texture gives the amount of mud to add.
+
+== Even more maps
+
+These all have names!
+- If each texel is a height, it's a height map. If those heights are really tiny and describe the heights of little bumps (which we can also compute normals from) it's a bump map.
+- We can use a 3D texture for color grading. It's a color lookup table. If we use it for discrete colors, it's a palette.
+- Use each channel as a different value is called "channel packing". We can make a material map with each channel as a different material value.
+- Using a texture to blend other textures is a blend map (or alpha map).
+
+Generally they end in "map".
+
+== Specular map code 
+
+How do we use a specular map? We look up the brightness value and multiply it by the specular component.
+
+How do we get brightness? In this case, the RGB channels all have the same value, so we traditionally use R.
+
+```wgsl
+let spec_sample = textureSample(specmap, samp, earth_uv).r;
+let spec = spec_sample * 
+  pow(max(dot(r, eye_dir), 0.0), SHININESS);    
+```
+
+== Specular map example screenshot
+
+#figure(
+  image("screens/specular_map.png", height: 70%, alt: "a specular-mapped globe screenshot."),
+  numbering: none,
+  caption: [Specular mapping in action. Notice that there's a bit of shine to the lakes, but the land doesn't have any.]
+)
+
+#focus-slide([Questions?])
+
