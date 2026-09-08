@@ -647,6 +647,18 @@ In fact, there are lots of "boundary lines" visible in the checkered floor.
 
 Those are the different *MIP levels*. We can actually see the point where we cross over from one to the other.
 
+== Vendor comparisons
+
+
+#stack(dir:ltr, spacing: 10%,
+  box(width: 40%, height: 90%, image("screens/cgw_mipmapping_comparison.png", alt:"several screenshots of the same mipmapped texture drawn distorted so that the MIP levels are clearly visible. Each drawn with a different GPU. Only one GPU is correct.")),
+  box(width: 40%)[This used to be an area in which GPUs differentiated themselves.
+  
+  Nowadays, you should see the same results in pretty much any modern GPU.
+  
+  Source: Computer Gaming World, December 1998 issue, Ziff-Davis Publishing]
+)
+
 == Trilinear filtering
 
 You might think this is something we could subdivide our way out of, like, just make more mip levels?
