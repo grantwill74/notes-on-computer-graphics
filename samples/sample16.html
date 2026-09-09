@@ -23,12 +23,12 @@
                 "./sample15_adv_textures/sample.js";
             import { loadTexture, } from
                 "./sample05_textures/sample.js";
-            import { Sample16, ImageHeightmap } from "./sample16/sample.js";
+            import { Sample16, ImageHeightmap } from "./sample16_landscape/sample.js";
             
             const [device, context] = await initWebGpu();
 
             const hmUrl = 'special_textures/world_heightmap.png'
-            const worldHm_req = await fetch(URL(hmUrl, import.meta.url));
+            const worldHm_req = await fetch(new URL(hmUrl, import.meta.url));
             const worldHm_blob = await worldHm_req.blob();
             const worldHm_bmp = await createImageBitmap(await worldHm_blob);
             const tempCanv = new OffscreenCanvas(worldHm_bmp.width, worldHm_bmp.height);
@@ -51,15 +51,5 @@
     </head>
     <body>
         <canvas width="800" height="600"></canvas>
-        <br>
-        <input type="checkbox" id="MIPcheck" value="0">
-        <label for="MIPcheck">Floor MIP mapping enabled</label>
-        <br>
-        <input type="checkbox" id="Trilinear" value="0" disabled="true">
-        <label for="Trilinear">Trilinear filtering</label>
-        <br>
-        <input type="range" id="Aniso" max="16" min="1" value="1" disabled="true">
-        <input type="text" id="AnisoText" max="16" min="1" value="1" disabled="true">
-        <label for="Aniso">Anisotropic Filtering</label>
     </body>
 </html>
