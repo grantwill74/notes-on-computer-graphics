@@ -10,6 +10,16 @@ export declare class ImageHeightmap implements Heightmap {
     constructor(img: ImageData, amp: number);
     sample(row: number, col: number): number;
 }
+export declare class PerlinHeightmap implements Heightmap {
+    seed: string;
+    nLevels: number;
+    decay: number;
+    baseAmp: number;
+    constructor(seed: string, nLevels: number, decay: number, baseAmp: number);
+    private gradient;
+    private sampleLevel;
+    sample(row: number, col: number): number;
+}
 declare class HeightmapChunk {
     hm: Heightmap;
     topLeftRow: number;
@@ -65,7 +75,7 @@ export declare class Sample16 {
     keys: Keys;
     canvasFormat: GPUTextureFormat;
     zBuffer: GPUTexture;
-    constructor(device: GPUDevice, context: GPUCanvasContext, heightMap: ImageData);
+    constructor(device: GPUDevice, context: GPUCanvasContext, _heightMap: ImageData);
     startRendering(): void;
     update(_now: number, dtime: number): void;
     lastUpdate: number;

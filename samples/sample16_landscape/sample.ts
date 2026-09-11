@@ -65,10 +65,10 @@ struct VertexOutput {
 
 const TAU = Math.PI * 2;
 
-import { mat3, mat4, vec3 } from "gl-matrix";
+import { mat3, mat4, vec2, vec3 } from "gl-matrix";
 
 const PERLIN_CHUNK_DIM = 64;
-const PERLIN_LATTICE_DIM = 17;
+const PERLIN_FEATURE_DIM = 16;
 
 // similar to AMD smoothstep from here: https://en.wikipedia.org/wiki/Smoothstep
 function smoothstep(a: number, b: number, x: number): number {
@@ -82,15 +82,15 @@ interface Heightmap {
 }
 
 function heightmapSampleNormal(h: Heightmap, row: number, col: number): vec3 {
-    const leftNeigh: vec3 = [-1, h.sample(col - 1, row), 0];
-    const rightNeigh: vec3 = [1, h.sample(col + 1, row), 0];
+    const leftNeigh: vec3 = [-1, h.sample(row, col - 1), 0];
+    const rightNeigh: vec3 = [1, h.sample(row, col + 1), 0];
     const tan = vec3.create();
     
     vec3.sub(tan, rightNeigh, leftNeigh);
     vec3.scale(tan, tan, 0.5);
 
-    const upBit: vec3 = [0, h.sample(col, row - 1), -1];
-    const downBit: vec3 = [0, h.sample(col, row + 1), 1];
+    const upBit: vec3 = [0, h.sample(row - 1, col), -1];
+    const downBit: vec3 = [0, h.sample(row + 1, col), 1];
     const bit = vec3.create();
 
     vec3.sub(bit, downBit, upBit);
@@ -154,6 +154,107 @@ export class ImageHeightmap implements Heightmap {
         const sampVert = sampHoriz1 * (1 - alphaVert) + sampHoriz2 * alphaVert;
 
         return sampVert;
+    }
+}
+
+// hash function by cyrb53, released into the public domain
+// https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js 
+const cyrb53 = function(str: string, seed: number = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for(let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+
+// modification of the above for integers instead of strings
+const cyrb53_int = function(i: number, seed: number = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+
+    h1 = Math.imul(h1 ^ i, 2654435761);
+    h2 = Math.imul(h2 ^ i, 1597334677);
+    h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+// returns a value in the range [0, 1)
+function hashPoint(seed: string, x: number, y: number): number {
+    const h0 = cyrb53(seed);
+    const h1 = cyrb53_int(h0 ^ x);
+    const h2 = cyrb53_int(h1 ^ y);
+    // 24-bits is plenty. f32 range in case we want to do this on the GPU.
+    return (h2 & 0xFFFFFF) / (0xFFFFFF + 1);
+}
+
+export class PerlinHeightmap implements Heightmap {
+    constructor(
+        public seed: string,
+        public nLevels: number,
+        public decay: number,
+        public baseAmp: number,
+    ) {
+
+    }
+
+    private gradient(row: number, col: number): vec2 {
+        const turns = hashPoint(this.seed, row, col);
+        const rads = TAU * turns;
+        const x = Math.cos(rads);
+        const z = Math.sin(rads);
+        return vec2.fromValues(x, z); 
+    }
+
+    private sampleLevel(row: number, col: number, level: number): number {
+        const freq = Math.pow(2, level);
+        row = row * freq / PERLIN_FEATURE_DIM;
+        col = col * freq / PERLIN_FEATURE_DIM;
+        
+        const top = Math.floor(row);
+        const bot = top + 1;
+        const left = Math.floor(col);
+        const right = left + 1;
+
+        const gtl = this.gradient(top, left);
+        const gtr = this.gradient(top, right);
+        const gbl = this.gradient(bot, left);
+        const gbr = this.gradient(bot, right);
+
+        const offtl: vec2 = [row - top, col - left];
+        const offtr: vec2 = [row - top, col - right];
+        const offbl: vec2 = [row - bot, col - left];
+        const offbr: vec2 = [row - bot, col - right];
+
+        // perlin requires smoothstep for conditioning the inputs so that the
+        // change from one gradient vector to another is not abrupt.
+        const u = smoothstep(0, 1, col - left); // u with the right derivative
+        const topBlend = vec2.dot(offtl, gtl) * (1 - u) + vec2.dot(offtr, gtr) * u;
+        const botBlend = vec2.dot(offbl, gbl) * (1 - u) + vec2.dot(offbr, gbr) * u;
+        
+        const v = smoothstep(0, 1, row - top);
+        const finalBlend = topBlend * (1 - v) + botBlend * v;
+
+        const amp = this.baseAmp * Math.pow(this.decay, level);
+        let h = amp * finalBlend;
+
+        return h;
+    }
+
+    sample(row: number, col: number): number {
+        let total = 0;
+        for (let level = 0; level < this.nLevels; level++) {
+            total += this.sampleLevel(row, col, level);
+        }
+
+        return total;
     }
 }
 
@@ -302,7 +403,7 @@ class HeightmapNode {
 }
 
 const CAM_START: vec3 = [0, 10, 0];
-const CAM_ROT_SPEED: number = TAU/8; // angular speed
+const CAM_ROT_SPEED: number = 1/4; // angular speed, turns per second
 const CAM_MOVE_SPEED: number = 5; // scene units per second
 const CAM_FAST_SPEED_MULT: number = 5; // multiplier for when shift is held
 
@@ -381,13 +482,19 @@ export class Sample16 {
     constructor(
         public device: GPUDevice,
         public context: GPUCanvasContext,
-        heightMap: ImageData,
+        _heightMap: ImageData,
     ) {
-        const imageHm = new ImageHeightmap(heightMap, 10);
-        const imageHm_chunk = new HeightmapChunk(
-            imageHm, -imageHm.rows / 2, -imageHm.cols / 2, imageHm.rows, imageHm.cols);
+        //const imageHm = new ImageHeightmap(heightMap, 10);
+        //const imageHm_chunk = new HeightmapChunk(
+        //    imageHm, -imageHm.rows / 2, -imageHm.cols / 2, imageHm.rows, imageHm.cols);
+        //this.center = new HeightmapNode(device,
+        //    [-imageHm.cols / 2, 0, -imageHm.rows / 2], imageHm_chunk);
+
+        const perlinNoise = new PerlinHeightmap("hey what's up", 9, 0.5, 4);
+        const centerChunk = new HeightmapChunk(
+            perlinNoise, 0, 0, PERLIN_CHUNK_DIM, PERLIN_CHUNK_DIM);
         this.center = new HeightmapNode(device,
-            [-imageHm.cols / 2, 0, -imageHm.rows / 2], imageHm_chunk);
+            [-centerChunk.cols / 2, 0, -centerChunk.rows / 2], centerChunk);
 
         this.canvasFormat = (context.getCurrentTexture().format + '-srgb') as GPUTextureFormat;
 
@@ -448,12 +555,12 @@ export class Sample16 {
         this.mViewProjBuf.unmap();
 
         this.eyeBuf = device.createBuffer({
-            size: 3 * 4,
+            size: 4 * 4,
             usage: GPUBufferUsage.UNIFORM,
             mappedAtCreation: true,
         });
         (new Float32Array(this.eyeBuf.getMappedRange())).set(
-            [this.cam.model[12]!, this.cam.model[13]!, this.cam.model[14]!]);
+            [this.cam.model[12]!, this.cam.model[13]!, this.cam.model[14]!, 1]);
         this.eyeBuf.unmap();
 
         this.viewBg = device.createBindGroup({
@@ -555,7 +662,7 @@ export class Sample16 {
         if (k.isDown('Space')) {
             vec3.scaleAndAdd(c.pos, c.pos, c.up(), moveAmnt);
         }
-        if (k.isDown('ControlLeft')) {
+        if (k.isDown('KeyC')) {
             vec3.scaleAndAdd(c.pos, c.pos, c.up(), -moveAmnt);
         }
 
