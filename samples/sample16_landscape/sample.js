@@ -239,23 +239,47 @@ class HeightmapChunk {
         this.cols = cols;
         const verts = [];
         const indis = [];
-        for (let col = 0; col < cols; col++) {
-            const height = hm.sample(0, col);
-            const normal = heightmapSampleNormal(hm, 0, col);
+        for (let col = 0; col <= cols; col++) {
+            const worldRow = topLeftRow;
+            const worldCol = topLeftCol + col;
+            const height = hm.sample(worldRow, worldCol);
+            const normal = heightmapSampleNormal(hm, worldRow, worldCol);
             verts.push(col, height, 0, ...normal);
         }
-        for (let row = 1; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const height = hm.sample(row, col);
-                const normal = heightmapSampleNormal(hm, row, col);
+        for (let row = 1; row <= rows; row++) {
+            for (let col = 0; col <= cols; col++) {
+                const worldRow = topLeftRow + row;
+                const worldCol = topLeftCol + col;
+                const height = hm.sample(worldRow, worldCol);
+                const normal = heightmapSampleNormal(hm, worldRow, worldCol);
                 verts.push(col, height, row, ...normal);
-                const i = row * cols + col;
-                indis.push(i - cols, i);
+                const i = row * (cols + 1) + col;
+                indis.push(i - cols - 1, i);
             }
             indis.push(0xFFFFFFFF);
         }
         this.vertData = new Float32Array(verts);
         this.indexData = new Uint32Array(indis);
+    }
+    static idFromRowCol(tlRow, tlCol, rows, cols) {
+        const row = tlRow / rows;
+        const col = tlCol / cols;
+        return HeightmapChunk.idFromChunkRowCol(row, col);
+    }
+    static idFromChunkRowCol(chunkRow, chunkCol) {
+        return `${chunkRow.toString(16)},${chunkCol.toString(16)}`;
+    }
+    static chunkRowColFromId(id) {
+        const [srow, scol] = id.split(',');
+        const row = parseInt(srow, 16);
+        const col = parseInt(scol, 16);
+        if (isNaN(row) || isNaN(col)) {
+            throw new Error("bad chunk ID: " + id);
+        }
+        return [row, col];
+    }
+    id() {
+        return HeightmapChunk.idFromRowCol(this.topLeftRow, this.topLeftCol, this.rows, this.cols);
     }
 }
 class LoadedHeightmapMesh {
@@ -278,6 +302,10 @@ class LoadedHeightmapMesh {
         (new Uint32Array(this.indis.getMappedRange())).set(hm.indexData);
         this.indis.unmap();
         this.nIndis = hm.indexData.length;
+    }
+    free() {
+        this.verts.destroy();
+        this.indis.destroy();
     }
 }
 class HeightmapNode {
@@ -342,6 +370,11 @@ class HeightmapNode {
             ]
         });
     }
+    free() {
+        this.mesh.free();
+        this.modelBuf.destroy();
+        this.normalBuf.destroy();
+    }
 }
 const CAM_START = [0, 10, 0];
 const CAM_ROT_SPEED = 1 / 4; // angular speed, turns per second
@@ -388,10 +421,64 @@ export class Camera {
         return vec3.fromValues(this.model[4], this.model[5], this.model[6]);
     }
 }
+const PERLIN_LEVELS = 5;
+/// Keeps track of all the chunks around the current "center".
+class RandomTerrain {
+    heightmap;
+    chunkDim;
+    // we can't use tuples as nodes. We could try to pack our row,col coords 
+    // into a single number, but it's easier to just turn them into strings.
+    nodes = new Map();
+    chunksLoaded = new Set();
+    chunkRow = 0;
+    chunkCol = 0;
+    chunkDist;
+    move(worldRowCoord, worldColCoord) {
+        this.chunkRow = worldRowCoord / this.chunkDim;
+        this.chunkCol = worldColCoord / this.chunkDim;
+    }
+    constructor(seed = "hi", decay = 0.5, amp = 1, viewDist = 128, chunkDim = PERLIN_CHUNK_DIM) {
+        this.chunkDim = chunkDim;
+        this.chunkDist = Math.ceil(viewDist / chunkDim);
+        this.heightmap = new PerlinHeightmap(seed, PERLIN_LEVELS, decay, amp);
+    }
+    tick(device) {
+        const chunksNeeded = new Set();
+        const left = Math.floor(this.chunkCol) - this.chunkDist;
+        const right = Math.ceil(this.chunkCol) + this.chunkDist;
+        const top = Math.floor(this.chunkRow) - this.chunkDist;
+        const bot = Math.ceil(this.chunkRow) + this.chunkDist;
+        for (let chunkRow = top; chunkRow <= bot; chunkRow++) {
+            for (let chunkCol = left; chunkCol <= right; chunkCol++) {
+                chunksNeeded.add(HeightmapChunk.idFromChunkRowCol(chunkRow, chunkCol));
+            }
+        }
+        const chunksToFree = this.chunksLoaded.difference(chunksNeeded);
+        for (let id of chunksToFree) {
+            const node = this.nodes.get(id);
+            if (!node)
+                continue;
+            node.free();
+            this.nodes.delete(id);
+        }
+        this.chunksLoaded = this.chunksLoaded.difference(chunksToFree);
+        const chunksMissing = chunksNeeded.difference(this.chunksLoaded);
+        for (let id of chunksMissing) {
+            const [row, col] = HeightmapChunk.chunkRowColFromId(id);
+            const tlRow = row * this.chunkDim;
+            const tlCol = col * this.chunkDim;
+            const chunk = new HeightmapChunk(this.heightmap, tlRow, tlCol, this.chunkDim, this.chunkDim);
+            const node = new HeightmapNode(device, [tlCol, 0, tlRow], chunk);
+            this.nodes.set(id, node);
+            this.chunksLoaded.add(id);
+        }
+    }
+}
 export class Sample16 {
     device;
     context;
-    center;
+    // center: HeightmapNode;
+    terrain;
     heightmapPipeline;
     viewBg;
     proj;
@@ -409,9 +496,16 @@ export class Sample16 {
         //    [-imageHm.cols / 2, 0, -imageHm.rows / 2], imageHm_chunk);
         this.device = device;
         this.context = context;
+        /*
         const perlinNoise = new PerlinHeightmap("hey what's up", 9, 0.5, 4);
-        const centerChunk = new HeightmapChunk(perlinNoise, 0, 0, PERLIN_CHUNK_DIM, PERLIN_CHUNK_DIM);
-        this.center = new HeightmapNode(device, [-centerChunk.cols / 2, 0, -centerChunk.rows / 2], centerChunk);
+        const centerChunk = new HeightmapChunk(
+            perlinNoise, 0, 0, PERLIN_CHUNK_DIM, PERLIN_CHUNK_DIM);
+        this.center = new HeightmapNode(device,
+            [-centerChunk.cols / 2, 0, -centerChunk.rows / 2], centerChunk);
+        */
+        this.terrain = new RandomTerrain("hi!", 0.4, 4, 256, 128);
+        this.terrain.move(0, 0);
+        this.terrain.tick(device);
         this.canvasFormat = (context.getCurrentTexture().format + '-srgb');
         const width = context.canvas.width;
         const height = context.canvas.height;
@@ -610,11 +704,13 @@ export class Sample16 {
         });
         pass.setViewport(0, 0, canv.width, canv.height, 0, 1);
         pass.setPipeline(this.heightmapPipeline);
-        pass.setBindGroup(0, this.center.bg);
         pass.setBindGroup(1, this.viewBg);
-        pass.setVertexBuffer(0, this.center.mesh.verts);
-        pass.setIndexBuffer(this.center.mesh.indis, 'uint32');
-        pass.drawIndexed(this.center.mesh.nIndis);
+        for (let [_, node] of this.terrain.nodes) {
+            pass.setBindGroup(0, node.bg);
+            pass.setVertexBuffer(0, node.mesh.verts);
+            pass.setIndexBuffer(node.mesh.indis, 'uint32');
+            pass.drawIndexed(node.mesh.nIndis);
+        }
         pass.end();
         const commands = enc.finish();
         this.device.queue.submit([commands]);

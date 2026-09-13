@@ -29,12 +29,17 @@ declare class HeightmapChunk {
     vertData: Float32Array;
     indexData: Uint32Array;
     constructor(hm: Heightmap, topLeftRow: number, topLeftCol: number, rows: number, cols: number);
+    static idFromRowCol(tlRow: number, tlCol: number, rows: number, cols: number): string;
+    static idFromChunkRowCol(chunkRow: number, chunkCol: number): string;
+    static chunkRowColFromId(id: string): [number, number];
+    id(): string;
 }
 declare class LoadedHeightmapMesh {
     verts: GPUBuffer;
     indis: GPUBuffer;
     nIndis: number;
     constructor(device: GPUDevice, hm: HeightmapChunk);
+    free(): void;
 }
 declare class HeightmapNode {
     pos: vec3;
@@ -45,6 +50,7 @@ declare class HeightmapNode {
     normalBuf: GPUBuffer;
     mesh: LoadedHeightmapMesh;
     constructor(device: GPUDevice, pos: vec3, chunk: HeightmapChunk);
+    free(): void;
 }
 import { Keys } from '../sample09_nodes_and_cameras/sample.js';
 export declare class Camera {
@@ -62,10 +68,22 @@ export declare class Camera {
     right(): vec3;
     up(): vec3;
 }
+declare class RandomTerrain {
+    heightmap: PerlinHeightmap;
+    chunkDim: number;
+    nodes: Map<string, HeightmapNode>;
+    chunksLoaded: Set<string>;
+    chunkRow: number;
+    chunkCol: number;
+    chunkDist: number;
+    move(worldRowCoord: number, worldColCoord: number): void;
+    constructor(seed?: string, decay?: number, amp?: number, viewDist?: number, chunkDim?: number);
+    tick(device: GPUDevice): void;
+}
 export declare class Sample16 {
     device: GPUDevice;
     context: GPUCanvasContext;
-    center: HeightmapNode;
+    terrain: RandomTerrain;
     heightmapPipeline: GPURenderPipeline;
     viewBg: GPUBindGroup;
     proj: mat4;
