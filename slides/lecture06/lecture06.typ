@@ -116,8 +116,8 @@ WGSL doesn't support multiple return values. Instead, we use a `struct`.
 #set text(size: 20pt)
 ```wgsl
 struct VertexOutput {
-  @builtin(position) pos: vec4f;
-  @location(0) color: vec3f;
+  @builtin(position) pos: vec4f,
+  @location(0) color: vec3f,
 }; // semicolon optional. Most sources I've seen include it.
 ```
 ]
@@ -584,7 +584,7 @@ Therefore, it looks too dark. The system is assuming its drawing gamma corrected
 
 #[
   #set text(23pt)
-We have to add gamma correction in our fragment shader output.
+We _can_ add gamma correction in our fragment shader output.
 
 Recall that the simple gamma equation is:\
 #math.equation($"Brightness"_"in" = ("Brightness"_"out")^gamma$, alt:"input brightness equals output brightness to the power of gamma")
