@@ -803,6 +803,16 @@ export class Sample16 {
 
         c.updateMatrix(this.device);
 
+        const camRow = this.cam.pos[2];
+        const camCol = this.cam.pos[0];
+        const camRowChunk = Math.floor(camRow / PERLIN_CHUNK_DIM);
+        const camColChunk = Math.floor(camCol / PERLIN_CHUNK_DIM);
+
+        if (camRowChunk != this.terrain.chunkRow || camColChunk != this.terrain.chunkCol)
+            this.terrain.tick(this.device);
+
+        this.terrain.move(camRow, camCol);
+
         const viewProj = mat4.create();
         mat4.mul(viewProj, this.proj, this.cam.view);
         this.device.queue.writeBuffer(this.mViewProjBuf, 0, new Float32Array(viewProj));
