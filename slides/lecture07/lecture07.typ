@@ -335,7 +335,7 @@ Inside the fragment shader, when the fragment samples the texture, it will pull 
 
 == Comprehension check
 
-What would happen visually if we continued to sample (1, 1) for the bottom left point, but we sampled (1, .75) for the top right point, and (.75, 1) for the bottom left point, but the triangle is the same size.
+What would happen visually if we continued to sample (1, 1) for the bottom right point, but we sampled (1, .75) for the top right point, and (.75, 1) for the bottom left point, but the triangle is the same size.
 
 What would it look like?
 
