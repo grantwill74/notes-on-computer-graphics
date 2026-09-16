@@ -64,13 +64,35 @@ struct VertexOutput {
 `;
 const TAU = Math.PI * 2;
 import { mat3, mat4, vec2, vec3 } from "gl-matrix";
-const PERLIN_CHUNK_DIM = 64;
+const PERLIN_CHUNK_DIM = 32;
 const PERLIN_FEATURE_DIM = 16;
 // similar to AMD smoothstep from here: https://en.wikipedia.org/wiki/Smoothstep
 function smoothstep(a, b, x) {
     const xi = (x - a) / (b - a);
     const xc = xi < 0 ? 0 : xi > 1 ? 1 : xi;
     return xc * xc * (3.0 - 2.0 * xc);
+}
+class HeightmapCache {
+    rows;
+    cols;
+    topLeftRow;
+    topLeftCol;
+    heights;
+    constructor(rows, cols, topLeftRow, topLeftCol, heights) {
+        this.rows = rows;
+        this.cols = cols;
+        this.topLeftRow = topLeftRow;
+        this.topLeftCol = topLeftCol;
+        this.heights = heights;
+    }
+    sample(row, col) {
+        const r = row - this.topLeftRow;
+        const c = col - this.topLeftCol;
+        const result = this.heights[r * this.cols + c];
+        if (result === undefined)
+            throw new Error(`Missing sample from cache: ${row}, ${col}`);
+        return result;
+    }
 }
 function heightmapSampleNormal(h, row, col) {
     const leftNeigh = [-1, h.sample(row, col - 1), 0];
@@ -111,6 +133,8 @@ export class ImageHeightmap {
         }
     }
     // assumes 0,0 is the center of the heightmap
+    // not great software design to have an unused cache, but it was the easiest
+    // way to speed things up and not refactor everything.
     sample(row, col) {
         if (this.rows == 0 || this.cols == 0)
             return 0;
@@ -209,7 +233,7 @@ export class PerlinHeightmap {
         let h = amp * finalBlend;
         return h;
     }
-    sample(row, col) {
+    sample(row, col, cache) {
         let total = 0;
         for (let level = 0; level < this.nLevels; level++) {
             total += this.sampleLevel(row, col, level);
@@ -239,19 +263,31 @@ class HeightmapChunk {
         this.cols = cols;
         const verts = [];
         const indis = [];
-        for (let col = 0; col <= cols; col++) {
-            const worldRow = topLeftRow;
+        const heights = new Array((rows + 3) * (cols + 3));
+        for (let col = -1; col <= cols + 1; col++) {
+            const worldRow = topLeftRow - 1;
             const worldCol = topLeftCol + col;
             const height = hm.sample(worldRow, worldCol);
-            const normal = heightmapSampleNormal(hm, worldRow, worldCol);
+            heights[col + 1] = height;
+        }
+        for (let row = 0; row <= rows + 1; row++) {
+            for (let col = -1; col <= cols + 1; col++) {
+                const worldRow = topLeftRow + row;
+                const worldCol = topLeftCol + col;
+                const height = hm.sample(worldRow, worldCol);
+                heights[(row + 1) * (cols + 3) + col + 1] = height;
+            }
+        }
+        const cache = new HeightmapCache(rows + 3, cols + 3, -1, -1, heights);
+        for (let col = 0; col <= cols; col++) {
+            const height = cache.sample(0, col);
+            const normal = heightmapSampleNormal(cache, 0, col);
             verts.push(col, height, 0, ...normal);
         }
         for (let row = 1; row <= rows; row++) {
             for (let col = 0; col <= cols; col++) {
-                const worldRow = topLeftRow + row;
-                const worldCol = topLeftCol + col;
-                const height = hm.sample(worldRow, worldCol);
-                const normal = heightmapSampleNormal(hm, worldRow, worldCol);
+                const height = cache.sample(row, col);
+                const normal = heightmapSampleNormal(cache, row, col);
                 verts.push(col, height, row, ...normal);
                 const i = row * (cols + 1) + col;
                 indis.push(i - cols - 1, i);
@@ -430,19 +466,34 @@ class RandomTerrain {
     // into a single number, but it's easier to just turn them into strings.
     nodes = new Map();
     chunksLoaded = new Set();
+    newChunkQueue = new Set();
     chunkRow = 0;
     chunkCol = 0;
     chunkDist;
     move(worldRowCoord, worldColCoord) {
-        this.chunkRow = worldRowCoord / this.chunkDim;
-        this.chunkCol = worldColCoord / this.chunkDim;
+        this.chunkRow = Math.floor(worldRowCoord / this.chunkDim);
+        this.chunkCol = Math.floor(worldColCoord / this.chunkDim);
     }
     constructor(seed = "hi", decay = 0.5, amp = 1, viewDist = 128, chunkDim = PERLIN_CHUNK_DIM) {
         this.chunkDim = chunkDim;
         this.chunkDist = Math.ceil(viewDist / chunkDim);
         this.heightmap = new PerlinHeightmap(seed, PERLIN_LEVELS, decay, amp);
     }
+    // construct a chunk if one is waiting
     tick(device) {
+        if (this.newChunkQueue.size == 0)
+            return;
+        const id = this.newChunkQueue.keys().next().value;
+        const [row, col] = HeightmapChunk.chunkRowColFromId(id);
+        const tlRow = row * this.chunkDim;
+        const tlCol = col * this.chunkDim;
+        const chunk = new HeightmapChunk(this.heightmap, tlRow, tlCol, this.chunkDim, this.chunkDim);
+        const node = new HeightmapNode(device, [tlCol, 0, tlRow], chunk);
+        this.nodes.set(id, node);
+        this.chunksLoaded.add(id);
+        this.newChunkQueue.delete(id);
+    }
+    update(device) {
         const chunksNeeded = new Set();
         const left = Math.floor(this.chunkCol) - this.chunkDist;
         const right = Math.ceil(this.chunkCol) + this.chunkDist;
@@ -463,15 +514,7 @@ class RandomTerrain {
         }
         this.chunksLoaded = this.chunksLoaded.difference(chunksToFree);
         const chunksMissing = chunksNeeded.difference(this.chunksLoaded);
-        for (let id of chunksMissing) {
-            const [row, col] = HeightmapChunk.chunkRowColFromId(id);
-            const tlRow = row * this.chunkDim;
-            const tlCol = col * this.chunkDim;
-            const chunk = new HeightmapChunk(this.heightmap, tlRow, tlCol, this.chunkDim, this.chunkDim);
-            const node = new HeightmapNode(device, [tlCol, 0, tlRow], chunk);
-            this.nodes.set(id, node);
-            this.chunksLoaded.add(id);
-        }
+        this.newChunkQueue = this.newChunkQueue.union(chunksMissing);
     }
 }
 export class Sample16 {
@@ -503,9 +546,9 @@ export class Sample16 {
         this.center = new HeightmapNode(device,
             [-centerChunk.cols / 2, 0, -centerChunk.rows / 2], centerChunk);
         */
-        this.terrain = new RandomTerrain("hi!", 0.4, 4, 256, 128);
+        this.terrain = new RandomTerrain("hi!", 0.4, 4, 400, PERLIN_CHUNK_DIM);
         this.terrain.move(0, 0);
-        this.terrain.tick(device);
+        this.terrain.update(device);
         this.canvasFormat = (context.getCurrentTexture().format + '-srgb');
         const width = context.canvas.width;
         const height = context.canvas.height;
@@ -673,10 +716,11 @@ export class Sample16 {
         c.updateMatrix(this.device);
         const camRow = this.cam.pos[2];
         const camCol = this.cam.pos[0];
-        const camRowChunk = Math.floor(camRow / PERLIN_CHUNK_DIM);
-        const camColChunk = Math.floor(camCol / PERLIN_CHUNK_DIM);
+        const camRowChunk = Math.floor(camRow / this.terrain.chunkDim);
+        const camColChunk = Math.floor(camCol / this.terrain.chunkDim);
         if (camRowChunk != this.terrain.chunkRow || camColChunk != this.terrain.chunkCol)
-            this.terrain.tick(this.device);
+            this.terrain.update(this.device);
+        this.terrain.tick(this.device);
         this.terrain.move(camRow, camCol);
         const viewProj = mat4.create();
         mat4.mul(viewProj, this.proj, this.cam.view);

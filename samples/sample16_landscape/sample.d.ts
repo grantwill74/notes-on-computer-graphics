@@ -18,7 +18,7 @@ export declare class PerlinHeightmap implements Heightmap {
     constructor(seed: string, nLevels: number, decay: number, baseAmp: number);
     private gradient;
     private sampleLevel;
-    sample(row: number, col: number): number;
+    sample(row: number, col: number, cache?: Map<number, number>): number;
 }
 declare class HeightmapChunk {
     hm: Heightmap;
@@ -73,12 +73,14 @@ declare class RandomTerrain {
     chunkDim: number;
     nodes: Map<string, HeightmapNode>;
     chunksLoaded: Set<string>;
+    newChunkQueue: Set<string>;
     chunkRow: number;
     chunkCol: number;
     chunkDist: number;
     move(worldRowCoord: number, worldColCoord: number): void;
     constructor(seed?: string, decay?: number, amp?: number, viewDist?: number, chunkDim?: number);
     tick(device: GPUDevice): void;
+    update(device: GPUDevice): void;
 }
 export declare class Sample16 {
     device: GPUDevice;
