@@ -49,7 +49,27 @@ struct VertexOutput {
 
     var color: vec4f;
 
-    let samp_grass = textureSample(tex_grass, samp, vo.world_pos.xz);
+    // Triplanar Mapping:
+    // compute UVs to use for all 3 directions of sampling
+    let uv_yz = vo.world_pos.yz; // perfect if normal is facing right/left
+    let uv_xz = vo.world_pos.xz; // perfect if normal is facing up/down
+    let uv_xy = vo.world_pos.xy; // perfect if normal is facing forward/back
+
+    // which one is best? we can actually choose fractional amounts.
+    // we will use the normal to tell us which direction the surface is pointing
+    let weights = abs(normalize(vo.norm));
+
+    // so weights.y is the amount that we want to sample uv_xz, which is perfect
+    // when the normal is (0, 1, 0) (so if the normal is facing up, it uses only
+    // that sample)
+
+    // the denominator is the sum of weights. we're using a linear blend.
+    let denom = weights.x + weights.y + weights.z;
+
+    let samp_grass = 
+        textureSample(tex_grass, samp, uv_yz) * weights.x / denom +
+        textureSample(tex_grass, samp, uv_xz) * weights.y / denom +
+        textureSample(tex_grass, samp, uv_xy) * weights.z / denom;
 
     if vo.world_pos.y < WATER_LINE {
         let weight = vo.world_pos.y / MIN_HEIGHT;
