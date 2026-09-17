@@ -10,13 +10,13 @@ const WATER_LINE: f32 = 0.0;
 @group(1) @binding(0) var<uniform> m_view_proj: mat4x4<f32>;
 @group(1) @binding(1) var<uniform> eye: vec3f;
 
-/*
 @group(2) @binding(0) var samp: sampler;
 @group(2) @binding(1) var tex_grass: texture_2d<f32>;
-@group(2) @binding(2) var tex_dirt: texture_2d<f32>;
-@group(2) @binding(3) var tex_sand: texture_2d<f32>;
-@group(2) @binding(4) var tex_stone: texture_2d<f32>;
-@group(2) @binding(5) var tex_snow: texture_2d<f32>;
+/*
+@group(2) @binding(2) var tex_sand: texture_2d<f32>;
+@group(2) @binding(3) var tex_stone: texture_2d<f32>;
+@group(2) @binding(4) var tex_snow: texture_2d<f32>;
+@group(2) @binding(5) var tex_dirt: texture_2d<f32>;
 */
 
 struct VertexOutput {
@@ -49,14 +49,17 @@ struct VertexOutput {
 
     var color: vec4f;
 
+    let samp_grass = textureSample(tex_grass, samp, vo.world_pos.xz);
+
     if vo.world_pos.y < WATER_LINE {
         let weight = vo.world_pos.y / MIN_HEIGHT;
         color = min_color * weight + base_color * (1 - weight);
         color = vec4f(color.r, color.bg, color.a);
     }
     else {
-        let weight = vo.world_pos.y / MAX_HEIGHT;
-        color = max_color * weight + base_color * (1 - weight);
+        color = samp_grass;
+        //let weight = vo.world_pos.y / MAX_HEIGHT;
+        //color = max_color * weight + base_color * (1 - weight);
     }
 
     return color;
@@ -66,6 +69,7 @@ const TAU = Math.PI * 2;
 import { mat3, mat4, vec2, vec3 } from "gl-matrix";
 const PERLIN_CHUNK_DIM = 32;
 const PERLIN_FEATURE_DIM = 16;
+const PERLIN_BASE_FREQ = 0.25;
 // similar to AMD smoothstep from here: https://en.wikipedia.org/wiki/Smoothstep
 function smoothstep(a, b, x) {
     const xi = (x - a) / (b - a);
@@ -207,7 +211,7 @@ export class PerlinHeightmap {
         return vec2.fromValues(x, z);
     }
     sampleLevel(row, col, level) {
-        const freq = Math.pow(2, level);
+        const freq = Math.pow(2, level) * PERLIN_BASE_FREQ;
         row = row * freq / PERLIN_FEATURE_DIM;
         col = col * freq / PERLIN_FEATURE_DIM;
         const top = Math.floor(row);
@@ -233,7 +237,7 @@ export class PerlinHeightmap {
         let h = amp * finalBlend;
         return h;
     }
-    sample(row, col, cache) {
+    sample(row, col) {
         let total = 0;
         for (let level = 0; level < this.nLevels; level++) {
             total += this.sampleLevel(row, col, level);
@@ -520,10 +524,12 @@ class RandomTerrain {
 export class Sample16 {
     device;
     context;
+    grass;
     // center: HeightmapNode;
     terrain;
     heightmapPipeline;
     viewBg;
+    texBg;
     proj;
     mViewProjBuf;
     eyeBuf;
@@ -531,7 +537,7 @@ export class Sample16 {
     keys;
     canvasFormat;
     zBuffer;
-    constructor(device, context, _heightMap) {
+    constructor(device, context, grass) {
         //const imageHm = new ImageHeightmap(heightMap, 10);
         //const imageHm_chunk = new HeightmapChunk(
         //    imageHm, -imageHm.rows / 2, -imageHm.cols / 2, imageHm.rows, imageHm.cols);
@@ -539,6 +545,7 @@ export class Sample16 {
         //    [-imageHm.cols / 2, 0, -imageHm.rows / 2], imageHm_chunk);
         this.device = device;
         this.context = context;
+        this.grass = grass;
         /*
         const perlinNoise = new PerlinHeightmap("hey what's up", 9, 0.5, 4);
         const centerChunk = new HeightmapChunk(
@@ -546,7 +553,7 @@ export class Sample16 {
         this.center = new HeightmapNode(device,
             [-centerChunk.cols / 2, 0, -centerChunk.rows / 2], centerChunk);
         */
-        this.terrain = new RandomTerrain("hi!", 0.4, 4, 400, PERLIN_CHUNK_DIM);
+        this.terrain = new RandomTerrain("hi!", 0.35, 50, 500, PERLIN_CHUNK_DIM);
         this.terrain.move(0, 0);
         this.terrain.update(device);
         this.canvasFormat = (context.getCurrentTexture().format + '-srgb');
@@ -585,6 +592,20 @@ export class Sample16 {
                 }
             ]
         });
+        const texBgLayout = device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    sampler: {}
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {}
+                }
+            ]
+        });
         this.keys = new Keys();
         this.cam = new Camera('camera', device);
         vec3.add(this.cam.pos, this.cam.pos, CAM_START);
@@ -620,10 +641,32 @@ export class Sample16 {
                 }
             ]
         });
+        const sampler = device.createSampler({
+            addressModeU: 'repeat',
+            addressModeV: 'repeat',
+            minFilter: 'linear',
+            magFilter: 'linear',
+            mipmapFilter: 'linear',
+            maxAnisotropy: 16,
+        });
+        this.texBg = device.createBindGroup({
+            layout: texBgLayout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: sampler,
+                },
+                {
+                    binding: 1,
+                    resource: grass.createView()
+                }
+            ]
+        });
         const hmPipelineLayout = device.createPipelineLayout({
             bindGroupLayouts: [
                 modelBgLayout,
                 viewBgLayout,
+                texBgLayout,
             ],
         });
         const shaderMod = device.createShaderModule({ code: terrainCode });
@@ -756,6 +799,7 @@ export class Sample16 {
         pass.setViewport(0, 0, canv.width, canv.height, 0, 1);
         pass.setPipeline(this.heightmapPipeline);
         pass.setBindGroup(1, this.viewBg);
+        pass.setBindGroup(2, this.texBg);
         for (let [_, node] of this.terrain.nodes) {
             pass.setBindGroup(0, node.bg);
             pass.setVertexBuffer(0, node.mesh.verts);

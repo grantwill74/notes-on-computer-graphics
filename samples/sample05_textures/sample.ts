@@ -305,12 +305,18 @@ export function renderSample05(
 export async function loadTexture(
     device: GPUDevice,
     url: URL,
-    format?: GPUTextureFormat
+    format?: GPUTextureFormat,
+    calcMipLevels: boolean = false,
 ): Promise<GPUTexture>
 {
     const response = await fetch(url);    
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
+
+    // this will be covered in the advanced texturing chapter
+    const minDim = Math.min(bitmap.width, bitmap.height);
+    const mipLevels = calcMipLevels ? Math.floor(Math.log2(minDim)) : 1;
+    /////////////////////////////////////////////////////////
     
     const tex = device.createTexture({
         format: format ?? "rgba8unorm-srgb",
@@ -320,6 +326,7 @@ export async function loadTexture(
             GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING,
         dimension: '2d',
+        mipLevelCount: mipLevels,
         label: url.toString(),
     });
 

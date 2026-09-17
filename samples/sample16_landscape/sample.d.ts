@@ -18,7 +18,7 @@ export declare class PerlinHeightmap implements Heightmap {
     constructor(seed: string, nLevels: number, decay: number, baseAmp: number);
     private gradient;
     private sampleLevel;
-    sample(row: number, col: number, cache?: Map<number, number>): number;
+    sample(row: number, col: number): number;
 }
 declare class HeightmapChunk {
     hm: Heightmap;
@@ -85,9 +85,11 @@ declare class RandomTerrain {
 export declare class Sample16 {
     device: GPUDevice;
     context: GPUCanvasContext;
+    grass: GPUTexture;
     terrain: RandomTerrain;
     heightmapPipeline: GPURenderPipeline;
     viewBg: GPUBindGroup;
+    texBg: GPUBindGroup;
     proj: mat4;
     mViewProjBuf: GPUBuffer;
     eyeBuf: GPUBuffer;
@@ -95,7 +97,7 @@ export declare class Sample16 {
     keys: Keys;
     canvasFormat: GPUTextureFormat;
     zBuffer: GPUTexture;
-    constructor(device: GPUDevice, context: GPUCanvasContext, _heightMap: ImageData);
+    constructor(device: GPUDevice, context: GPUCanvasContext, grass: GPUTexture);
     startRendering(): void;
     update(_now: number, dtime: number): void;
     lastUpdate: number;

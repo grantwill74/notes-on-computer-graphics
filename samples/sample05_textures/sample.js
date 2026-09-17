@@ -239,10 +239,14 @@ export function renderSample05(device, context, pipeline, vertBuf, texBg, offset
     const commands = encoder.finish();
     device.queue.submit([commands]);
 }
-export async function loadTexture(device, url, format) {
+export async function loadTexture(device, url, format, calcMipLevels = false) {
     const response = await fetch(url);
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
+    // this will be covered in the advanced texturing chapter
+    const minDim = Math.min(bitmap.width, bitmap.height);
+    const mipLevels = calcMipLevels ? Math.floor(Math.log2(minDim)) : 1;
+    /////////////////////////////////////////////////////////
     const tex = device.createTexture({
         format: format ?? "rgba8unorm-srgb",
         size: { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 },
@@ -250,6 +254,7 @@ export async function loadTexture(device, url, format) {
             GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING,
         dimension: '2d',
+        mipLevelCount: mipLevels,
         label: url.toString(),
     });
     device.queue.copyExternalImageToTexture({ source: bitmap }, { texture: tex, colorSpace: "srgb" }, { width: bitmap.width, height: bitmap.height, depthOrArrayLayers: 1 });

@@ -27,14 +27,34 @@
             
             const [device, context] = await initWebGpu();
 
-            const hmUrl = 'special_textures/world_heightmap.png'
-            const worldHm_req = await fetch(new URL(hmUrl, import.meta.url));
-            const worldHm_blob = await worldHm_req.blob();
-            const worldHm_bmp = await createImageBitmap(await worldHm_blob);
-            const tempCanv = new OffscreenCanvas(worldHm_bmp.width, worldHm_bmp.height);
-            const tempCon = tempCanv.getContext('2d');
-            tempCon.drawImage(worldHm_bmp, 0, 0);
-            const worldHm = tempCon.getImageData(0, 0, worldHm_bmp.width, worldHm_bmp.height);
+            const texDir = './y2k_texture_pack_x30/128/'
+            const textureUrls = {
+                grass: new URL(texDir + 'y2k_grass.png', import.meta.url)
+            }
+
+            const mipPipe = createMipmapPipeline(device);
+
+            
+            const texturePromises = {}
+            for (let [name, url] of Object.entries(textureUrls)) {
+                texturePromises[name] = loadTexture(device, url, 'rgba8unorm-srgb', true)
+                    .then((tex) => {
+                        const mipLevels = Math.log2(Math.min(tex.width, tex.height));
+                        console.log(mipLevels);
+                        genMips(device, tex, mipLevels, mipPipe);
+                        return tex;
+                    });
+            }
+            
+
+            // const hmUrl = 'special_textures/world_heightmap.png'
+            // const worldHm_req = await fetch(new URL(hmUrl, import.meta.url));
+            // const worldHm_blob = await worldHm_req.blob();
+            // const worldHm_bmp = await createImageBitmap(await worldHm_blob);
+            // const tempCanv = new OffscreenCanvas(worldHm_bmp.width, worldHm_bmp.height);
+            // const tempCon = tempCanv.getContext('2d');
+            // tempCon.drawImage(worldHm_bmp, 0, 0);
+            // const worldHm = tempCon.getImageData(0, 0, worldHm_bmp.width, worldHm_bmp.height);
 
             //const mipPipe = createMipmapPipeline(device);
             //genMips(device, worldHm, texLayers, mipPipe);
@@ -42,7 +62,8 @@
             const sample = new Sample16(
                 device,
                 context,
-                worldHm
+                await texturePromises.grass
+                // worldHm
             );
 
             sample.startRendering();
@@ -51,5 +72,13 @@
     </head>
     <body>
         <canvas width="800" height="600"></canvas>
+        <p>
+            <ul>
+                <li>Use WASD to move</li>
+                <li>Use arrows to rotate</li>
+                <li>Space to float up</li>
+                <li>C to float down</li>
+            </ul>
+        </p>
     </body>
 </html>
