@@ -7,6 +7,9 @@ const SAND_LINE_START: f32 = 0.25;
 const SAND_LINE_END: f32 = 1.0;
 const SNOW_LINE_START: f32 = 15.0;
 const SNOW_LINE_END: f32 = 25.0;
+const WATER_SPEED: f32 = 0.125; // uvs per second
+
+const TAU: f32 = 4 * atan2(1.0, 0.0);
 
 @group(0) @binding(0) var<uniform> m_model: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> m_normal: mat3x3<f32>;
@@ -20,6 +23,8 @@ const SNOW_LINE_END: f32 = 25.0;
 @group(2) @binding(3) var tex_water: texture_2d<f32>;
 @group(2) @binding(4) var tex_snow: texture_2d<f32>;
 @group(2) @binding(5) var tex_stone: texture_2d<f32>;
+
+@group(3) @binding(0) var<uniform> phase: f32;
 /*
 @group(2) @binding(5) var tex_dirt: texture_2d<f32>;
 */
@@ -97,12 +102,13 @@ struct VertexOutput {
         textureSample(tex_stone, samp, uv_xy) * weights.z / denom;
 
     // the water is perfectly flat, so we don't need 
-    let samp_water = textureSample(tex_water, samp, uv_xz);
+    let samp_water = textureSample(tex_water, samp,
+        uv_xz + sin(vec2f(phase, phase) * WATER_SPEED * TAU));
     
     // don't need an epsilon comparison here. If you pick a non-exact, float,
     // like 0.1, you'll want one.
     if vo.world_pos.y == WATER_LINE {
-        color = samp_water;
+        color = samp_water * 0.5;
     }
     // haven't added transparency yet, so this doesn't show up.
     else if vo.world_pos.y < WATER_LINE {
@@ -710,6 +716,8 @@ export class Sample16 {
 
     viewBg: GPUBindGroup;
     texBg: GPUBindGroup;
+    globalBg: GPUBindGroup;
+    globalBuf: GPUBuffer;
     proj: mat4;
     mViewProjBuf: GPUBuffer;
     eyeBuf: GPUBuffer;
@@ -823,6 +831,31 @@ export class Sample16 {
             ]
         });
 
+        this.globalBuf = device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: false,
+            label: "global buffer"
+        });
+
+        const globalBgLayout = device.createBindGroupLayout({
+            entries: [
+                { // phase
+                    binding: 0,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: {}
+                }
+            ]
+        });
+
+        this.globalBg = device.createBindGroup({
+            layout: globalBgLayout,
+            entries: [{
+                binding: 0,
+                resource: this.globalBuf,
+            }]
+        });
+
 
         this.keys = new Keys();
         this.cam = new Camera('camera', device);
@@ -908,6 +941,7 @@ export class Sample16 {
                 modelBgLayout,
                 viewBgLayout,
                 texBgLayout,
+                globalBgLayout,
             ],
         });
 
@@ -944,7 +978,7 @@ export class Sample16 {
                 ]
             },
             primitive: {
-                cullMode: 'none', // for now
+                cullMode: 'back',
                 frontFace: 'ccw',
                 topology: 'triangle-strip',
                 stripIndexFormat: 'uint32',
@@ -967,7 +1001,7 @@ export class Sample16 {
         renderAndRequeue(performance.now());
     }
 
-    update(_now: number, dtime: number): void {
+    update(now: number, dtime: number): void {
         const k = this.keys;
         const c = this.cam;
         const moveAmnt = CAM_MOVE_SPEED * dtime *
@@ -1023,6 +1057,9 @@ export class Sample16 {
         const viewProj = mat4.create();
         mat4.mul(viewProj, this.proj, this.cam.view);
         this.device.queue.writeBuffer(this.mViewProjBuf, 0, new Float32Array(viewProj));
+
+        const phase = now % 1000;
+        this.device.queue.writeBuffer(this.globalBuf, 0, new Float32Array([phase]));
     }
 
     lastUpdate: number = performance.now();
@@ -1058,6 +1095,7 @@ export class Sample16 {
 
         pass.setViewport(0, 0, canv.width, canv.height, 0, 1);
         pass.setPipeline(this.heightmapPipeline);
+        pass.setBindGroup(3, this.globalBg);
         pass.setBindGroup(1, this.viewBg);
         pass.setBindGroup(2, this.texBg);
 

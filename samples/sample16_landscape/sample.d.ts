@@ -94,6 +94,8 @@ export declare class Sample16 {
     heightmapPipeline: GPURenderPipeline;
     viewBg: GPUBindGroup;
     texBg: GPUBindGroup;
+    globalBg: GPUBindGroup;
+    globalBuf: GPUBuffer;
     proj: mat4;
     mViewProjBuf: GPUBuffer;
     eyeBuf: GPUBuffer;
@@ -103,7 +105,7 @@ export declare class Sample16 {
     zBuffer: GPUTexture;
     constructor(device: GPUDevice, context: GPUCanvasContext, grass: GPUTexture, sand: GPUTexture, water: GPUTexture, snow: GPUTexture, stone: GPUTexture);
     startRendering(): void;
-    update(_now: number, dtime: number): void;
+    update(now: number, dtime: number): void;
     lastUpdate: number;
     render(now: number): void;
 }
