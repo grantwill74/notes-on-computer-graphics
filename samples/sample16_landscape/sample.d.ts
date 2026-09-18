@@ -86,6 +86,10 @@ export declare class Sample16 {
     device: GPUDevice;
     context: GPUCanvasContext;
     grass: GPUTexture;
+    sand: GPUTexture;
+    water: GPUTexture;
+    snow: GPUTexture;
+    stone: GPUTexture;
     terrain: RandomTerrain;
     heightmapPipeline: GPURenderPipeline;
     viewBg: GPUBindGroup;
@@ -97,7 +101,7 @@ export declare class Sample16 {
     keys: Keys;
     canvasFormat: GPUTextureFormat;
     zBuffer: GPUTexture;
-    constructor(device: GPUDevice, context: GPUCanvasContext, grass: GPUTexture);
+    constructor(device: GPUDevice, context: GPUCanvasContext, grass: GPUTexture, sand: GPUTexture, water: GPUTexture, snow: GPUTexture, stone: GPUTexture);
     startRendering(): void;
     update(_now: number, dtime: number): void;
     lastUpdate: number;

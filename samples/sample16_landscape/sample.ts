@@ -3,6 +3,10 @@ const terrainCode = /*wgsl*/`
 const MIN_HEIGHT: f32 = -3.0;
 const MAX_HEIGHT: f32 = 3.0;
 const WATER_LINE: f32 = 0.0;
+const SAND_LINE_START: f32 = 0.25;
+const SAND_LINE_END: f32 = 1.0;
+const SNOW_LINE_START: f32 = 15.0;
+const SNOW_LINE_END: f32 = 25.0;
 
 @group(0) @binding(0) var<uniform> m_model: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> m_normal: mat3x3<f32>;
@@ -12,10 +16,11 @@ const WATER_LINE: f32 = 0.0;
 
 @group(2) @binding(0) var samp: sampler;
 @group(2) @binding(1) var tex_grass: texture_2d<f32>;
-/*
 @group(2) @binding(2) var tex_sand: texture_2d<f32>;
-@group(2) @binding(3) var tex_stone: texture_2d<f32>;
+@group(2) @binding(3) var tex_water: texture_2d<f32>;
 @group(2) @binding(4) var tex_snow: texture_2d<f32>;
+@group(2) @binding(5) var tex_stone: texture_2d<f32>;
+/*
 @group(2) @binding(5) var tex_dirt: texture_2d<f32>;
 */
 
@@ -46,6 +51,8 @@ struct VertexOutput {
     const base_color = vec4f(0.0, 0.5, 0.0, 1.0);
     const min_color = vec4f(0.0, 0.1, 0.0, 1.0);
     const max_color = vec4f(0.0, 0.9, 0.0, 1.0);
+    const min_bright = 0.1;
+    const max_bright = 1.0;
 
     var color: vec4f;
 
@@ -57,7 +64,13 @@ struct VertexOutput {
 
     // which one is best? we can actually choose fractional amounts.
     // we will use the normal to tell us which direction the surface is pointing
-    let weights = abs(normalize(vo.norm));
+    var weights = abs(normalize(vo.norm));
+
+    // we can raise weights to a power to increase/decrease "sharpness". here, we 
+    // want it to be reluctant to use the side texture (which is stone) unless
+    // the surface is really steep
+    weights.x = pow(weights.x, 4.0);
+    weights.z = pow(weights.z, 4.0);
 
     // so weights.y is the amount that we want to sample uv_xz, which is perfect
     // when the normal is (0, 1, 0) (so if the normal is facing up, it uses only
@@ -66,20 +79,48 @@ struct VertexOutput {
     // the denominator is the sum of weights. we're using a linear blend.
     let denom = weights.x + weights.y + weights.z;
 
+    // notice that we actually sample stone for the vertical part of 
+    // grass and snow.
     let samp_grass = 
-        textureSample(tex_grass, samp, uv_yz) * weights.x / denom +
+        textureSample(tex_stone, samp, uv_yz) * weights.x / denom +
         textureSample(tex_grass, samp, uv_xz) * weights.y / denom +
-        textureSample(tex_grass, samp, uv_xy) * weights.z / denom;
+        textureSample(tex_stone, samp, uv_xy) * weights.z / denom;
+    
+    let samp_sand = 
+        textureSample(tex_sand, samp, uv_yz) * weights.x / denom +
+        textureSample(tex_sand, samp, uv_xz) * weights.y / denom +
+        textureSample(tex_sand, samp, uv_xy) * weights.z / denom;
 
-    if vo.world_pos.y < WATER_LINE {
-        let weight = vo.world_pos.y / MIN_HEIGHT;
-        color = min_color * weight + base_color * (1 - weight);
-        color = vec4f(color.r, color.bg, color.a);
+    let samp_snow =
+        textureSample(tex_stone, samp, uv_yz) * weights.x / denom +
+        textureSample(tex_snow, samp, uv_xz) * weights.y / denom +
+        textureSample(tex_stone, samp, uv_xy) * weights.z / denom;
+
+    // the water is perfectly flat, so we don't need 
+    let samp_water = textureSample(tex_water, samp, uv_xz);
+    
+    // don't need an epsilon comparison here. If you pick a non-exact, float,
+    // like 0.1, you'll want one.
+    if vo.world_pos.y == WATER_LINE {
+        color = samp_water;
+    }
+    // haven't added transparency yet, so this doesn't show up.
+    else if vo.world_pos.y < WATER_LINE {
+        let bright = min_bright + (1.0 - vo.world_pos.y / MIN_HEIGHT) * max_bright;
+        color = samp_sand * bright;
+    }
+    else if vo.world_pos.y < SAND_LINE_END {
+        let alpha = (vo.world_pos.y - SAND_LINE_START) / (SAND_LINE_END - SAND_LINE_START);
+        color = samp_sand * (1.0 - alpha) + samp_grass * alpha;
+    }
+    else if vo.world_pos.y >= SNOW_LINE_START {
+        var alpha = (vo.world_pos.y - SNOW_LINE_START) / (SNOW_LINE_END - SNOW_LINE_START);
+        alpha = clamp(alpha, 0.0, 1.0);
+        color = mix(samp_grass, samp_snow, alpha * pow(alpha, 3.0));
+        // mix is for linear blends. I'm raising alpha to a power to make it more gradual. 
     }
     else {
         color = samp_grass;
-        //let weight = vo.world_pos.y / MAX_HEIGHT;
-        //color = max_color * weight + base_color * (1 - weight);
     }
 
     return color;
@@ -368,6 +409,16 @@ class HeightmapChunk {
 
             indis.push(0xFFFFFFFF);
         }
+
+        // put a water quad in the chunk
+        // I hardcoded it to y = 0, which is fine but not ideal
+        const i = (rows + 1) * (cols + 1);
+        indis.push(i, i + 1, i + 2, i + 3);
+        verts.push(0, 0, 0, 0, 1, 0);
+        verts.push(0, 0, rows, 0, 1, 0);
+        verts.push(cols, 0, 0, 0, 1, 0);
+        verts.push(cols, 0, rows, 0, 1, 0);
+
 
         this.vertData = new Float32Array(verts);
         this.indexData = new Uint32Array(indis);
@@ -673,6 +724,10 @@ export class Sample16 {
         public device: GPUDevice,
         public context: GPUCanvasContext,
         public grass: GPUTexture,
+        public sand: GPUTexture,
+        public water: GPUTexture,
+        public snow: GPUTexture,
+        public stone: GPUTexture,
     ) {
         //const imageHm = new ImageHeightmap(heightMap, 10);
         //const imageHm_chunk = new HeightmapChunk(
@@ -743,6 +798,26 @@ export class Sample16 {
                     binding: 1,
                     visibility: GPUShaderStage.FRAGMENT,
                     texture: {}
+                },
+                { // sand
+                    binding: 2,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {}
+                },
+                { // water
+                    binding: 3,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {}
+                },
+                { // snow
+                    binding: 4,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {}
+                },
+                { // stone
+                    binding: 5,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {}
                 }
             ]
         });
@@ -807,6 +882,22 @@ export class Sample16 {
                 {
                     binding: 1,
                     resource: grass.createView()
+                },
+                {
+                    binding: 2,
+                    resource: sand.createView()
+                },
+                {
+                    binding: 3,
+                    resource: water.createView()
+                },
+                {
+                    binding: 4,
+                    resource: snow.createView()
+                },
+                {
+                    binding: 5,
+                    resource: stone.createView()
                 }
             ]
         });

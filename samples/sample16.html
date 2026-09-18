@@ -29,7 +29,11 @@
 
             const texDir = './y2k_texture_pack_x30/128/'
             const textureUrls = {
-                grass: new URL(texDir + 'y2k_grass.png', import.meta.url)
+                grass: new URL(texDir + 'y2k_grass.png', import.meta.url),
+                sand: new URL(texDir + 'y2k_sand.png', import.meta.url),
+                water: new URL(texDir + 'y2k_water.png', import.meta.url),
+                snow: new URL(texDir + 'y2k_snow.png', import.meta.url),
+                stone: new URL(texDir + 'y2k_stone.png', import.meta.url),
             }
 
             const mipPipe = createMipmapPipeline(device);
@@ -40,7 +44,6 @@
                 texturePromises[name] = loadTexture(device, url, 'rgba8unorm-srgb', true)
                     .then((tex) => {
                         const mipLevels = Math.log2(Math.min(tex.width, tex.height));
-                        console.log(mipLevels);
                         genMips(device, tex, mipLevels, mipPipe);
                         return tex;
                     });
@@ -62,7 +65,11 @@
             const sample = new Sample16(
                 device,
                 context,
-                await texturePromises.grass
+                await texturePromises.grass,
+                await texturePromises.sand,
+                await texturePromises.water,
+                await texturePromises.snow,
+                await texturePromises.stone,
                 // worldHm
             );
 
