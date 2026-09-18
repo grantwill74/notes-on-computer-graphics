@@ -110,7 +110,8 @@ struct VertexOutput {
         color = samp_sand * bright;
     }
     else if vo.world_pos.y < SAND_LINE_END {
-        let alpha = (vo.world_pos.y - SAND_LINE_START) / (SAND_LINE_END - SAND_LINE_START);
+        var alpha = (vo.world_pos.y - SAND_LINE_START) / (SAND_LINE_END - SAND_LINE_START);
+        alpha = clamp(alpha, 0.0, 1.0);
         color = samp_sand * (1.0 - alpha) + samp_grass * alpha;
     }
     else if vo.world_pos.y >= SNOW_LINE_START {
