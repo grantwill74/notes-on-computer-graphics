@@ -42,4 +42,93 @@ Before I summarize that huge lecture, [who can tell me about the texturing techn
 
 == This time
 
-Let's actually use our knowledge.
+This is a big one: we're going to use our knowledge to build a streaming, infinite terrain engine.
+
+What is a terrain engine?
+
+Well..
+
+== Terrain Engines
+
+#stack(dir: ltr, spacing: 5%,
+  box(width: 45%, [
+    Sometimes we want to display rolling terrain.
+
+    This results in special requirements, but also special optimization opportunities.
+
+    We call the part of our 3D engine that displays rolling terrain the "terrain engine".
+  ]),
+
+  box(width: 50%, [
+    #image("screens/tribes2.jpg", alt: "a screenshot of the game Tribes 2")
+    #place(bottom + right, dx: -1%, dy: -1%, game-name("Tribes 2"))
+  ])
+)
+
+== Why would terrain be interesting?
+
+#stack(dir: ltr, spacing: 5%,
+  box(width: 45%, [
+We've seen how to draw a 3D model. Why can't we just build a giant 3D model with all the terrain in it?
+
+Well, we _could_ do that, but there would be a few problems...
+
+[#link("https://www.gamedeveloper.com/programming/postmortem-dreamworks-interactive-s-i-trespasser-i-", [some ancient history about the game on the right])]
+  ]),
+  box(width: 50%, [
+    #image("screens/trespasser.jpg", alt: "a screenshot of the game Jurassic Park: Trespasser")
+    #place(bottom + left, dx: 2%, dy: -2%, game-name("Jurassic Park: Trespasser"))
+  ])
+)
+
+== Problems with having terrain be a giant mesh
+
+The first problem is the scale.
+
+I looked outside the other day at the terrain, and I noticed that there was a lot of it.
+
+If we place a quad every meter, a square kilometer is going to be roughly 2 million triangles.
+
+This isn't actually unworkable. A modern GPU can draw 2 million triangles at 60 FPS reliably...
+
+== Problems with having terrain be a giant mesh (2)
+
+But a square kilometer isn't *that* much land. We can see Mt. Saint Helens clearly from campus and it's roughly 100 Km from campus.
+
+If you want large, geologically significant terrain to be explorable in a 3D engine, you can't just draw a giant mesh.
+
+Or rather, you can't just draw a giant mesh if you expect it to be dynamically generated based on your position. (If you know you'll be on campus, making a simplified mesh of the surrounding environment isn't too hard).
+
+== Problems with having terrain be a giant mesh (3)
+
+But let's say you want the following:
+- Vast terrain area
+- Randomly generated
+- Streaming in as needed
+
+In that case, you can't just create the terrain as a giant mesh.
+
+In this lecture we're going to explore all these requirements and build a procedural terrain-engine that allows "infinite" areas of land to be streamed-in as the camera floats in any direction.
+
+("infinite" in quotes because you run into floating point errors after a while)
+
+#focus-slide("Questions?")
+
+== Chunking the mesh
+
+#stack(dir: ltr, spacing: 5%,
+  box(width: 75%, [
+Okay, step one, we aren't going to draw a giant mesh of terrain.
+
+That means our terrain data will have to be broken up into *chunks*.
+
+A chunk is a usually-cubic or rectangular-prismatic shaped mesh in which two of the axes (usually X and Z) are aligned with the world axes.
+
+A popular example of this technique is a _Minecraft Chunk_ (shown right).
+  ]),
+
+  box(width: 20%, height: 80%, [
+     #image("screens/minecraft-chunk.webp", alt: "a cross section of a vertical rectangular slice of Minecraft voxels.")
+     #text(16pt, [#link("https://minecraft.fandom.com/wiki/Chunk?file=Chunk.png", "Source"): Cruxica, #link("https://creativecommons.org/licenses/by-nc/3.0/", [CC-BY-NC 3.0])])
+  ])
+)
