@@ -132,3 +132,49 @@ A popular example of this technique is a _Minecraft Chunk_ (shown right).
      #text(16pt, [#link("https://minecraft.fandom.com/wiki/Chunk?file=Chunk.png", "Source"): Cruxica, #link("https://creativecommons.org/licenses/by-nc/3.0/", [CC-BY-NC 3.0])])
   ])
 )
+
+== Benefits of chunks
+
+The main benefit of breaking our terrain into chunks is that we don't have to have all of it loaded at any one time.
+
+This is especially important when our terrain is infinite, which would be impossible.
+
+But there are some other benefits too:
+- We end up with a natural unit to do optimizations to, such as level of detail scaling or occlusion culling (we'll chat about these terms if there's time)
+- We can cut down on loading times by not needing to load as much terrain data at scene start.
+
+== Where does the chunk data come from?
+
+We could technically model a terrain chunk in a 3D modelling program like Blender.
+
+However, there is a simpler way to represent a chunk of terrain.
+
+It's called a *heightmap*.
+
+Recall from the textures lecture that texturing techniques often end with -map, and have the data stored in each texel before that.
+
+That's the case here: a heightmap is a texture in which each texel stores the height of the land.
+
+== Example heightmap
+
+#image("screens/world-heightmap.png", height: 80%, alt: "a NASA heightmap of planet earth")
+
+#link("https://www.earthdata.nasa.gov/topics/land-surface/digital-elevation-terrain-model-dem", "Source: NASA")
+
+== Explaining it
+
+Each pixel's brightness is interpretable as a height.
+
+This particular heightmap doesn't include sub-oceanic heights, so the water is all 0 (minimum brightness). However, in the samples directory there's a world heightmap which includes even the depth under the ocean.
+
+But what does it mean for each pixel to be a brightness? [Can we guess how we would turn image data like this into a mesh?]
+
+== Pixel "heights"
+
+One problem is that the brightness of a pixel does not really mean anything in terms of physical height.
+
+We could interpet 100% brightness as 20 meters tall. Then our world heightmap would look rather flat. 
+
+The image itself does not contain any dimensional information. You'd need to store that in meta-data or hardcode it.
+
+And how much data do we have exactly? How is "brightness" encoded in a standard RGBA image?
