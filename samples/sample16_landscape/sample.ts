@@ -226,10 +226,6 @@ export class ImageHeightmap implements Heightmap {
         }
     }
 
-    
-    // assumes 0,0 is the center of the heightmap
-    // not great software design to have an unused cache, but it was the easiest
-    // way to speed things up and not refactor everything.
     sample(row: number, col: number): number {
         if (this.rows == 0 || this.cols == 0) return 0;
 

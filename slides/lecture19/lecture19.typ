@@ -178,3 +178,155 @@ We could interpet 100% brightness as 20 meters tall. Then our world heightmap wo
 The image itself does not contain any dimensional information. You'd need to store that in meta-data or hardcode it.
 
 And how much data do we have exactly? How is "brightness" encoded in a standard RGBA image?
+
+== Pixel "heights" (2)
+
+"Brightness" is a surprisingly subjective term. However, in the case of the heighmap I posted earlier, all 3 color channels have the same value for each pixel, and brightness is that value.
+
+This means we effectively get 256 different heights. Not really a lot of precision for the whole world.
+
+Some images use 16-bit color channels, which is better, but isn't really an ideal use of encoding space.
+
+Can anyone think of another way to encode the heights of a grid in an image?
+
+== Pixel "heights" (3)
+
+Really, an RGBA 8-bit-per-channel image is just storing one 32-bit integer per pixel.
+
+We can put whatever we want in it, including a 32-bit float.
+
+32-bit floats are able to represent relatively precise height values for any place on earth. 
+
+Ultimately, you have to do whatever the heightmap you're using does, so I just treated the brightness as interpolating evenly between the maximum and minimum values, but realize that you have a lot more flexibility than that if you want it.
+
+#focus-slide("Questions?")
+
+== Using a heightmap
+
+There are basically two rather different, but straightforward ways to use a heightmap:
+- We can bind it as a texture. We can make it available to our vertex shader, along with a flat grid mesh of vertices, and it can manually set the heights of each vertex by sampling the texture.
+- We can use it to generate a mesh. Then, we're just drawing the mesh. This is a bit slower at first, because we typically generate the mesh with the CPU#footnote[It's possible to also use a compute shader to generate a mesh. This is cool, but a lot more complex.], but drawing it requires less work for the vertex shader.
+
+== Heightmap as texture
+
+We won't be using this approach, but I wanted to talk about it. It works like this:
++ Suppose your Grid Chunks are 64-by-64 cells (so 65-by-65 vertices). Create a 65-by-65 vertex mesh in which the XZ values are set according to the column and row in the mesh, and the Y values are 0.
++ Reuse this mesh for every terrain chunk. We're going to draw the same flat mesh over and over, but the vertex shader will change its Y values.
++ To draw a terrain chunk, send the mesh's local corner coordinates, and have the Y value come from the texture. Multiply the chunk by the model, view, etc. matrices.
+
+== Heightmap as texture (2)
+
+Basically, the idea here is that we pregenerate a mesh and store it in a buffer, and just reuse the same buffer over and over to save memory management.
+
+Every time we go to draw that mesh, we sample the heights from a texture. We can use the vertex XZ values to compute the UV coordinates. We also probably don't want to use mipmapping.
+
+This is a little slower than just having the height already be in the mesh, but the real downside is that things like normals are much slower to calculate. (We'll talk about how to do that, soon, but for now, it would require multiple samples and some vector math).
+
+== Heightmap Interface
+
+As a result, we'll be pre-calculating our heightmap chunks. This seems to be the most common technique from cursory investigation.
+
+Let's design an interface for our heightmaps. This way, we can get our heightmap data from an image, or we can generate it procedurally, and we won't have to change our sampling code:
+
+```ts
+interface Heightmap {
+    sample(row: number, col: number): number; 
+} // sample is an abstract method, so there's no body.
+```
+
+[Do we remember what an interface is? It's fine if we need a reminder]
+
+== Implementing it
+
+Now we want to implement that interface. We will create a class `ImageHeightmap` that takes an image and samples it when the class's user calls `sample`.
+
+#text(20pt)[
+```ts
+export class ImageHeightmap implements Heightmap {
+    samples: number[][];
+    rows: number;
+    cols: number;
+    
+    constructor(img: ImageData, public amp: number) {
+        this.rows = img.height;
+        this.cols = img.width;
+        this.samples = new Array(this.rows); 
+        // ... more follows ...
+```
+]
+
+== Implementing it (2)
+
+We're storing samples in an array of arrays, so we can get the sample for location `20, 10` by indexing `samples[20][10]`.
+
+Each sample is a height/brightness value for a particular coordinate.
+
+`amp` is the amplitude. This is a very simple way of interpreting the height value from a brightness. We multiply brightness by the amplitude to get height.
+
+This assumes that your minimum height is just the negation of your maximum height, but it works well enough for this simple case.
+
+== Implementing it (3)
+
+For `sample`, it would be really easy if the `row` and `col` that we sampled happened to be exact integers within the array.
+
+Then we could just return `samples[row][col]`.
+
+This is a reasonable assumption, but let's see what happens if we don't make it. Suppose we want to be able to smoothely interpolate between coordinates.
+
+[Can anyone think of an algorithm?]
+
+== Smooth interpolation
+
+The simplest approach would probably be to use the bilinear filtering technique we learned about with textures.
+
+There's a problem with it, however: it's linear interpolation.
+
+Why is that bad?
+
+Because the normal will not be defined at each grid coordinate.
+
+[Why?]
+
+== Smooth interpolation (2)
+
+The issue is that with linear interpolation, there is a point or a kink at each sample. [we can whiteboard it]
+
+With colors, we don't really notice or care, but with geometry, it is much more noticeable.
+
+It's not the end of the world. We can estimate the normal by sampling a region around it, but let's see if we can solve this problem in a straightforward way.
+
+We want to "stretch out" the region of space around the sample so that it's a little more flat, basically...
+
+== Smoothstep
+
+That brings us to the smoothstep function.
+
+This is a function that transforms input coordinates. That is, it takes a row-col coordinate pair, and it outputs a new, smoother row-col pair.
+
+How does it do that? With polynomial interpolation. 
+
+```ts
+// similar to AMD smoothstep from here:
+// https://en.wikipedia.org/wiki/Smoothstep
+function smoothstep(a: number, b: number, x: number): number{
+    const xi = (x - a) / (b - a);
+    const xc = xi < 0 ? 0 : xi > 1 ? 1 : xi;
+    return xc * xc * (3.0 - 2.0 * xc);
+}
+```
+
+== Smoothstep (2)
+
+`xi` is the proportion that `x` is between the bounds `a` and `b`. For example, an `xi` of 0.5 would be halfway between them.
+
+`xc` is the clamped verison of `xi`, so that it stays in the range `[0, 1]`.
+
+The idea is that the polynomial in that sample, #math.equation($3x_c^2 - 2x_c^3$, alt: "three ex see squared minus two ex see cubed"), has a derivative of 0 at both `xc == 0` and `xc == 1`.Important note: we don't apply this function to the height values, we apply it to the _input coordinates_
+
+== Smoothstep (3)
+
+TODO
+
+This is not the only polynomial with this property, and there are other polynomials, including those which have even higher derivatives of 0. Search for "smootherstep" for an example. These polynomials come from a technique called "Hermite interpolation", which is for finding interpolating polynomials whose derivatives agree to make the interpolation smooth.
+
+
