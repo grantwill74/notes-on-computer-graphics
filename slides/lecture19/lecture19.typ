@@ -181,7 +181,7 @@ And how much data do we have exactly? How is "brightness" encoded in a standard 
 
 == Pixel "heights" (2)
 
-"Brightness" is a surprisingly subjective term. However, in the case of the heighmap I posted earlier, all 3 color channels have the same value for each pixel, and brightness is that value.
+"Brightness" is a surprisingly subjective term. However, in the case of the heightmap I posted earlier, all 3 color channels have the same value for each pixel, and brightness is that value.
 
 This means we effectively get 256 different heights. Not really a lot of precision for the whole world.
 
@@ -321,12 +321,68 @@ function smoothstep(a: number, b: number, x: number): number{
 
 `xc` is the clamped verison of `xi`, so that it stays in the range `[0, 1]`.
 
-The idea is that the polynomial in that sample, #math.equation($3x_c^2 - 2x_c^3$, alt: "three ex see squared minus two ex see cubed"), has a derivative of 0 at both `xc == 0` and `xc == 1`.Important note: we don't apply this function to the height values, we apply it to the _input coordinates_
+The idea is that the polynomial in that sample, #math.equation($3x_c^2 - 2x_c^3$, alt: "three ex see squared minus two ex see cubed"), has a derivative of 0 at both `xc == 0` and `xc == 1`.
+
+We apply this function to the _input coordinates_. This causes the coordinate to approach `a` or `b` slower than it normally would when it is close, and ensures that the derivative is defined.
 
 == Smoothstep (3)
 
-TODO
+This is not the only polynomial with this property.
 
-This is not the only polynomial with this property, and there are other polynomials, including those which have even higher derivatives of 0. Search for "smootherstep" for an example. These polynomials come from a technique called "Hermite interpolation", which is for finding interpolating polynomials whose derivatives agree to make the interpolation smooth.
+There are other polynomials, including those which have even higher derivatives of 0.
 
+These polynomials come from a technique called "Hermite interpolation", which is for finding interpolating polynomials whose derivatives agree to make the interpolation smooth.
+
+See #link("https://en.wikipedia.org/wiki/Smoothstep#Origin", "this explanation") to see how the math is used to solve for the polynomials. The 5th-degree polynomial version is called "smootherstep". It has the second derivatives also being 0.
+
+#focus-slide("Questions?")
+
+== Back to the image heightmap
+
+Since we want to sample smoothly, let's break our procedure into pieces to make sure we understand all the steps:
++ First, we'll clamp the coordinates we want to sample to make sure they're in range. We could also repeat them. Or repeat one dimension and clamp another (useful for world maps).
++ Then, we'll pull the top-left, top-right, bottom-left, and bottom-right height pixels that are closest to the sample point. Exactly like how textures get bilinearly-filtered.
++ We apply `smoothstep` to our sample coordinates.
++ We do bilinear interpolation with the resulting smooth coordinates.
+
+== Sampling an image heightmap: clamping coordinates
+
+Clamping is straightforward:
+#text(22pt)[
+```ts
+const topR = Math.max(Math.min(Math.floor(row), this.rows - 1), 0);
+const botR = Math.max(Math.min(Math.ceil(row), this.rows - 1), 0);
+const leftC = Math.max(Math.min(Math.floor(col), this.cols - 1), 0);
+const rightC = Math.max(Math.min(Math.ceil(col), this.cols - 1), 0);
+```
+]
+
+For rows: compute the row below the coordinate and above. Make sure both are clamped to be in bounds. Do the same to columns.
+
+
+== Sampling an image heightmap: grabbing the corners
+
+Now we need the top-left, top-right, etc. We compute those from the 4 variables we created in the last slide.
+
+#text(22pt)[
+```ts
+const tl = this.samples[topR]![leftC]!;
+const tr = this.samples[topR]![rightC]!;
+const bl = this.samples[botR]![leftC]!;
+const br = this.samples[botR]![rightC]!;
+```
+]
+
+Note, we're using the `!` operator, which is a typescript operator that asserts that the value is defined. Normally an array index can be undefined. We're saying "I promise this is not undefined." This promise is justified because of the clamping we did.
+
+== Sampling an image heightmap: `smoothstep`
+
+Now we use smoothstep to make the sample coordinates vary smoothly between 0 and 1:
+
+```ts
+const alphaHoriz = smoothstep(0, 1, col - leftC);
+const alphaVert = smoothstep(0, 1, row - topR);
+```
+
+We're taking the given column and row coordinates and interpolating them to be between 0 and 1, but approaching 0 and 1 more slowly as they get closer.
 
