@@ -466,7 +466,13 @@ The bitangent calculation is similar, but we use the top and bottom neighbors in
 
 When we're done, the normal is estimated as being the cross product of the tangent and bitangent.
 
+```ts
+const normal = vec3.create();
+vec3.cross(normal, bit, tan);
+vec3.normalize(normal, normal);
 
+return normal;
+```
 
 #focus-slide("Questions?")
 
@@ -474,4 +480,19 @@ When we're done, the normal is estimated as being the cross product of the tange
 
 Okay, we have an `ImageHeightmap` class. It represents an image that can be loaded from a file, whose pixel brightnesses are interpreted as heights. We can sample it smoothly anywhere.
 
-Now we need to turn it into a mesh. We can call a mesh a _Chunk_. 
+Now we need to turn it into a mesh. We can call a mesh a _Chunk_.
+
+Remind me, [what goes into a *mesh*]?
+
+== Building a chunk
+
+Meshes are typically composed of two arrays:
+- *Vertices*, which themselves are composed of *attributes*.
+- *Indices*, which tell us how to form the triangles.
+
+In addition, a mesh can have a *topology*, which tells us how to interpret the indices.
+
+Remind me, [what are the topologies we have learned]?
+
+== Mesh topologies
+
