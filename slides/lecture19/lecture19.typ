@@ -384,5 +384,94 @@ const alphaHoriz = smoothstep(0, 1, col - leftC);
 const alphaVert = smoothstep(0, 1, row - topR);
 ```
 
-We're taking the given column and row coordinates and interpolating them to be between 0 and 1, but approaching 0 and 1 more slowly as they get closer.
+We're taking the given column and row coordinates and interpolating them to be between 0 and 1, but approaching 0 and 1 more slowly as they get closer (i.e., the derivative of `smoothstep` approaches zero).
 
+== Sampling an image heightmap: bilinear interpolation
+
+Lastly, we do linear interpolation between the two top samples, then linear interpolation between the interpolated results.
+#text(21pt)[ 
+```ts
+const sampHoriz1 = tl * (1 - alphaHoriz) + tr * alphaHoriz;
+const sampHoriz2 = bl * (1 - alphaHoriz) + br * alphaHoriz;
+const sampVert = sampHoriz1 * (1 - alphaVert) + sampHoriz2 * alphaVert;
+
+return sampVert;
+```
+]
+
+This is bilinear interpolation. The same thing that happens when your GPU samples a texture in `"linear"` mode.
+
+== What about normals?
+
+We don't just want to know how heigh a point is, we also want to know which direction it's facing (i.e., its normal).
+
+Partly for lighting purposes, but also, we're going to learn a texture sampling technique that is an alternative to storing UV coordinates in the mesh, and it requires a normal.
+
+So, how can we compute or estimate the normal in a heightmap?
+
+[thoughts?]
+
+== Estimating normals
+
+We've actually done it before, in the advanced textures lecture.
+
+When we had a cube-map wrapped around a sphere, we had the normal already, and we used it to compute the tangent and bitangent.
+
+This time, we don't have the normal, but we can compute the tangent and bitangent.
+
+The normal is the cross product between those two vectors.
+
+== Estimating normals (2)
+
+Let's define a function to compute it
+
+```ts
+function heightmapSampleNormal(
+    h: Heightmap, row: number, col: number,
+): vec3 { ... }
+```
+
+Within this function, we're going to take one of our generic heightmaps (which could be an image or some random terrain) and a location to compute the normal for.
+
+Here, we have a parameter of type `Heightmap`, which is an interface.
+
+== Estimating normals(3)
+
+First, we compute the tangent vector.
+
+Recall that the normal points "out away from" the surface at a point. The tangent and bitangent vectors point "sideways", in the direction the surface is curving.
+
+There are actually infinitely many tangent vectors. They can point in any direction, as long as it is orthogonal to the normal.
+
+So, we need to pick one. The simplest to pick is to just have it point in the X direction.
+
+== Estimating normals (4)
+
+So, sample the height of our left and right neighbors, and have the tangent be pointing between them.
+
+```ts
+const leftNeigh: vec3 = [-1, h.sample(row, col - 1), 0];
+const rightNeigh: vec3 = [1, h.sample(row, col + 1), 0];
+const tan = vec3.create();
+
+vec3.sub(tan, rightNeigh, leftNeigh);
+vec3.scale(tan, tan, 0.5); // before this, it has length 2
+```
+
+The tangent here is basically acting as the slope between the left and right sample around (row, col).
+
+== Estimating normals (5)
+
+The bitangent calculation is similar, but we use the top and bottom neighbors instead.
+
+When we're done, the normal is estimated as being the cross product of the tangent and bitangent.
+
+
+
+#focus-slide("Questions?")
+
+== After sampling: building a Chunk
+
+Okay, we have an `ImageHeightmap` class. It represents an image that can be loaded from a file, whose pixel brightnesses are interpreted as heights. We can sample it smoothly anywhere.
+
+Now we need to turn it into a mesh. We can call a mesh a _Chunk_. 
