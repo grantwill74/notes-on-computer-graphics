@@ -726,7 +726,7 @@ However, after we do that, we need to make a bind group.
 
 == Bind groups
 
-We've already been introduced to bind groups because we needed them to load shaders.
+We've already been introduced to bind groups because we needed them to load textures.
 
 However, if there's time, let's go over `sample06` together.
 
