@@ -496,3 +496,237 @@ Remind me, [what are the topologies we have learned]?
 
 == Mesh topologies
 
+The two most important topologies are triangle lists and triangle strips.
+
+A triangle list treats the index array as an array of triples, each of which describes the three vertices that make up a triangle.
+
+A triangle strip is an optimization on triangle lists. It assumes that the first three indices form a triangle, and each index is a triangle formed from the previous two.
+
+For example, the strip `1 2 3 4 5 6` turns into the triangle list `1 2 3`; `2 3 4`; `3 4 5`; `4 5 6`.
+
+== Triangle Strips
+
+Triangle strips are usually a wonderful optimization: not only do they remove a chunk of bus bandwidth needed to send meshes to the GPU, they can also make it easier to generate meshes to begin with.
+
+Especially meshes that are naturally composed of strips.
+
+Do you see where I'm going with this? Suppose we have a grid of heights. Can you think of how we could use triangle strips to construct a mesh that has those same heights?
+
+== Terrain Chunk example
+
+Suppose this is a grid of heights that we're looking at from the top down. So the horizontal axis is X, and the vertical axis is Z.
+
+
+#figure(
+  canvas({
+    import draw: *;
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+    for row in range(5) {
+      for col in range(5) {
+        circle((col, row), radius: .1);
+      }
+    }
+  }),
+  alt: "A 5-by-5 grid of points",
+  numbering: none,
+  caption: [Each point represents a different height value. We're viewing the terrain from the top down.]
+)
+
+Assume that each point is numbered left to right, top to bottom, starting at 0 for the top left.
+
+== Terrain chunk example (2)
+
+Let's form a single square of terrain like this:
+
+
+#figure(
+  canvas({
+    import draw: *;
+    
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+    for row in range(5) {
+      for col in range(5) {
+        circle((col, row), radius: .1);
+      }
+    }
+    line((0, 0), (0, 1), (1, 0), (1, 1))
+  }),
+  alt: "A 5-by-5 grid of points in which the top left point is connected to its lower neighbor, the lower neighbor is connected to the second point in the top row, and that point is connected to its lower neighbor.",
+)
+
+To construct this quad, we would create the triangle strip:
+`0 5 1 6`. Note: this is probably not a planar quad! The corners can all have different heights.
+
+The vertices along the top row are numbered from `0` to `4`, so `5` is the first vertex in the second from row from the top.
+
+== Terrain chunk example (3)
+
+Keep going until we have the entire top row of terrain...
+
+#figure(
+  canvas({
+    import draw: *;
+    
+    set-viewport((0, 0), (1, 1), bounds: (1, -1))
+    for row in range(5) {
+      for col in range(5) {
+        circle((col, row), radius: .1);
+      }
+    }
+    line((0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1), (3, 0), (3, 1), (4, 0), (4, 1))
+  }),
+  alt: "A 5-by-5 grid of points in which the top left point is connected to its lower neighbor, the lower neighbor is connected to the second point in the top row, and that point is connected to its lower neighbor.",
+)
+
+At this point, we have described a horizontal strip of terrain. `0 5 1 6 2 7, ...`, etc. It's a little awkward to keep the strip going after the top row. We would have to have a degenerate triangle along the right side.
+
+Instead, what do we do to cut off a triangle strip?
+
+== Primitive restart
+
+We "snip" the triangle strip after the last triangle of the row by putting in the special *primitive-restart* value at the end of the strip.
+
+This value is `0xFFFF` for 16-bit vertex indices, and `0xFFFFFFFF` for 32-bit indices (I'm using 32-bit ones in the sample).
+
+So, a triangle strip describing the top row is as follows:
+`0 5 1 6 2 7 3 8 4 9 0xFFFFFFFF`
+
+So, my next question: [what is the next row]?
+
+All the rows will go in the same triangle strip, so we can draw the whole terrain chunk with a single call.
+
+#focus-slide("Questions?")
+
+== Describing the vertices
+
+Of course, the index list is only half of the mesh.
+
+The other half is its vertices.
+
+When we want to create a mesh, we have to ask the question: what attributes do I want?
+
+[So, what do you think?]
+
+== Describing the vertices (2)
+
+We certainly need position.
+
+We also need a normal.
+
+You might think "UV", and that's a reasonable thought. However, if our terrain has a repeating texture, we can actually use the X and Z coordinates instead of UV (although if you want to paint specific parts of a texture onto specific areas of terrain, you still need UV).
+
+Interestingly, we could also store the "amount" of different kinds of texture as an attribute. Like "grassiness", "sandiness", etc. I didn't end up doing this, but it's worth a look if you need ideas for your final project!
+
+== Describing the vertices (3)
+
+So position and normal is actually all we need.
+
+We saw how to sample these earlier.
+
+Therefore, we can construct a  terrain chunk as follows:
+- Iterate over each vertex: its `row` is the `Z` coordinate, its `col` is the `X` coordinate, and its sampled height is the `Y` coordinate.
+- Use the algorithm we discussed earlier to estimate its normals.
+- Push the position and normal into a vertex data array
+- Iterate over each row, add indices to an index array in the `i (i + rowLength) (i + 1) (i + rowLength + 1)` pattern we saw.
+- Create buffers and a bind group for these data.
+
+== What about shaders?
+
+For now, let's keep it simple. Let's just make the terrain be a flat green color, and we'll make it be darker the further down it is.
+
+The terrain shader is very easy to describe. Just the standard view, proj, model calculation from before, and we pass through the position and normal.
+
+We could technically do our color calculation in the vertex shader, but later we're going to replace it with texturing, so let's do it in the fragment shader so we won't have to refactor as much later.
+
+== What about shaders? (2)
+
+Earlier, we scaled our heightmap by a constant factor as a way to interpret our brightness values as actual heights.
+
+Let's say that we scale it so that -5 is the minimum height, and 5 is the maximum (i.e., an amplitude of 5). How can we make it so that the grass color is linearly interpolated between these two values?
+
+Imagine that our heightmap is interpreting brightness like: \ `(pixel.r / 255 - 0.5) * amp`.
+
+[class]?
+
+
+== Is that all?
+
+It's not ideal for infinite terrain, but if we're using a heightmap, we can just load the whole thing into a single mesh and call it a day.
+
+We might still want to chunk it, depending on the terrain complexity and whether we need to use culling or level of detail techniques, but for now, let's see what happens if we just draw our terrain chunk we loaded...
+
+There's actually a built in WGSL function for doing linear interpolation named #link("https://webgpufundamentals.org/webgpu/lessons/webgpu-wgsl-function-reference.html#func-mix", [`mix`]), which takes two extreme values and a "blend-amount" parameter.
+
+== Simple linear color blending
+
+Suppose we want the minimum and maximum colors to be as follows:
+```wgsl
+const MIN_COLOR: vec3 = vec3(0.1, 0.1, 0.1);
+const MAX_COLOR: vec3 = vec3(0.1, 0.9, 0.1);
+const MIN_HEIGHT: f32 = -5.0;
+const MAX_HEIGHT: f32 = 5.0;
+```
+
+We know the heights will be between -5 and 5. We want to know how far a given height is within that region. That is, we want 0 to be 50%, 5 to be 100%, and -5 to be 0.
+
+== Simple linear color blending (2)
+
+The calculation works like this:
+```wgsl
+let alpha = (height - MIN_HEIGHT) / (MAX_HEIGHT - MIN_HEIGHT);
+```
+
+We call that value "alpha". Now we can call mix to get the color:
+```wgsl
+let color = mix(MIN_COLOR, MAX_COLOR, alpha);
+```
+
+You could also just do the linear interpolation yourself, which is what `mix` does for you:
+```wgsl
+let color = MIN_COLOR * (1.0 - alpha) + MAX_COLOR * alpha
+```
+
+== The result 
+
+We've done a lot of work. Let's just see if we're getting results. Here's what I got at roughly this point:
+
+#figure(
+  image("screens/world_map1.png", height: 70%, alt: "a heightmap of Earth, showing Africa and Eurasia.")
+)
+
+== Slightly more complex color blending
+
+But the earth has water on it, right?
+
+We could add a flat plane at height 0 for the water, but let's make a simple challenge based on what we just learned.
+
+If we wanted to make the fragment color _blue_ when it is below the water, what would we do?
+
+[class]
+
+== Slightly more complex color blending (2)
+
+We can perform the same calculation as before, but with a different color and with different heights.
+
+Start with:
+```wgsl
+var color: vec3;
+if (height < 0) {
+  let alpha = (height - MIN_HEIGHT) / -MIN_HEIGHT;
+  color = mix(MIN_COLOR_WATER, MAX_COLOR_WATER, alpha);
+}
+else {
+  // land calculation goes here but 0 instead of MIN_HEIGHT
+}
+```
+
+== Slightly more complex color blending result:
+
+#figure(
+  image("screens/world_map2.png", height: 80%, alt: "the same view of the heightmap as the last screenshot, but now the underwater terrain is varying shades of blue.")
+)
+
+We will do nicer color blending soon, but it's a start.
+
+#focus-slide("Questions?")
+
