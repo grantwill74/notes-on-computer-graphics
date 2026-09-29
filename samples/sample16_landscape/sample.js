@@ -9,13 +9,17 @@ const SNOW_LINE_START: f32 = 15.0;
 const SNOW_LINE_END: f32 = 25.0;
 const WATER_SPEED: f32 = 0.125; // uvs per second
 
+const SUN_COLOR: vec3f = vec3f(1.0, 0.9, 0.8);
+const SUN_DIR: vec3f = normalize(vec3f(1.0, 1.0, 1.0));
+const WATER_SHININESS: f32 = 20.0;
+
 const TAU: f32 = 4 * atan2(1.0, 0.0);
 
 @group(0) @binding(0) var<uniform> m_model: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> m_normal: mat3x3<f32>;
 
 @group(1) @binding(0) var<uniform> m_view_proj: mat4x4<f32>;
-@group(1) @binding(1) var<uniform> eye: vec3f;
+@group(1) @binding(1) var<uniform> eye: vec4f;
 
 @group(2) @binding(0) var samp: sampler;
 @group(2) @binding(1) var tex_grass: texture_2d<f32>;
@@ -32,7 +36,7 @@ const TAU: f32 = 4 * atan2(1.0, 0.0);
 struct VertexOutput {
     @builtin(position)  pos: vec4f,
     @location(0)        norm: vec3f,
-    @location(1)        materials: vec4f,
+    @location(1)        materials: vec4f, // didn't end up using this one
     // UVs will come from position, which is in world units    
     @location(2)        world_pos: vec4f,
 }
@@ -69,7 +73,8 @@ struct VertexOutput {
 
     // which one is best? we can actually choose fractional amounts.
     // we will use the normal to tell us which direction the surface is pointing
-    var weights = abs(normalize(vo.norm));
+    let norm = normalize(vo.norm);
+    var weights = abs(norm);
 
     // we can raise weights to a power to increase/decrease "sharpness". here, we 
     // want it to be reluctant to use the side texture (which is stone) unless
@@ -104,11 +109,13 @@ struct VertexOutput {
     // the water is perfectly flat, so we don't need 
     let samp_water = textureSample(tex_water, samp,
         uv_xz + sin(vec2f(phase, phase) * WATER_SPEED * TAU));
+    var shininess = 1.0;
     
     // don't need an epsilon comparison here. If you pick a non-exact, float,
     // like 0.1, you'll want one.
     if vo.world_pos.y == WATER_LINE {
         color = samp_water * 0.5;
+        shininess = WATER_SHININESS;
     }
     // haven't added transparency yet, so this doesn't show up.
     else if vo.world_pos.y < WATER_LINE {
@@ -130,7 +137,17 @@ struct VertexOutput {
         color = samp_grass;
     }
 
-    return color;
+    let eye_dir = normalize(eye.xyz - vo.world_pos.xyz);
+
+    let ambient = vec3f(0.1, 0.1, 0.1);
+    let diffuse = SUN_COLOR * max(0.0, dot(SUN_DIR, norm)) * 0.5;
+    let reflected = reflect(-SUN_DIR, norm);
+    let specular_base = max(0.0, dot(reflected, eye_dir));
+    let specular = SUN_COLOR * pow(specular_base, shininess) * 0.4;
+    let light = vec4f(ambient + diffuse + specular, 1.0f);
+
+    // return vec4f(eye_dir * 0.5 + 0.5, 1.0); for debugging eye_dir
+    return color * light;
 }
 `;
 const TAU = Math.PI * 2;
@@ -204,9 +221,6 @@ export class ImageHeightmap {
             }
         }
     }
-    // assumes 0,0 is the center of the heightmap
-    // not great software design to have an unused cache, but it was the easiest
-    // way to speed things up and not refactor everything.
     sample(row, col) {
         if (this.rows == 0 || this.cols == 0)
             return 0;
@@ -673,7 +687,7 @@ export class Sample16 {
                 },
                 {
                     binding: 1,
-                    visibility: GPUShaderStage.VERTEX,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: {}
                 }
             ]
@@ -751,7 +765,7 @@ export class Sample16 {
         this.mViewProjBuf.unmap();
         this.eyeBuf = device.createBuffer({
             size: 4 * 4,
-            usage: GPUBufferUsage.UNIFORM,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             mappedAtCreation: true,
         });
         (new Float32Array(this.eyeBuf.getMappedRange())).set([this.cam.model[12], this.cam.model[13], this.cam.model[14], 1]);
@@ -913,6 +927,8 @@ export class Sample16 {
         const viewProj = mat4.create();
         mat4.mul(viewProj, this.proj, this.cam.view);
         this.device.queue.writeBuffer(this.mViewProjBuf, 0, new Float32Array(viewProj));
+        const eyePos = [...this.cam.pos, 1.0];
+        this.device.queue.writeBuffer(this.eyeBuf, 0, new Float32Array(eyePos));
         const phase = now % 1000;
         this.device.queue.writeBuffer(this.globalBuf, 0, new Float32Array([phase]));
     }
