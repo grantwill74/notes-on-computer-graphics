@@ -730,3 +730,19 @@ We will do nicer color blending soon, but it's a start.
 
 #focus-slide("Questions?")
 
+== Heightmap limitations
+
+== Voxels
+
+#focus-slide("Questions?")
+
+== What about random terrain
+
+A real heightmap is cool and all, but what about procedurally generated terrain? It features hugely in many popular game franchises, Minecraft being the most notable.
+
+In this lecture, I'll teach you the algorithm Minecraft uses. It's extremely versatile, so we'll be using it to generate smoothly varying terrain instead of blocky voxel terrain.
+
+You can use this same technique to generate voxel terrain. You can even use it to generate overhangs or caves (3D Perlin noise) which is what Minecraft does.
+
+
+
