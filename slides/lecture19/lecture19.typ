@@ -744,5 +744,57 @@ In this lecture, I'll teach you the algorithm Minecraft uses. It's extremely ver
 
 You can use this same technique to generate voxel terrain. You can even use it to generate overhangs or caves (3D Perlin noise) which is what Minecraft does.
 
+== Procedural generation
+
+We're going to learn an algorithm for procedural generation.
+
+This is often taken to be a synonym for "random generation", and sometimes it is, but that's not strictly what the term means for us.
+
+Procedural generation means "generating using a procedure". As opposed to loading something already rendered from a file.
+
+So instead of loading a heightmap that was already created, we can use a procedure to generate one...
+
+== Procedural Generation (2)
+
+#text(20pt)[
+Procedural generation _can_ be random. For example, you could have a procedure that uses an arbitrary input (a seed) to generate a random world. Minecraft does this.
+
+But it doesn't have to be. Games like Daggerfall and Elite have the same world every time, but the world is the outcome of a random procedure.
+]
+
+#figure(
+  [
+    #image("screens/daggerfall_unity.jpg", height: 50%, alt: "a game screenshot")
+    #place(top+right, dx: -1%, dy: 1%, game-name("Daggerfall (unity version)"))
+  ]
+)
+
+== Procedural generation (3)
+
+There are several benefits to this:
++ A procedure is expected to take up way less space than a large image file full of terrain heights.
++ Procedures do not have to be finite. They can generate infinite terrain.
++ Procedures can be tuned to generate a lot of land with very little human effort. They can save labor for when quantity is more important than quality (nothing beats hand-crafted terrain, but sometimes quantity has its own quality)
+
+== Fractal vs. Value vs. Gradient noise
+
+Techniques for generating random terrain fall under many different categories. Here are a few:
+- Value noise: the generator looks at heights in a region around a point to determine what height it should be.
+- Gradient noise: the generator uses the slope (i.e., gradient vector) of the land around to determine what height it should be.
+- Fractal noise: the generator uses a fractal process (i.e., repeated subdivision) to generate terrain.
+
+== Previous iterations
+
+In the past, I used fractal terrain techniques. In particular, I used the Diamond-squares algorithm.
+
+These often look really nice.
+
+However, they have limitations when being used for infinite streaming terrain. In particular: they are less parallelizable. You have to store adjacent terrain chunks to generate new ones that aren't misaligned.
+
+Therefore, I've switched over to using *Perlin noise* for these lectures.
+
+The old technique is still up in the course slides on Canvas, and it still works well, however.
+
+== Ken Perlin
 
 
