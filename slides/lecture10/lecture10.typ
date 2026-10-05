@@ -521,7 +521,7 @@ You might wonder why we don't need to create a new bind group. Why can we reuse 
 
 The bind group stores the mapping between uniforms and the location of the data, but it doesn't store the data itself.
 
-We _could_ create another bind group. But we'd need to allocate a new matrix, which would be slower than just overwriting the old one.
+We _could_ create another bind group. But we don't have to. We can just modify the matrix it points to.
 
 Finally, the `writeBuffer` method requires that the `COPY_DST` usage be enabled on the buffer. If we didn't do this, we would have to map the buffer. Aquiring a map after creation is inconvenient and requires async code.
 
