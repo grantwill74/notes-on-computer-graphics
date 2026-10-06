@@ -797,4 +797,13 @@ The old technique is still up in the course slides on Canvas, and it still works
 
 == Ken Perlin
 
+#link("https://en.wikipedia.org/wiki/Ken_Perlin", [Ken Perlin]) is an influential computer graphics researcher currently at New York University. His #link("https://cs.nyu.edu/~perlin/", [personal page]) is a majestic example of early web.
+
+He has made numerous computations to the field of computer graphics.
+
+Probably, he his most famous for his noise algorithms: perlin noise and simplex noise.
+
+
+
+
 
