@@ -763,7 +763,7 @@ Most people use _horizontal field of view_ expressed in degrees to determine how
 
 For historical reasons, in 3D programming APIs, *vertical field of view (vFOV)* is more commonly used, including in gl-matrix.
 
-To get the vFOV, we just take the horizontal FOV and divide by the aspect ratio. So if we want 60 degrees to be the FOV (1/6 #sym.tau) and we have a 4:3 canvas, we divide 60 degrees by 4/3, which is 45 degrees (1/8 #sym.tau).
+To approximate the vFOV, we just take the horizontal FOV and divide by the aspect ratio. So if we want 60 degrees to be the FOV (1/6 #sym.tau) and we have a 4:3 canvas, we divide 60 degrees by 4/3, which is 45 degrees (1/8 #sym.tau). There's a more accurate calculation using tangents on the next slide.
 
 Let's say we pick that. Now what are our top and bottom planes?
 
