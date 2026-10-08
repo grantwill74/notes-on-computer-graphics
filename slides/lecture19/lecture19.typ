@@ -732,7 +732,37 @@ We will do nicer color blending soon, but it's a start.
 
 == Heightmap limitations
 
+We'll be using heightmaps for this lecture, but it's important to know that they have limitations.
+
+[Can anyone think of one?]
+
+[I.e., can you think of a landscape in which a heightmap would not be capable of encoding it?]
+
+== Heightmap limitations (2)
+
+The biggest limitation of a simple heightmap is that it can't have any overhangs in it.
+
+A heightmap is basically a 2D function from a pair of XZ coordinates to a height value. An overhang would imply that there are two heights for one pair of XZ coordinates, making it no longer a function.
+
+Since an image is 2D, it would be really inconvenient if we had patches where there multiple heights for one pixel.
+
 == Voxels
+
+#stack(dir: ltr, spacing: 5%, box(width: 55%)[
+To get around this limitation, we can extend the idea of pixels to being elements of 3D rather than 2D. So instead of "*pic*\ture *el*\ements", they are "*vo*\lumetri#strong([c]) *el*\ements". *Voxels*.
+
+The most popular example of voxels is probably Minecraft, but they have been used in a number of other games, too, like the one on the right.
+],
+box(width: 45%)[
+
+  #image("screens/outcast.jpg", alt: "a video game screenshot")
+  Outcast: a 1999 action-adventure game which used voxels for terrain.
+])
+
+== Voxels (2)
+
+
+
 
 #focus-slide("Questions?")
 
@@ -802,6 +832,8 @@ The old technique is still up in the course slides on Canvas, and it still works
 He has made numerous computations to the field of computer graphics.
 
 Probably, he his most famous for his noise algorithms: perlin noise and simplex noise.
+
+== Things we want in a noise function
 
 
 
