@@ -761,14 +761,20 @@ box(width: 45%)[
 
 == Voxels (2)
 
+Voxels are cool, and I bet some of you want to learn them.
 
+Everything we are about to learn applies to voxels, too, but if you draw a cube for each one naively you are going to run out of fill rate.
+
+Efficient voxel engines require lots of clever optimization. We likely won't have time to cover them in too much detail, but they make a good term project topic.
+
+There are #link("https://sites.google.com/site/letsmakeavoxelengine/home", [lots of resources]) on making voxel engines...
 
 
 #focus-slide("Questions?")
 
 == What about random terrain
 
-A real heightmap is cool and all, but what about procedurally generated terrain? It features hugely in many popular game franchises, Minecraft being the most notable.
+A real heightmap is cool and all, but what about procedurally generated terrain? It features hugely in many popular game franchises.
 
 In this lecture, I'll teach you the algorithm Minecraft uses. It's extremely versatile, so we'll be using it to generate smoothly varying terrain instead of blocky voxel terrain.
 
@@ -789,7 +795,7 @@ So instead of loading a heightmap that was already created, we can use a procedu
 #text(20pt)[
 Procedural generation _can_ be random. For example, you could have a procedure that uses an arbitrary input (a seed) to generate a random world. Minecraft does this.
 
-But it doesn't have to be. Games like Daggerfall and Elite have the same world every time, but the world is the outcome of a random procedure.
+But it doesn't have to be. Games like Daggerfall and Elite have the same world every time, but the world is the outcome of a procedure.
 ]
 
 #figure(
@@ -804,7 +810,7 @@ But it doesn't have to be. Games like Daggerfall and Elite have the same world e
 There are several benefits to this:
 + A procedure is expected to take up way less space than a large image file full of terrain heights.
 + Procedures do not have to be finite. They can generate infinite terrain.
-+ Procedures can be tuned to generate a lot of land with very little human effort. They can save labor for when quantity is more important than quality (nothing beats hand-crafted terrain, but sometimes quantity has its own quality)
++ Procedures can be tuned to generate a lot of land with very little human effort. They can save labor for when quantity is more important for fun/effectiveness than quality.
 
 == Fractal vs. Value vs. Gradient noise
 
@@ -817,7 +823,7 @@ Techniques for generating random terrain fall under many different categories. H
 
 In the past, I used fractal terrain techniques. In particular, I used the Diamond-squares algorithm.
 
-These often look really nice.
+These terrains often look really nice.
 
 However, they have limitations when being used for infinite streaming terrain. In particular: they are less parallelizable. You have to store adjacent terrain chunks to generate new ones that aren't misaligned.
 
@@ -835,7 +841,26 @@ Probably, he his most famous for his noise algorithms: perlin noise and simplex 
 
 == Things we want in a noise function
 
+There are a few things we want in a noise algorithm for terrain generation:
+- It should be unpredictable (i.e., actually noisy)
+- But not _so_ unpredictable that it just looks like chaos. Random height values are not appealing to look at. Real terrain is not purely random.
+- It should be sample-able anywhere: you shouldn't need to generate it in huge batches. We want to be able to have it stream conveniently.
+- It should be fast.
 
+Generating random height values would satisfy all of these but the second one. So let's slightly change our approach...
+
+== Gradient noise
+
+Suppose that instead of generating random heights directly, we generated random height _gradients_.
+
+A gradient is similar to a derivative, but it's a vector. It points in the direction of greatest increase of a function, and its magnitude is the amount of increase.
+
+Each gradient vector element is computed by evaluating the partial derivative for that element at the given point. [MSPaint]
+
+== Gradient noise
+
+The basic sketch behind Perlin noise is the following:
+- 
 
 
 
