@@ -853,14 +853,77 @@ Generating random height values would satisfy all of these but the second one. S
 
 Suppose that instead of generating random heights directly, we generated random height _gradients_.
 
-A gradient is similar to a derivative, but it's a vector. It points in the direction of greatest increase of a function, and its magnitude is the amount of increase.
+A gradient is similar to a derivative, but it's a vector.
+
+It points in the direction of greatest increase of a function, and its elements are how much change happens at that point.
 
 Each gradient vector element is computed by evaluating the partial derivative for that element at the given point. [MSPaint]
 
-== Gradient noise
+== The gradient
 
-The basic sketch behind Perlin noise is the following:
-- 
+#figure(
+  image("screens/Gradient2.svg.webp", height: 75%, alt: "an illustration of gradient vectors at different points on two surfaces. the left surface has a central area that is higher than everywhere else. there are many points around it and each is labelled with an arrow that points towards the top of the high part. the right image is a flat plane tilted about 45-degrees around the z-axis. All the arrows point in the same direction."),
+  caption: text(20pt)[An illustration of two different surfaces and their gradients. If the rate of change were larger, the arrows would be longer. #link("https://en.wikipedia.org/wiki/Gradient#/media/File:Gradient2.svg","Image") by Gufosowa, #link("https://creativecommons.org/licenses/by-sa/2.5/deed.en", "CC-BY-SA-2.5").],
+  numbering: none
+)
 
+== Gradient noise (2)
+
+Remember how, with bilinear filtering, we interpolated between two colors in a texture?
+
+We can do the same thing with gradients.
+
+When we interpolated directly over colors, the result was straight-line interpolation.
+
+Now, our interpolation is going to be a bit more copmlicated. We won't just be averaging the gradients together. Instead, we'll be taking the dot products of points in each cell and the gradients around them, and interpolating over those.
+
+== Perlin noise
+
+The basic idea behind (2D) Perlin noise is the following:
+- Assume there's some infinite grid of points, usually on integers. We call a regularly tiling grid a *lattice*.
+- At each point in the *lattice*, the height is 0.
+- For a given point, we generate a random gradient direction. In 2D, the easiest way to do this is to generate a number from 0 to 1 and interpret it as an angle in turns.
+- ...
+
+So far, we have a random grid of gradients. Now what?
+
+== Perlin noise example lattice
+
+#figure(
+  image("screens/PerlinNoiseGradientGrid.svg.webp", alt: "a grid representing the Perlin lattice. At each intersection point, a unit vector extends in a random direction.")
+)
+
+
+
+== Perlin noise (2)
+
+We make a noise function in order to sample it. Just like how we sample a texture, but instead of a color, a this noise function returns a height.
+
+So, we need to know what happens when we sample a point in Perlin noise. How does it return a height value?
+
+First, recall that we've defined a lattice. Just like a texture is a grid of texels, a Perlin lattice is a grid of gradients.
+
+We choose the _four gradient points_ around the selected point. That is, if the point lands in a lattice cell, we pick the 4 nearest gradients.
+
+== Perlin noise (3)
+
+If our point is `(1.25, 1.75)`, then our 4 neighbor points are:
+- Top left: `(1, 1)`, gradient direction: .75 turns #footnote[I'm assuming that our second coordinate goes down in the positive direction]
+- Top right: `(2, 1)`, gradient direction: .125 turns
+- Bottom left, `(1, 2)`, gradient direction: 0.25 turns
+- Bottom right, `(2, 2)`, gradient direction: 0.8 turns
+
+
+Once we've established the 4 neighbors, we need to find a way to interpolate between them.
+
+Raw linear interpolation would probably result in a boring surface...
+
+== Perlin noise (4)
+
+Instead, let's draw a vector from the point we sampled to each corner...
+
+== Random generation?
+
+== Using a hash function
 
 
