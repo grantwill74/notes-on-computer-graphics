@@ -551,7 +551,7 @@ export class Camera {
         return vec3.fromValues(this.model[4], this.model[5], this.model[6]);
     }
 }
-const PERLIN_LEVELS = 5;
+const PERLIN_LEVELS = 8;
 /// Keeps track of all the chunks around the current "center".
 class RandomTerrain {
     heightmap;

@@ -643,7 +643,7 @@ export class Camera {
     }
 }
 
-const PERLIN_LEVELS = 5;
+const PERLIN_LEVELS = 8;
 
 /// Keeps track of all the chunks around the current "center".
 class RandomTerrain {
