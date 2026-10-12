@@ -447,7 +447,7 @@ Finally, add that scaled vector to the cameras position.
 Something like this:
 
 #figure(
-  math.equation($p' = B times "speed" times delta t + p$, alt: "p-prime equals 'B' times speed times delta t plus p")
+  math.equation($p' = B times -"speed" times delta t times + p$, alt: "p-prime equals 'B' times minus speed times delta t plus p")
 )
 
 That is, the new position is the old one, plus the backward vector, times the speed, times the change in time (in seconds)

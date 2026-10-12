@@ -793,7 +793,9 @@ Let's draw a triangle...
     content((0.8, -.1), text(18pt)[f (far)])
   }),
   numbering: none,
-  caption: text(18pt)[A side view of the frustum. The angle between the middle and the top is #sym.theta / 2. #math.equation($tan (theta/ 2) = t / n -> n dot tan(theta/2)= t$, alt: "tan of quantity theta over two equals t over n, which implies that n times tan quantity theta over two equals t")],
+  caption: text(18pt)[A side view of the frustum. The angle between the middle and the top is #sym.theta / 2.
+  
+  #text(24pt)[#math.equation($tan (theta/ 2) = t / n -> n dot tan(theta/2)= t$, alt: "tan of quantity theta over two equals t over n, which implies that n times tan quantity theta over two equals t")]],
   alt: "a "
 )
 
