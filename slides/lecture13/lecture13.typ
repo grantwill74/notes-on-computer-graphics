@@ -297,7 +297,7 @@ The vast majority of the time, the triangles are not independent. Instead, they 
 
 It's wasteful to describe a triangle that shares an edge with another triangle. We end up specifying the vertices multiple times.
 
-For example, instead of the triangle list `[0, 1, 2, 2, 0, 3]`, we could describe it as a triangle strip: `[0, 1, 2, 3]`...
+For example, instead of the triangle list `[0, 1, 2, 2, 1, 3]`, we could describe it as a triangle strip: `[0, 1, 2, 3]`...
 
 == Triangle strips (2)
 
