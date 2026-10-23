@@ -1072,7 +1072,9 @@ From our perspective, these xors, shifts, and multiplications create an extremel
 
 As a brief aside, the seed is a random number that is used to further scramble the hash function.
 
+So given the same seed and same string, we will get the same number out of the hash function.
 
+We will be using the seed to make our landscape "saveable". The coordinates will always be the same (the origin will be 0, 0), 
 
 == Using a hash function (5)
 
