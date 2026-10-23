@@ -843,7 +843,7 @@ Probably, he his most famous for his noise algorithms: perlin noise and simplex 
 
 There are a few things we want in a noise algorithm for terrain generation:
 - It should be unpredictable (i.e., actually noisy)
-- But not _so_ unpredictable that it just looks like chaos. Random height values are not appealing to look at. Real terrain is not purely random.
+- But not _so_ unpredictable that it just looks like chaos. Uniform random heights  are not appealing to look at. Real terrain is not uniform.
 - It should be sample-able anywhere: you shouldn't need to generate it in huge batches. We want to be able to have it stream conveniently.
 - It should be fast.
 
@@ -883,7 +883,7 @@ The basic idea behind (2D) Perlin noise is the following:
 - Assume there's some infinite grid of points, usually on integers. We call a regularly tiling grid a *lattice*.
 - At each point in the *lattice*, the height is 0.
 - For a given point, we generate a random gradient direction. In 2D, the easiest way to do this is to generate a number from 0 to 1 and interpret it as an angle in turns.
-- ...
+- ... (more steps soon)
 
 So far, we have a random grid of gradients. Now what?
 
@@ -920,10 +920,84 @@ Raw linear interpolation would probably result in a boring surface...
 
 == Perlin noise (4)
 
-Instead, let's draw a vector from the point we sampled to each corner...
+Instead, let's draw a vector from the point we sampled to each corner.
+
+There will be 4 vectors, and we can name them after the corners they are pointing to (TL for top left, TR for top right, etc.)
+
+```ts
+const offtl: vec2 = [row - top, col - left];
+const offtr: vec2 = [row - top, col - right];
+const offbl: vec2 = [row - bot, col - left];
+const offbr: vec2 = [row - bot, col - right];
+```
+
+Here, `row` is possibly a fractional coordinate, and `top` is the row line above it (i.e., `floor(row)`, and `bot` is the row line below (`ceil(row)`). `col`, `left`, and `right` have the same relationship.
+
+== Perlin noise (5)
+
+Now, let's also compute the gradient vector at each point:
+
+```ts
+const gtl = this.gradient(top, left);
+const gtr = this.gradient(top, right);
+const gbl = this.gradient(bot, left);
+const gbr = this.gradient(bot, right);
+```
+
+How do we compute it?
+
+This is the genius part: it's a hash function. The gradient is actually the result of a random hash process (which we'll discuss soon). Instead of generating random terrain and computing its gradient, we randomize the gradient and compute the terrain heights that are consistent.
+
+== Perlin noise (6)
+
+Once we've the gradient at the 4 corners and 4 vectors pointing at them, the last step is to interpolate:
+
+#text(20pt)[
+```ts
+// perlin requires smoothstep for conditioning the inputs so that the
+// change from one gradient vector to another is not abrupt.
+const u = smoothstep(0, 1, col - left); 
+const topBlend = vec2.dot(offtl, gtl) * (1 - u) + vec2.dot(offtr, gtr) * u;
+const botBlend = vec2.dot(offbl, gbl) * (1 - u) + vec2.dot(offbr, gbr) * u;
+
+const v = smoothstep(0, 1, row - top);
+const finalBlend = topBlend * (1 - v) + botBlend * v;
+```
+]
+
+== Perlin noise (7)
+
+Here, `u` is the fraction between left and right, but smoothed. `v` is the same for top and bottom. I'll explain the smoothing in a bit. 
+
+The most important thing are those dot products. The procedural height we want to sample is computed by taking the dot product between the corner vectors and the gradient vectors at the corner. [Paint]
+
+The bigger the dot products, the bigger the height. This means that as the sampled point approaches the gradient, it will get smaller. The corners are where the surface crosses the `height = 0` plane.
+
+In the middle of the cell, the height could be high or low depending on the directions of the gradients around it.
+
+== Perlin noise (8)
+
+Those `smoothstep` calls are required to avoid "kinks" in the terrain. I.e., points where the gradient changes too quickly.
+
+The `smoothstep` function makes it so that the `u` and `v` values change much slower as they approach `0` and `1`. 
+
+I've experimented with it both ways, and honestly, without `smoothstep` it looks okay. It's subtle. It's kind of up to you if you want it. (I have a screenshot later of what it looks like without smoothstep, or we can hack it right now in the browser if you're curious.)
+
+== Perlin noise (9)
+
+The rest of that code sample is interpolation.
+
+We have to interpolate between the dot products pointing at the 4 corners. The technique we use is bilinear interpolation: the same one we use for textures.
+
+Compute the value for `u` interpolated along the top and bottom edges, then compute the value for `v` by interpolating between the two `u` values. 
+
+There's still a lot to discuss: hashing, texture sampling, streaming terrain, but first...
+
+#focus-slide("Questions?")
 
 == Random generation?
 
 == Using a hash function
 
 
+== Without smoothstep
