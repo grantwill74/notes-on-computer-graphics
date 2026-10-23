@@ -1001,9 +1001,132 @@ There's more to discuss: hashing, textures, streaming, but first...
 
 So we want random terrain, and now we have a way to get it.
 
-We could randomly generate gradient vectors 
+We could randomly generate gradient vectors. But here's the problem: we'd have to save them all.
+
+Why? Because they would depend on the order that we visited them.
+
+Suppose that we generate terrain in a 10-by-10 unit square around us.
+
+If we start at 0, 0, 0 and go 100 units left, then 200 units right, our random number generator will be in a different state when we generate the terrain than if we went 100 units right, then 200 units left.
+
+== Random generation (2)
+
+That is, the specific terrain we get will depend on the order that we explore it. 
+
+Therefore, we will have to save it. Otherwise, when we want back to a spot we had visited before, it would be generated differently.
+
+For large, random, streaming terrain, this can be a problem.
+
+It's also just kind of cool that we don't need to do it. With a small modification to our "random gradients" idea, we can make it so that we can store the whole, infinite world in a single integer.
+
+So what's the change?
 
 == Using a hash function
 
+Instead of a random number generator, use a hash function.
+
+[What's the difference?]
+
+== Using a hash function (2)
+
+A random number generator takes an initial seed and from that, generates a sequence of numbers.
+
+The problem here is the sequence: we don't want the vector assigned to a grid point to depend on random generation order.
+
+Therefore, we use a hash function, which takes some input data and generates a single, hard-to-predict number. Given the same input data, it will always generate the same number.
+
+We use the XY coordinates of the point as input. Then the hash function will always output the same number for a given grid point.
+
+== Using a hash function (3)
+
+Here's a small, useful, public-domain hash function in Typescript:
+#text(18pt)[
+```ts
+// hash function by cyrb53, released into the public domain
+// https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js 
+const cyrb53 = function(str: string, seed: number = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for(let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+```
+]
+
+== Using a hash function (4)
+
+This function takes a string as input, and it outputs a highly unpredictable number.
+
+This is not a cryptographic hash, so technically it's probably not that hard to find an algebraic relationship between the string input and the number it spits out. This only matters if you're using heightmaps to hide secret messages, which we're not.
+
+From our perspective, these xors, shifts, and multiplications create an extremely unpredictable but stable relationship between the characters in the string and the generated number. 
+
+== The seed
+
+As a brief aside, the seed is a random number that is used to further scramble the hash function.
+
+
+
+== Using a hash function (5)
+
+But we don't want to hash a string. We want to hash numbers. We could pack them into a string, but it's faster to modify the function:
+
+#text(20pt)[
+```ts
+const cyrb53_int = function(i: number, seed: number = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    // we don't need a loop: just apply the operations to the whole number
+    h1 = Math.imul(h1 ^ i, 2654435761);
+    h2 = Math.imul(h2 ^ i, 1597334677);
+    h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+```
+]
+
+== Using a hash function (5)
+
+That modification basically takes an int and scrambles it into a 53-bit number (hence the name).
+
+Why 53-bits? It's the largest int that can safely fit into a 64-bit float (53 bits of mantissa).
+
+The last two integer constants are: 4294967296, which is 2^32, and 2097151, which is 20^21 - 1.
+
+`h1` and `h2` are scrambled 32-bit ints. We select the lower 21 bits of `h2`, then multiply it by 2^32 to shift it left (you can't left shift out of the 32-bit range in Javascript so we have to multiply). Lastly, we add `h1`.
+
+== Using a hash function (6)
+
+And that isn't quite what we want. Because that function hashes a single int, and we want to hash an XY coordinate.
+
+It's not hard to wrap it though:
+
+#text(20pt)[
+```ts
+// returns a value in the range [0, 1)
+function hashPoint(seed: string, x: number, y: number): number {
+    const h0 = cyrb53(seed); // first, hash the seed
+    const h1 = cyrb53_int(h0 ^ x); // combine the seed-hash with x hash
+    const h2 = cyrb53_int(h1 ^ y); // combine the x hash with y hash
+    // 24-bits is plenty. f32 range in case we want to do this on the GPU.
+    return (h2 & 0xFFFFFF) / (0xFFFFFF + 1); // Select the lower 24 bits
+} // and convert to a fraction in [0, 1) by dividing by 2^24
+```
+]
+
+== Using a hash function (7)
+
+In the previous snippet, we called that hash function several times to combine three things into a final number:
++ The seed value
++ 
 
 == Without smoothstep
