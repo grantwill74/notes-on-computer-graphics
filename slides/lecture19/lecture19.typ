@@ -989,13 +989,19 @@ The rest of that code sample is interpolation.
 
 We have to interpolate between the dot products pointing at the 4 corners. The technique we use is bilinear interpolation: the same one we use for textures.
 
-Compute the value for `u` interpolated along the top and bottom edges, then compute the value for `v` by interpolating between the two `u` values. 
+Compute the value for `u` interpolated along the top and bottom edges, then compute the value for `v` by interpolating between the two `u` values.
 
-There's still a lot to discuss: hashing, texture sampling, streaming terrain, but first...
+The final interpolated result is height. We now have the ability to sample any point in our Perlin space and get a height back.
+
+There's more to discuss: hashing, textures, streaming, but first...
 
 #focus-slide("Questions?")
 
 == Random generation?
+
+So we want random terrain, and now we have a way to get it.
+
+We could randomly generate gradient vectors 
 
 == Using a hash function
 
