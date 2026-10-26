@@ -42,7 +42,7 @@ We're going to make several improvements to our lighting code:
 - We're going to allow lights to have a position in space, so that getting farther away makes them dimmer (attenuation).
 - We're going to allow _multiple lights_ at one time.
 - We're going to improve our shader and the software design of our sample to make bind-group management nicer. This means using more structs in our shader.
-- We're going to learn about alignment in WebGPU.\ (I couldn't put it off anymore #emoji.face.sad)
+- We're going to learn about struct alignment in WebGPU.\ (I couldn't put it off anymore #emoji.face.sad)
 
 == This time (2)
 
