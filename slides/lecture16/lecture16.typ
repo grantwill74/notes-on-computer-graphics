@@ -699,12 +699,12 @@ Now let's briefly cover more complex types.
 
 Matrices are weird: they are considered like collections of vectors, but their size is increased so they have no padding.
 
-That is, a 3-by-3 matrix, is treaded like 3 vector-3s, but with no padding at the end.
+That is, a 3-by-3 matrix, is treated like 3 vector-3s, but with no padding at the end.
 
 3 vector-3s would normally require 44 bytes like we saw before, and there would be 4 bytes of padding.
 
-The 3-by-3 matrix doesn't have that padding. So it's 48 bytes. 
-The rule for matrices: multiply the number of basis vectors by their alignment.
+The 3-by-3 matrix will have the padding zero-filled: 48 bytes. 
+Rule for matrices: multiply the number of basis vectors by their alignment.
 
 == WGSL alignment of matrices and arrays (2)
 
@@ -863,7 +863,7 @@ This is added to the linear and quadratic attenuation terms, and it can guarante
 
 Therefore, once we compute our Phong brightness, multiply by:
 
-#math.equation($alpha = (k_c + k_l d + k_q d^2)^(-1)$, alt: "alpha equals kay sub see plus kay sub ell times dee plus kay sub queue times dee squared, all this to the power of minus one.")
+#math.equation($alpha = (k_c + k_l d + k_q d^2)^(-1)$, alt: "alpha equals kay sub see plus kay sub ell times dee plus kay sub queue times dee squared, all this to the power of minus one.")#footnote[Note: this alpha is different from the shininess alpha]
 
 This will reduce (or increase in some cases) the color of the light.
 
