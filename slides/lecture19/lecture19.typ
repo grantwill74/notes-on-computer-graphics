@@ -1179,4 +1179,14 @@ The result of that interpolation and amplitude is the height.
 
 #focus-slide("Questions?")
 
+
+
 == Without smoothstep
+
+Lastly, here's what happens if you don't use smoothstep.
+
+#figure(
+  image("screens/too_sharp_smoothstep.png", height: 70%, alt: "a mountain ridge in which it looks 'pinched' and a little unnaturally steep.")
+)
+
+It's a little goofy, but not unviewable.
