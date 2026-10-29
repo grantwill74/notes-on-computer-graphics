@@ -1072,13 +1072,13 @@ From our perspective, these xors, shifts, and multiplications create an extremel
 
 As a brief aside, the seed is a random number that is used to further scramble the hash function.
 
-So given the same seed and same string, we will get the same number out of the hash function.
+So given the same seed and same string, we will get the same number out of the hash function every time we call it.
 
 We will be using the seed to make our landscape "saveable". The coordinates will always be the same (the origin will be 0, 0), 
 
 == Using a hash function (5)
 
-But we don't want to hash a string. We want to hash numbers. We could pack them into a string, but it's faster to modify the function:
+But we don't want to hash a string. We want to hash numbers. We could pack them into a string, but it's possible to modify the function:
 
 #text(20pt)[
 ```ts
@@ -1095,6 +1095,16 @@ const cyrb53_int = function(i: number, seed: number = 0) {
 }
 ```
 ]
+
+== Warning about hash functions
+
+My modifications resulted in a function that still appears pretty random. 
+
+"Appears" isn't good enough for serious applications, but our application is based on appearance, and the result looks good.
+
+In the original presentation, Perlin noise used a custom hash function that was based on a manual permutation. 
+
+Just remember that this kind of thing is not acceptable with cryptographic hash functions, or any hash function where we really need verifiably random behavior.
 
 == Using a hash function (5)
 
@@ -1129,6 +1139,44 @@ function hashPoint(seed: string, x: number, y: number): number {
 
 In the previous snippet, we called that hash function several times to combine three things into a final number:
 + The seed value
-+ 
++ The X coordinate
++ The Y coordinate
+
+This technique is how we can hash larger numbers than a hash function normally supports: hash the first part, then xor the result with the second part and hash that, xor the result with the third part, etc.
+
+Again, we could also just create a big string and hash it. It would be a little slower, but a little simpler. We do want this to be fast, though.
+
+== Using a hash function (8)
+
+At the end of the function, we have `(h2 & 0xFFFFFF)/(0xFFFFFF + 1)`
+
+The numerator is the last 24 bits of of the hash. We expect all the bits to be pretty random at this point, so we could just as easily take the first 24 bits.
+
+We want 24 bits because that's how many bits of fraction a floating point number has. Therefore, it's the finest we can divide the interval [0, 1) in a way that it can be stored in a float (I was originally going to do this on the GPU, in retrospect I didn't need to do this).
+
+We divide by `0xFFFFF + 1` AKA `0x100000` to ensure our range does not actually reach 1, because...(next slide)
+
+== Generating a direction
+
+We are going to interpret this number as the number of turns of the gradient vector.
+
+That is, it's an angle. It tells us which direction the gradient is pointing at a particular point.
+
+So now we have a way of, given any XY coordinate anywhere on the map, determining a gradient vector corresponding to it that will always be the same, given the same seed and XY coordinate.
+
+So in summary...
+
+== Perlin Noise So Far: summary
+
+To generate a chunk of terrain, we do the following for every point in our mesh:
++ Compute the 4 surrounding integer coordinates (the corners).
++ We compute 4 vectors pointing to each of those coordinates.
++ For each corner we use the hash function to get a gradient direction.
++ For the point, we compute the dot products between its 4 vectors and the hash-result gradient vectors.
++ We interpolate those dot products and multiply by an amplitude value.
+
+The result of that interpolation and amplitude is the height.
+
+#focus-slide("Questions?")
 
 == Without smoothstep
