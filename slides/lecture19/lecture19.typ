@@ -1177,7 +1177,209 @@ To generate a chunk of terrain, we do the following for every point in our mesh:
 
 The result of that interpolation and amplitude is the height.
 
+== Perlin Noise So Far: Pictured
+Here's what we get if we implement that algorithm:
+
+#figure(
+  image("screens/perlin_1.png", height: 80%)
+)
+
+== What's missing?
+
+It's...sort of natural. But the land looks too smooth.
+
+That's because we've only generated one *level* of Perlin noise.
+
+Landscapes have a fractal aspect. They are self similar. 
+
+A big mountain can be made up of repeated smaller mountains.
+
+We can define how many levels we want, and use them to increase the amount of detail in our terrain. 
+
+
+== More natural terrain
+
+What we want to do is run the algorithm again on a smaller scale, but with a higher frequency.
+
+That is, suppose previously we were sampling every 64 coordinates in each dimension. We can run the algorithm again sampling every 32 coordinates instead. 
+
+But the second time, we can halve the amplitude (or use whatever fraction we want).
+
+Then, we add the second level's height values to the first level's.
+
+[whiteboard?]
+
+
 #focus-slide("Questions?")
+
+== The Perlin Heightmap
+
+Earlier, we created a `Heightmap` interface. The actual purpose of that was so that I could write one set of code for drawing the world map and have it also work on Perlin noise.
+
+Think of the Perlin noise as defining an infinite heightmap.
+
+We can implement the interface so that we get the ability to sample random heights in that infinite plane...
+
+== The Perlin Heightmap (2)
+
+#text(20pt)[
+```ts
+export class PerlinHeightmap implements Heightmap {
+    constructor(
+        public seed: string,      // change it for a new world
+        public nLevels: number,   // more levels = more detail (but slower)
+        public decay: number,     // amplitude falloff factor per level
+        public baseAmp: number,   // amplitude of level 0
+    ) {
+
+    }
+  ...
+```
+]
+
+Let's start by storing all the important constants in fields.
+
+Next step: sampling the gradient vector at a given coordinate pair...
+
+== The Perlin Heightmap (3)
+
+#text(20pt)[
+```ts
+private gradient(row: number, col: number): vec2 {
+    const turns = hashPoint(this.seed, row, col);
+    const rads = TAU * turns;
+    const x = Math.cos(rads);
+    const z = Math.sin(rads);
+    return vec2.fromValues(x, z); 
+}
+```
+]
+
+We use our hash function from before to generate a gradient with the given number of turns. Recall that the hash returns a value in [0, 1).
+
+We can get the x and z coordinates of the gradient vector by converting that value to radians and using sine and cosine.
+
+== The Perlin Heightmap (4)
+
+Now, let's adjust our sampling code from earlier. We're going to use more than a row and a column: we're also going to include a level.
+
+The level will spread out our samples so that we end up sampling further apart. This will be used later to add different levels together and achieve our more natural terrain:
+
+#text(18pt)[
+```ts
+private sampleLevel(
+    row: number, col: number, level: number,
+): number 
+{
+    const freq = Math.pow(2, level) * PERLIN_BASE_FREQ; // each level doubles
+    row = row * freq / PERLIN_FEATURE_DIM; // the spread between samples 
+    col = col * freq / PERLIN_FEATURE_DIM; // at that level
+    // PERLIN_FEATURE_DIM and freq control distance between zero crossings
+```
+]
+
+== The Perlin Heightmap (5)
+
+Finally, recall that our `Heightmap` interface required a `sample` method:
+
+```ts
+sample(row: number, col: number): number {
+    let total = 0;
+    for (let level = 0; level < this.nLevels; level++) {
+        total += this.sampleLevel(row, col, level);
+    }
+    return total;
+}
+```
+
+All we're doing is sampling all the levels of Perlin noise and adding the heights together. The upper levels will repeat faster, but also be smaller, giving a fractal kind of appearance.
+
+#focus-slide("Questions?")
+
+== Using Perlin Noise in an actual application
+
+Perlin noise gives us a way to procedurally generate heights in a way that is predictable, reasonably fast, and natural-looking.
+
+But our goal was infinite terrain, not to generate a single height value.
+
+Here are the steps we still need to do to make this into a real application:
+- Generate a whole chunk efficiently
+- Figure out which chunks are visible, and generate those.
+- As we move away from chunks we can see, generate more chunks in a streaming way that doesn't harm framerate.
+
+== Generating a whole chunk
+
+First, let's pick a size. If we want a chunk to have 64-by-64 distinct quads, we need to give it a size of 65-by-65 vertices#footnote[Remember the fencepost problem...].
+
+Our goal now is to generate the XYZ coordinates of all the vertices in that chunk and stitch them together.
+
+The X and Z coordinates are easy: we get them just from iterating over the chunk in a grid shape. X = column, Z = row.
+
+The Y coordinate comes from the Perlin function.
+
+== Generating a chunk (2)
+
+However, there's something we should think about first.
+
+We're going to end up computing the same height values over and over.
+
+Recall that we had a function `heightmapSampleNormal` which took a `Heightmap` and computed the normal at the given point.
+
+This function required taking 4 samples: one in each cardinal direction.
+
+As a result, when we generate the normals for our Perlin chunks, we'll end up computing the Perlin heights 5 times for each vertex.
+
+Perlin noise is efficient, but after profiling, it was a noticeable speed hit.
+
+== Generating a chunk (3)
+
+Therefore, let's make a `HeightmapCache` that will store a list of pre-computed heights, and still implement the `Heightmap` interface so we can use it with `heightmapSampleNormal`.
+
+We could have it be a true cache, sampling the Perlin noise if it didn't have a value cached, and retrieving it from a data structure if it did.
+
+However, since we're going to generate our chunks by iterating over them in a regular pattern, we can simplify this to simply passing an array of pre-calculated heights...
+
+== Generating a chunk (4)
+
+#text(20pt)[
+```ts
+class HeightmapCache implements Heightmap {
+    constructor(
+        public rows: number,
+        public cols: number,
+        public topLeftRow: number,
+        public topLeftCol: number,
+        public heights: number[] // precomputed heights in square array
+    ) {}
+    sample(row: number, col: number): number {
+        const r = row - this.topLeftRow;
+        const c = col - this.topLeftCol;
+        const result = this.heights[r * this.cols + c];
+        if (result === undefined)
+          throw new Error(`Missing sample: ${row}, ${col}`);
+        return result;
+    }
+}
+```
+]
+
+== Generating a chunk (5)
+
+Remember, for us a chunk is just a 65-by-65 (or whatever size you want) grid of vertices from the heightmap.
+
+But we add 1 more vertex on either end so we can compute the normal at each point as well.
+
+Therefore, we end up with a 67-by-67 vertex grid, sampled like this:
+
+```ts
+// do this for every row,col in the chunk
+const worldRow = topLeftRow + row;
+const worldCol = topLeftCol + col;
+const height = hm.sample(worldRow, worldCol);
+heights[(row + 1) * (cols + 3) + col + 1] = height; 
+```
+
+== Generating a chunk (6)
 
 
 
