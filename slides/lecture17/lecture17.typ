@@ -723,7 +723,7 @@ It's called a *cube map*.
 
 == Cube maps
 
-Cube maps are a special kind of texture which is indexed by a _position_ instead of a _uv_ coordinate.
+Cube maps are a special kind of texture which is indexed by a _3-vector_ instead of a _uv_ coordinate.
 
 Cube maps are built to assume they are being projected onto a cube. You use the _normal_ of the mesh to look up the value.
 
