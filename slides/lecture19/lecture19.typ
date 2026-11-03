@@ -1181,7 +1181,7 @@ The result of that interpolation and amplitude is the height.
 Here's what we get if we implement that algorithm:
 
 #figure(
-  image("screens/perlin_1.png", height: 80%)
+  image("screens/perlin_1.png", height: 80%, alt: "A simple terrain that looks very 'blobby', with smooth heights.")
 )
 
 == What's missing?
@@ -1367,7 +1367,7 @@ class HeightmapCache implements Heightmap {
 
 Remember, for us a chunk is just a 65-by-65 (or whatever size you want) grid of vertices from the heightmap.
 
-But we add 1 more vertex on either end so we can compute the normal at each point as well.
+But we add 1 more vertex on either end so we can compute the normal at each point as well (we need points in all 4 directions, even at edges).
 
 Therefore, we end up with a 67-by-67 vertex grid, sampled like this:
 
@@ -1381,7 +1381,160 @@ heights[(row + 1) * (cols + 3) + col + 1] = height;
 
 == Generating a chunk (6)
 
+Use those heights to create a cache:
+```ts
+const cache =
+  new HeightmapCache(rows + 3, cols + 3, -1, -1, heights);
+```
 
+We have `rows + 3` and `cols + 3` dimensions because:
+- We need one extra "fencepost" vertex on the right and bottom
+- We need and extra line of vertices on all 4 sides to compute normals.
+
+Consider if we wanted a 2-by-2 tile chunk. We'd need 3-by-3 vertices, and to compute normals, we'd need 1 extra column and row on both sides, so we'd need 5-by-5.
+
+== Generating a chunk (7)
+
+Once we have our cache, we can finally generate our chunk.
+
+#text(18pt)[
+```ts
+for (let col = 0; col <= cols; col++) { // the first row is special: no indices
+    const height = cache.sample(0, col);
+    const normal = heightmapSampleNormal(cache, 0, col);
+    verts.push(col, height, 0, ...normal);
+}
+for (let row = 1; row <= rows; row++) { // now we build our triangle strip
+  for (let col = 0; col <= cols; col++) {
+      const height = cache.sample(row, col);
+      const normal = heightmapSampleNormal(cache, row, col);
+      verts.push(col, height, row, ...normal);
+      
+      const i = row * (cols + 1) + col;
+      indis.push(i - cols - 1, i); // add the index above and this one
+  }
+  indis.push(0xFFFFFFFF); // restart the triangle strip
+}
+```
+]
+
+== The benefits of the cache
+
+Notice that we're sampling the cache for both the height value and the 4 adjacent heightvalues we need for the normal.
+
+This is very important. Without this cache, we'd end up re-computing the Perlin height 4 additional times.
+
+How bad is that? Each Perlin calculation requires:
+- 4 Hash calculations
+- 4 dot products
+- A bilinear interpolation, plus some `smoothstep`s
+
+For every height, _for every level_. 
+
+
+== The benefits of the cache (2)
+
+They say premature optimization is the root of all evil: but I actually profiled this one. Using the cache gave me a speedup of about 4x.
+
+It was necessary too. Generating these chunks is expensive and if it takes more than a few milliseconds you end up dropping frames as you move over the terrain.
+
+This is frequently the way it is: we are limited by the refresh rate of our display device, so we can think of our frame rate as a "budget". If you want 60 frames per second, you have 33ish milliseconds to spend before you drop a frame. This optimization helped me get under the limit so that generating a chunk doesn't cost an extra frame.
+
+== Adding water
+
+Also, I wanted water, so at the end of the chunk vertices I added a flat rectangle at y = 0:
+
+```ts
+const i = (rows + 1) * (cols + 1);
+indis.push(i, i + 1, i + 2, i + 3);
+verts.push(0, 0, 0, 0, 1, 0);
+verts.push(0, 0, rows, 0, 1, 0);
+verts.push(cols, 0, 0, 0, 1, 0);
+verts.push(cols, 0, rows, 0, 1, 0);
+```
+
+The `i` calculation includes the extra vertices on the side + restarts.
+
+The normal just points straight up (the 0,1,0 attributes).
+
+#focus-slide("Questions?")
+
+== Streaming terrain 
+
+Remember: we don't just want to generate one chunk. We want a whole streaming landscape.
+
+That adds additional challenges:
++ We need to keep track of which chunks are loaded
++ We need to detect when new chunks are needed
++ We need to free old chunks so that we don't leak memory
+
+Let's take a look at how we can solve each problem.
+
+== Keeping track of chunks
+
+To keep track of which chunks are loaded, we need a data structure that will store them.
+
+Which raises an interesting question: [which one?]
+
+Consider that we want to be able to see, say, 10 chunks either direction.
+
+Let's consider the options...
+
+== Keeping track of chunks (2)
+
+One option is to use a 2D array.
+
+The idea is that at the center of the array would be the chunk the camera is currently over.
+
+Then, when we move to being over the next chunk, we generate another row or column, and insert it into the 2D array, freeing the opposite row or column.
+
+Pros: simple to lookup and iterate over chunks for drawing
+
+Cons: lots of chunks and long view distance means a possibly non-trivial amount of time shifting chunks over.
+
+== Keeping track of chunks (3)
+
+Okay, what if we use a graph stored as an adjacency list?
+
+The idea is that each chunk stores its 4 neighbors.
+
+When it's time to generate a new chunk, we insert it on the correct end of the graph, and free the other end. To speed this up, we can maintain pointers to the edges of the graph.
+
+Pros: Constant time insertion + we can actually have a circular graph shape if we want (instead of rectangular), better matching the view distance.
+
+Cons: a little complicated. Breadth-first search needed to draw.
+
+== Keeping track of chunks (4)
+
+We could use a tree. The key could be the row,column pair.
+
+This is a simple technique. It's fast to iterate over the tree (same as the graph and grid), supports non-rectangular shapes, and quick insertions (log time).
+
+However, there's a unique downside to a binary search tree. It's not a deal breaker, but it's an interesting case study in data structure design.
+
+[Can anyone think of what it might be?]
+
+== Keeping track of chunks (5)
+
+Whenever we need to generate new chunks, we often be at the edge of all the chunks we've seen so far. That is, we'll be moving away from the center of the world off in some direction.
+
+That means that, frequently, we will be seeing a new highest (or lowest) row an column. It will be larger (or smaller) than every coordinate we've seen in that dimension so far.
+
+That means a BST will degenerate quickly. We will need to rebalance it often. Again, this isn't a deal-breaker. Just use an AVL tree or something.
+
+== Keeping track of chunks (6)
+
+However, after considering all these options, I ended up choosing something boring: a hashap.
+
+
+
+== Keeping track of chunks (2)
+
+It's useful to have a class that stores the active chunks.
+
+This class will maintain 
+
+== Multi-texturing
 
 == Without smoothstep
 
