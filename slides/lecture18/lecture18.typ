@@ -166,7 +166,7 @@ So how does the math behind this work?
 
 When we sample a texture, we also look up the values of the 4 closest texels that surround the point we sampled.
 
-We compute two mean U values: one between the top two points and one between the bottom two points.
+We compute two mean V values: one between the top two points and one between the bottom two points.
 
 Those means are weighted by how close we are to each point. If we are 30% from the right side, we compute `(30% * left_side + 70% * right_side)`. We do this _twice_, once for the two texels above our sample, and once for the two texels below our sample.
 
