@@ -1526,13 +1526,77 @@ That means a BST will degenerate quickly. We will need to rebalance it often. Ag
 
 However, after considering all these options, I ended up choosing something boring: a hashap.
 
+If I used `int32` rows and cols, an ideal key would be an `int64` which is just `(row << 32) | col`. Unfortunately, that's too big for Javascript's numbers.
+
+Therefore, I just pack the row and col into a string.
+
+Why? It's super simple and supports any shape. The downside is iteration is a little slower. Worth worrying about, but it didn't show up as a bottleneck in my profiling.
+
+== Keeping track of chunks (7)
+
+Now that we've decided on a data structure, let's make a class to maintain our key invariant: that every chunk in sight range is loaded.
+
+#text(20pt)[
+```ts
+class RandomTerrain {
+    heightmap: PerlinHeightmap;
+    chunkDim: number; // tileRows or tileCols per chunk
+    
+    nodes: Map<string, HeightmapNode> = new Map();
+    chunksLoaded: Set<string> = new Set(); //I'll explain why this is useful
+    newChunkQueue: Set<string> = new Set();
+
+    chunkRow: number = 0; // where the camera is
+    chunkCol: number = 0;
+
+    chunkDist: number; // distance we can see (in chunks) ...
+```
+]
+
+== Keeping track of chunks (8)
+
+Here, `nodes` is the hashmap that keeps track of loaded chunks.
+
+The key is a packed string which contains row, followed by a comma, then col.
+
+However, we also have two sets: one that stores which chunks are loaded and one that stores the chunks that we want to load but haven't yet.
+
+Why not just load them right away? Well...
+
+== Detecting when new chunks are needed
+
+Consider what happens when we start: we will be at the origin, surrounded by a grid of chunks.
+
+If we move north, eventually we'll move far enough that we need to generate new chunks on the horizon.
+
+That could potentially be dozens of chunks. Keep in mind that at the horizon, they will be at their most distant, and therefore smallest. 
+
+Each chunk generated takes a non-trivial amount of time. This would mean dozens of chunks to be loaded all at once. You would drop a bunch of frames and the program would come to a screeching halt. (this happened before I put this optimization in)
+
+== Detecting when new chunks are needed (2)
+
+The key is to have a queue of new chunks. Every time we need one, we add it to the queue. We could add dozens of chunks to the queue at once.
+
+However, we only generate at most one chunk per frame.
+
+This will ensure that our framerate doesn't drop.
+
+We store the set of chunks we need, computed from the current row and col chunk the camera is over along with the view distance.
+
+== Freeing chunks
+
+How do we free chunks?
+
+Most memory is managed by the Javascript environment, but we want to explicitly free buffers that we don't need anymore.
+
+If we don't do this, we'll be at the mercy of our browser's garbage collector.
+
+The `Set` class in Javascript has an efficient set difference operation. We can use this to subtract "chunks we need" from "loaded chunks" to get "chunks that are loaded but that we don't need."
+
+We can then free those chunks.
 
 
-== Keeping track of chunks (2)
 
-It's useful to have a class that stores the active chunks.
-
-This class will maintain 
 
 == Multi-texturing
 
