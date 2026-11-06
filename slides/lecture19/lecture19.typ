@@ -1294,6 +1294,14 @@ sample(row: number, col: number): number {
 
 All we're doing is sampling all the levels of Perlin noise and adding the heights together. The upper levels will repeat faster, but also be smaller, giving a fractal kind of appearance.
 
+== The Perlin Heightmap (6)
+
+#figure(
+  image("screens/pretty_good_perlin.png", alt: "Perlin noise with more complex terrain due to multiple levels being added-in.", height: 80%),
+  caption: [How it looks with multiple levels. It's not overly smooth anymore.],
+  numbering: none,
+)
+
 #focus-slide("Questions?")
 
 == Using Perlin Noise in an actual application
@@ -1593,12 +1601,89 @@ If we don't do this, we'll be at the mercy of our browser's garbage collector.
 
 The `Set` class in Javascript has an efficient set difference operation. We can use this to subtract "chunks we need" from "loaded chunks" to get "chunks that are loaded but that we don't need."
 
-We can then free those chunks.
+We can then free those chunks...
 
+== Freeing chunks (2)
 
+Suppose `top`, `bot`, `left`, and `right` are the borders of the chunk the camera is over.
 
+#text(20pt)[
+```ts
+for (let chunkRow = top; chunkRow <= bot; chunkRow++) {
+  for (let chunkCol = left; chunkCol <= right; chunkCol++) {
+      chunksNeeded.add(HeightmapChunk.idFromChunkRowCol(chunkRow, chunkCol));
+  }
+}
+const chunksToFree = this.chunksLoaded.difference(chunksNeeded);
 
-== Multi-texturing
+```
+]
+
+`idFromChunkRowCol()` is just a static method that converts coordinates into a string so they can be stored in the hashsets.
+
+We use `difference()` to get the chunks that are loaded but not needed.
+
+== Freeing chunks (3)
+
+Free the chunks:
+
+#text(20pt)[
+```ts
+for (let id of chunksToFree) {
+    const node = this.nodes.get(id);
+    if (!node) continue;
+    node.free();
+    this.nodes.delete(id);
+}
+this.chunksLoaded = this.chunksLoaded.difference(chunksToFree);
+const chunksMissing = chunksNeeded.difference(this.chunksLoaded);
+this.newChunkQueue = this.newChunkQueue.union(chunksMissing);
+```
+]
+
+We can then use `union` to add the chunks we're now missing to the queue, so that they can be loaded in future frames.
+
+#focus-slide("Questions?")
+
+== Texturing terrain
+
+How do we have natural textures?
+
+We could just paint a texture over all our terrain, but it really helps if we have more than one, so we want to investigate multitexturing.
+
+There's another concern: we need to be a little clever in how we apply our texture mapping, otherwise textures can become distorted.
+
+Let's try applying textures in the simplest way possible, and then see why we might not want to do that...
+
+== Simply textured terrain
+
+If you've looked at the sample source code, you may have noticed that we don't actually have UV coordinates as attributes.
+
+Instead, we just use the XZ coordinates as UV coordinates.
+
+This is like projecting textures from the sky straight down onto the terrain.
+
+It's very simple, and it works.
+
+However, it has a problem. [Can anyone guess what it is? Consider steep slopes]
+
+== Simply texture terrain (2)
+
+The problem is that we're not considering the surface area of the surface we're projecting the texture onto.
+
+A very tall mountain with a steep slope will have much larger surface area than a flat tile of land.
+
+Every terrain tile has the area when viewed from the sky (1 by 1), but vastly different surface area.
+
+Therefore, we will have distorted textures over slopes...
+
+== Distored textures
+
+#figure(
+  image("screens/warped_texture.png", alt: "a Perlin mountain in which the texture down a steeper side is being visibly stretched compared to a less-steep side.", height: 80%),
+  caption: [Notice how the right edge is more warped than the top/left.],
+  numbering: none
+)
 
 == Without smoothstep
 
