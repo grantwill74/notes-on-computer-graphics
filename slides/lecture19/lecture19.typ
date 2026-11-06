@@ -1677,13 +1677,19 @@ Every terrain tile has the area when viewed from the sky (1 by 1), but vastly di
 
 Therefore, we will have distorted textures over slopes...
 
-== Distored textures
+== Distorted textures
 
 #figure(
   image("screens/warped_texture.png", alt: "a Perlin mountain in which the texture down a steeper side is being visibly stretched compared to a less-steep side.", height: 80%),
   caption: [Notice how the right edge is more warped than the top/left.],
   numbering: none
 )
+
+== Triplanar Mapping
+
+The key to fixing this is to consider the texture from multiple angles.
+
+Right now, we're only using the XZ coordinates as if they are UV coordinates. 
 
 == Without smoothstep
 
