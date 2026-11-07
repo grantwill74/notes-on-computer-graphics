@@ -79,8 +79,8 @@ struct VertexOutput {
     // we can raise weights to a power to increase/decrease "sharpness". here, we 
     // want it to be reluctant to use the side texture (which is stone) unless
     // the surface is really steep
-    weights.x = pow(weights.x, 4.0);
-    weights.z = pow(weights.z, 4.0);
+    weights.x = pow(weights.x, 1.2);
+    weights.z = pow(weights.z, 1.2);
 
     // so weights.y is the amount that we want to sample uv_xz, which is perfect
     // when the normal is (0, 1, 0) (so if the normal is facing up, it uses only
