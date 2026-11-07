@@ -1685,11 +1685,138 @@ Therefore, we will have distorted textures over slopes...
   numbering: none
 )
 
-== Triplanar Mapping
+== Triplanar mapping
 
 The key to fixing this is to consider the texture from multiple angles.
 
-Right now, we're only using the XZ coordinates as if they are UV coordinates. 
+Right now, we're only using the XZ coordinates as if they are UV coordinates. This is fine, but what if we used the XY coordinates instead?
+
+[Whiteboard]
+
+Consider how we can choose any pair of coordinates to use for the UV mapping. If we use XY, we will end up projecting the texture to the front of a terrain tile. 
+
+== Triplanar mapping (2)
+
+You might think: "why would we project the texture onto the front? Tiles are horizontal."
+
+But that's the thing: if your terrain is not flat, they aren't.
+
+If there's a nearly vertical wall, we want to use XY coordinates rather than XZ.
+
+Seems reasonable but...what if it's diagonal?
+
+== Triplanar mapping (3)
+
+It turns out, there are three projections we need to consider, and we might need to blend between them:
++ Projection onto XZ (what we were doing)
++ Projection onto XY (if it's a vertical edge in the XY plane)
++ Projection onto YZ (if it's vertical but perpendicular to XY)
+
+Each of these might be appropriate depending on how steep the area is around the point in our chunk.
+
+Therefore, at each fragment, we sample the texture 3 times. One time with XZ as the UV coordinates, one time with XY as the UV coordinates, and one time with YZ as the UV coordinates.
+
+== Triplanar mapping (4)
+
+Here are the UV coordinates (this is in the fragment shader):
+#text(20pt)[
+```ts
+let uv_yz = vo.world_pos.yz; // perfect if normal is facing right/left
+let uv_xz = vo.world_pos.xz; // perfect if normal is facing up/down
+let uv_xy = vo.world_pos.xy; // perfect if normal is facing forward/back
+```
+]
+
+Then, we can sample the texture 3 times and compute the average:
+
+#text(20pt)[
+```ts
+let norm = normalize(vo.norm);
+let weights = abs(norm); // negatives don't matter here
+let denom = weights.x + weights.y + weights.z;
+let samp_grass = 
+    textureSample(tex_grass, samp, uv_yz) * weights.x / denom +
+    textureSample(tex_grass, samp, uv_xz) * weights.y / denom +
+    textureSample(tex_grass, samp, uv_xy) * weights.z / denom;
+```
+]
+
+
+== Triplanar mapping: the weights
+
+The key to understanding this is the weights vector.
+
+This vector determines how much to weight the sample from each direction.
+
+Notice: it's literally just the normal vector but with each component's absolute value.
+
+That is, if the normal is facing up, we get 100% of our sample from the XZ coordinates. We ignore the others.
+
+If the normal is a ledge facing east, we'd have (1, 0, 0), and would therefore use the YZ coordinates sample.
+
+== Triplanar mapping: the weights
+
+But what if it's diagonal?
+
+#let vx = -2
+#let vy = 3
+#let vz = 4
+#let vn = calc.sqrt(vx * vx + vy * vy + vz * vz)
+#let nx = calc.round(vx * 100 / vn) / 100
+#let ny = calc.round(vy * 100 / vn) / 100
+#let nz = calc.round(vz * 100 / vn) / 100
+#let wx = calc.abs(nx)
+#let wy = calc.abs(ny)
+#let wz = calc.abs(nz)
+#let denom = wx + wy + wz
+
+We might get a normal vector such as (#nx, #ny, #nz)
+
+Therefore, the weights would be (#wx, #wy, #wz)
+
+In this case, there is no perfect side to sample from, so we need a weighted average.
+
+We compute the denominator by adding the elements together:
+
+#wx + #wy + #wz =  #denom
+
+== Triplanar mapping: the weights (2)
+
+Now, we can interpret the components of the normal vector as an amount to use each sample.
+
+#let pcx = calc.floor(wx * 100 / denom)
+#let pcy = calc.floor(wy * 100 / denom)
+#let pcz = calc.floor(wz * 100 / denom)
+(#wx, #wy, #wz) / #denom = (#pcx%, #pcy%, #pcz%)
+
+The normal is angled roughly in these directions: 22% facing east/west, 33% facing up, 44% facing north.
+
+We sample the texture from those directions, getting the weighted average so that we get these proportions of the returned color.
+
+The result is a triplanar mapping
+
+#focus-slide("Questions?")
+
+== Improving the Triplanar mapping
+
+But does grass really grow on the vertical side of the mountain?
+
+Here's where triplanar mapping gets really cool: we don't have to use the same texture for each side!
+
+For example: suppose we want the vertical faces to use a stone texture, but the mostly flat faces to use a grassy texture. We can do that when we sample the texures...
+
+== Improving the Triplanar mapping (2)
+
+#text(20pt)[
+```ts
+let samp_grass =  // technically also stone now
+    textureSample(tex_stone, samp, uv_yz) * weights.x / denom + //<-
+    textureSample(tex_grass, samp, uv_xz) * weights.y / denom + 
+    textureSample(tex_stone, samp, uv_xy) * weights.z / denom;  // <-
+```
+]
+
+Notice the two lines with arrows. We're sampling a different texture. Here, we h
 
 == Without smoothstep
 
