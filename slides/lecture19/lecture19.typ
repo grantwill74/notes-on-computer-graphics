@@ -1812,11 +1812,64 @@ For example: suppose we want the vertical faces to use a stone texture, but the 
 let samp_grass =  // technically also stone now
     textureSample(tex_stone, samp, uv_yz) * weights.x / denom + //<-
     textureSample(tex_grass, samp, uv_xz) * weights.y / denom + 
-    textureSample(tex_stone, samp, uv_xy) * weights.z / denom;  // <-
+    textureSample(tex_stone, samp, uv_xy) * weights.z / denom;  //<-
 ```
 ]
 
-Notice the two lines with arrows. We're sampling a different texture. Here, we h
+Notice the two lines with arrows. We're sampling a different texture.
+
+We want to sample the grass texture from the overhead perspective, but if the ground is steep, we want to use the stone texture instead.
+
+This will cause the sides of steep cliffs to look more like stone.
+
+== Stone sides example
+
+#figure(
+  image("screens/stone_sides.png", height: 85%, alt: "a steep cliff with sides that use a blended texture between stone and grass due to triplanar mapping.")
+)
+
+== Controlling the steepness
+
+We can even determine how much we want to prefer one of the orientations. For example, we could have the stone not fade in unless the side is really steep.
+
+```ts
+weights.x = pow(weights.x, 2.0);
+weights.z = pow(weights.z, 2.0);
+```
+
+We can exponentiate some of the weights to make them smaller. In this case, the normal's `x` and `z` correspond to how steep the surface is. If the surface is flat, `x` and `z` will be very small or zero. The square will make them even smaller. We'll end up ignoring the stone compared to grass.
+
+You can also use a value less than 1 to make stone more used.
+
+#focus-slide("Questions?")
+
+== Wrapping up
+
+This has been a massive lecture that shows how to develop a more serious compter graphics application.
+
+It could be a jumping off point to many different places:
+- This could be a good application for shadow mapping: there is one directional light, but it could really improve the visual appearance.
+- What about physics? Imagine tribes-style skiing down the hills.
+- Tree meshes with LOD scaling could work here.
+- I'm adding sand and ice based on altitude. What if there were more levels, or the max altitude changed with location?
+
+You get the idea, there's a lot of ideas for term projects here.
+
+== What about Minecraft?
+
+"I heard Minecraft used Perlin noise, but Minecraft has caves and overhangs and this terrain engine can't have those."
+
+Don't worry, you can use Perlin noise in 3D. In fact, even 4D and 5D perlin noise exist (although the sample time decays exponentially: look up Simplex noise if that's a problem).
+
+In 3D, your "height" value is usually a cutoff. That is, you sample a point, and if the Perlin height is above a certain amount, something (e.g., a voxel) is there, and if not, nothing is there.
+
+== What about Minecraft? (2)
+
+You could decide that different "heights" are interpreted as different kinds of terrrain. This would make it so that there is some local cohesion (i.e., regions of the same kind of terrain). 
+
+Combine with something like #link("https://en.wikipedia.org/wiki/Marching_cubes", "marching cubes") if you want it to look smoother.
+
+Consider 4D Perlin noise: useful for a smooth smoke or cloud animation. At > 2D, bumping it up to simplex noise is probably a good idea.
 
 == Without smoothstep
 
@@ -1827,3 +1880,13 @@ Lastly, here's what happens if you don't use smoothstep.
 )
 
 It's a little goofy, but not unviewable.
+
+== That's it
+
+It's been a lot to learn, but I hope it's been fun and you've learned a lot.
+
+Feel free to talk about your projects: it's fun to hear about the cool ways that students apply what they've learned.
+
+Thank you for a great semester!
+
+#focus-slide("Questions?")
